@@ -40,5 +40,8 @@
 		"typescript-eslint": "^8.46.1",
 		"vite": "^7.1.10",
 		"vitest": "^3.2.4"
+	},
+	"dependencies": {
+		"marked": "^16.4.1"
 	}
 }

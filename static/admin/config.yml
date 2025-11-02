@@ -1,0 +1,24 @@
+backend:
+  name: git-gateway
+  branch: main
+  repo: # GitHub 저장소 정보는 나중에 설정
+
+media_folder: 'static/images/blog'
+public_folder: '/images/blog'
+
+collections:
+  - name: 'posts'
+    label: 'Blog Posts'
+    folder: 'src/content/blog'
+    create: true
+    slug: '{{tag}}/{{number}}'
+    path: '{{tag}}/{{number}}'
+    fields:
+      - { label: 'Tag', name: 'tag', widget: 'string', required: true }
+      - { label: 'Number', name: 'number', widget: 'number', required: true, default: 1 }
+      - { label: 'Title', name: 'title', widget: 'string', required: true }
+      - { label: 'Description', name: 'description', widget: 'text', required: false }
+      - { label: 'Date', name: 'date', widget: 'datetime', required: true, format: 'YYYY-MM-DD HH:mm' }
+      - { label: 'Body', name: 'body', widget: 'markdown', required: true }
+      - { label: 'Published', name: 'published', widget: 'boolean', default: true }
+
