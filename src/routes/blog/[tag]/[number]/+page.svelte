@@ -54,10 +54,6 @@
 </div>
 
 <style>
-	:global(.markdown-body) {
-		@apply prose prose-lg max-w-none;
-	}
-	
 	:global(.markdown-body img) {
 		@apply rounded-lg shadow-md my-4;
 	}
