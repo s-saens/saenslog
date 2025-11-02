@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import Editor from './Editor.svelte';
 	
 	let isAuthenticated = $state(false);
 	let password = $state('');
@@ -108,8 +109,3 @@
 		{/if}
 	</div>
 </div>
-
-<script>
-	import Editor from './Editor.svelte';
-</script>
-
