@@ -54,6 +54,8 @@
 </div>
 
 <style>
+	@import 'tailwindcss' reference;
+	
 	:global(.markdown-body img) {
 		@apply rounded-lg shadow-md my-4;
 	}
