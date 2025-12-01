@@ -13,7 +13,9 @@
 <main>
 	<div class="container">
 		<header>
-			<h1>Blog</h1>
+			<nav class="breadcrumb">
+				<span class="crumb current">Blog</span>
+			</nav>
 		</header>
 
 		<section class="folders-section">
@@ -22,10 +24,10 @@
 			{/each}
 		</section>
 
-		<section class="recent-posts">
-			<h2>Recent Posts</h2>
+		<section class="all-posts">
+			<h2>All Posts</h2>
 			<div class="posts-list">
-				{#each data.recentPosts as post}
+				{#each data.allPosts as post}
 					<BlogItemPost {...post} />
 				{/each}
 			</div>
@@ -38,22 +40,33 @@
 		width: 100%;
 		max-width: 600px;
 		padding: 2rem;
+		padding-top: 5rem;
+		align-self: flex-start;
 	}
 
 	.container {
 		display: flex;
 		flex-direction: column;
-		gap: 2rem;
+		gap: 1rem;
 	}
 
 	header {
-		padding-bottom: 1rem;
+		padding-bottom: 0.75rem;
+		border-bottom: 1px solid var(--border);
+		margin-bottom: 0.25rem;
 	}
 
-	header h1 {
-		font-size: 1.2rem;
+	.breadcrumb {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 1rem;
 		font-weight: 600;
-		margin: 0;
+	}
+
+	.crumb.current {
+		color: var(--text);
+		font-weight: 700;
 	}
 
 	.folders-section {
@@ -61,13 +74,16 @@
 		flex-direction: column;
 	}
 
-	.recent-posts {
+	.all-posts {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--border);
+		margin-top: 0.5rem;
 	}
 
-	.recent-posts h2 {
+	.all-posts h2 {
 		font-size: 1rem;
 		font-weight: 600;
 		margin: 0 0 0.5rem 0;
@@ -81,6 +97,7 @@
 	@media (max-width: 768px) {
 		main {
 			padding: 1rem;
+			padding-top: 4rem;
 		}
 	}
 </style>

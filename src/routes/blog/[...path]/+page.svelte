@@ -18,7 +18,17 @@
 					{#if i > 0}
 						<span class="separator">•</span>
 					{/if}
-					<span class="crumb">{crumb}</span>
+					{#if data.isPost}
+						<!-- 포스트 페이지: 모든 breadcrumb이 링크 -->
+						<a href={crumb.path} class="crumb">{crumb.label}</a>
+					{:else}
+						<!-- 폴더 페이지: 마지막은 현재 위치 (볼드, 링크 없음) -->
+						{#if i === data.breadcrumb.length - 1}
+							<span class="crumb current">{crumb.label}</span>
+						{:else}
+							<a href={crumb.path} class="crumb">{crumb.label}</a>
+						{/if}
+					{/if}
 				{/each}
 			</nav>
 		</header>
@@ -55,16 +65,20 @@
 		width: 100%;
 		max-width: 600px;
 		padding: 2rem;
+		padding-top: 5rem;
+		align-self: flex-start;
 	}
 
 	.container {
 		display: flex;
 		flex-direction: column;
-		gap: 2rem;
+		gap: 1rem;
 	}
 
 	header {
-		padding-bottom: 1rem;
+		padding-bottom: 0.75rem;
+		border-bottom: 1px solid var(--border);
+		margin-bottom: 0.25rem;
 	}
 
 	.breadcrumb {
@@ -77,6 +91,20 @@
 
 	.crumb {
 		color: var(--text);
+		transition: opacity 0.2s;
+	}
+
+	a.crumb {
+		text-decoration: underline;
+	}
+
+	a.crumb:hover {
+		opacity: 0.6;
+	}
+
+	.crumb.current {
+		font-weight: 700;
+		text-decoration: none;
 	}
 
 	.separator {
@@ -110,6 +138,7 @@
 	@media (max-width: 768px) {
 		main {
 			padding: 1rem;
+			padding-top: 4rem;
 		}
 	}
 </style>

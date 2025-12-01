@@ -3,7 +3,7 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {
 	const { folders, posts } = getBlogItems('');
-	const recentPosts = getAllPosts(10);
+	const allPosts = getAllPosts(); // 모든 글 가져오기 (제한 없음)
 
 	return {
 		folders: folders.map((folder) => ({
@@ -12,7 +12,7 @@ export const load: PageServerLoad = () => {
 			count: folder.count,
 			date: folder.date
 		})),
-		recentPosts: recentPosts.map((post) => ({
+		allPosts: allPosts.map((post) => ({
 			title: post.title,
 			path: post.path,
 			category: post.category,

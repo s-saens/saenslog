@@ -1,13 +1,22 @@
 import { getBlogItems, getBlogPost } from '$lib/server/blog';
 import { error } from '@sveltejs/kit';
-import type { PageServerLoad, EntryGenerator } from './$types';
+import type { EntryGenerator, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params }) => {
 	const path = params.path || '';
 	const segments = path.split('/').filter(Boolean);
 
-	// Breadcrumb 생성
-	const breadcrumb = ['Blog', ...segments];
+	// Breadcrumb 생성 (링크 정보 포함)
+	const breadcrumb = [
+		{ label: 'Blog', path: '/blog' },
+		...segments.map((segment, index) => {
+			const segmentPath = segments.slice(0, index + 1).join('/');
+			return {
+				label: segment,
+				path: `/blog/${segmentPath}`
+			};
+		})
+	];
 
 	// 마지막 세그먼트가 숫자인지 확인 (글 인덱스)
 	const lastSegment = segments[segments.length - 1];

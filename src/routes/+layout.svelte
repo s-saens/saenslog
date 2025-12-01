@@ -210,17 +210,25 @@
 
 	.site-header {
 		position: fixed;
-		top: 2rem;
-		left: 50%;
-		transform: translateX(-50%);
+		top: 0;
+		left: 0;
+		right: 0;
+		width: 100%;
 		z-index: 100;
 		view-transition-name: header;
+		background-color: rgba(34, 34, 34, 0.3);
+		backdrop-filter: blur(8px) saturate(110%);
+		-webkit-backdrop-filter: blur(12px) saturate(180%);
+		padding: 1rem 2rem;
 	}
 
 	.nav-container {
 		display: flex;
 		gap: 2rem;
 		align-items: center;
+		justify-content: center;
+		max-width: 1200px;
+		margin: 0 auto;
 	}
 
 	.nav-icon {
@@ -260,7 +268,7 @@
 
 	@media (max-width: 768px) {
 		.site-header {
-			top: 1rem;
+			padding: 0.75rem 1rem;
 		}
 
 		.nav-container {
