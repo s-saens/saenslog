@@ -30,10 +30,22 @@ export const load: PageServerLoad = ({ params }) => {
 			throw error(404, 'Post not found');
 		}
 
+		// 포스트에서는 breadcrumb에 숫자(포스트 인덱스) 제외
+		const postBreadcrumb = [
+			{ label: 'Blog', path: '/blog' },
+			...segments.slice(0, -1).map((segment, index) => {
+				const segmentPath = segments.slice(0, index + 1).join('/');
+				return {
+					label: segment,
+					path: `/blog/${segmentPath}`
+				};
+			})
+		];
+
 		return {
 			path,
 			segments,
-			breadcrumb,
+			breadcrumb: postBreadcrumb,
 			isPost: true,
 			title: post.title,
 			date: post.date,
@@ -54,7 +66,10 @@ export const load: PageServerLoad = ({ params }) => {
 			folders: folders.map((folder) => ({
 				name: folder.name,
 				path: folder.path,
-				count: folder.count,
+				folderCount: folder.folderCount,
+				postCount: folder.postCount,
+				totalFolderCount: folder.totalFolderCount,
+				totalPostCount: folder.totalPostCount,
 				date: folder.date
 			})),
 			posts: posts.map((post) => ({

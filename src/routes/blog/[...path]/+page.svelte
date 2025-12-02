@@ -1,14 +1,10 @@
 <script lang="ts">
-	import type { PageData } from './$types';
 	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
+	import type { PageData } from './$types';
 
 	let { data } = $props<{ data: PageData }>();
 </script>
-
-<svelte:head>
-	<title>{data.breadcrumb.join(' • ')} - Saens.kr</title>
-</svelte:head>
 
 <main>
 	<div class="container">
@@ -16,7 +12,7 @@
 			<nav class="breadcrumb">
 				{#each data.breadcrumb as crumb, i}
 					{#if i > 0}
-						<span class="separator">•</span>
+						<span class="separator">‣</span>
 					{/if}
 					{#if data.isPost}
 						<!-- 포스트 페이지: 모든 breadcrumb이 링크 -->
@@ -77,8 +73,7 @@
 
 	header {
 		padding-bottom: 0.75rem;
-		border-bottom: 1px solid var(--border);
-		margin-bottom: 0.25rem;
+		margin-bottom: 0.2rem;
 	}
 
 	.breadcrumb {

@@ -6,23 +6,23 @@
 </script>
 
 <svelte:head>
-	<title>Saens.kr - SANGHUN SONG</title>
+	<title>SAENS</title>
 </svelte:head>
 
 <main>
 	<div class="hero">
-		<div class="logo">
+		<div class="logo enter-1">
 			<img src={logo} alt="Saens Logo" />
 		</div>
 
 		<div class="info">
-			<h1>SANGHUN SONG, 1999</h1>
-			<p class="role">PRODUCT &nbsp;DEVELOPER</p>
-			<p class="skills">GAME, APP, WEB, AI</p>
-			<p class="status">WORKING AS A STAFF<br/>IN A MIDDLE SCHOOL</p>
+			<h1 class="enter-2">SANGHUN SONG, 1999</h1>
+			<p class="role enter-3">PRODUCT &nbsp;DEVELOPER</p>
+			<p class="skills enter-4">GAME, APP, WEB, AI</p>
+			<p class="status enter-5">WORKING AS A STAFF<br/>IN A MIDDLE SCHOOL</p>
 		</div>
 
-		<div class="contact">
+		<div class="contact enter-6">
 			<a href="mailto:saens@saens.kr" class="email">
 				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -32,7 +32,7 @@
 			</a>
 		</div>
 
-		<div class="social">
+		<div class="social enter-7">
 			<a href="https://github.com/saens" target="_blank" rel="noopener noreferrer" title="GitHub">
 				<img src={githubIcon} alt="GitHub" />
 			</a>
@@ -47,6 +47,67 @@
 </main>
 
 <style>
+	/* 진입 애니메이션 */
+	@keyframes enter-fade-up {
+		from {
+			opacity: 0;
+			transform: translateY(20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes enter-logo {
+		0% {
+			opacity: 0;
+			transform: scale(0.5) rotateY(-180deg);
+		}
+		60% {
+			opacity: 1;
+			transform: scale(1.1) rotateY(20deg);
+		}
+		100% {
+			opacity: 1;
+			transform: scale(1) rotateY(0deg);
+		}
+	}
+
+	.enter-1 {
+		animation: enter-logo 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+	}
+
+	.enter-2 {
+		opacity: 0;
+		animation: enter-fade-up 0.6s ease-out 0.4s forwards;
+	}
+
+	.enter-3 {
+		opacity: 0;
+		animation: enter-fade-up 0.6s ease-out 0.55s forwards;
+	}
+
+	.enter-4 {
+		opacity: 0;
+		animation: enter-fade-up 0.6s ease-out 0.7s forwards;
+	}
+
+	.enter-5 {
+		opacity: 0;
+		animation: enter-fade-up 0.6s ease-out 0.85s forwards;
+	}
+
+	.enter-6 {
+		opacity: 0;
+		animation: enter-fade-up 0.6s ease-out 1s forwards;
+	}
+
+	.enter-7 {
+		opacity: 0;
+		animation: enter-fade-up 0.6s ease-out 1.15s forwards;
+	}
+
 	main {
 		width: 100%;
 		height: 100vh;
@@ -72,22 +133,54 @@
 
 	.logo {
 		margin-bottom: 1rem;
-		animation: float 6s ease-in-out infinite;
+		perspective: 800px;
 	}
 
 	.logo img {
 		width: 88px;
 		height: 88px;
-        padding: 10px;
-		filter: drop-shadow(1 1 10px rgba(255, 255, 255, 0.3));
+		padding: 10px;
+		animation: logo-dance 8s ease-in-out infinite, logo-pulse 4s ease-in-out infinite;
+		transform-style: preserve-3d;
+		transition: all 0.4s ease;
 	}
 
-	@keyframes float {
+
+	@keyframes logo-pulse {
 		0%, 100% {
-			transform: translateY(0px);
+			opacity: 0.15;
+			filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.1));
 		}
 		50% {
-			transform: translateY(-10px);
+			opacity: 1;
+			filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.5));
+		}
+	}
+
+	@keyframes logo-dance {
+		0%, 100% {
+			transform: rotateY(0deg) rotateX(0deg);
+		}
+		12.5% {
+			transform: rotateY(8deg) rotateX(4deg);
+		}
+		25% {
+			transform: rotateY(0deg) rotateX(6deg);
+		}
+		37.5% {
+			transform: rotateY(-8deg) rotateX(4deg);
+		}
+		50% {
+			transform: rotateY(0deg) rotateX(0deg);
+		}
+		62.5% {
+			transform: rotateY(8deg) rotateX(-4deg);
+		}
+		75% {
+			transform: rotateY(0deg) rotateX(-6deg);
+		}
+		87.5% {
+			transform: rotateY(-8deg) rotateX(-4deg);
 		}
 	}
 

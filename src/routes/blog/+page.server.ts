@@ -9,7 +9,10 @@ export const load: PageServerLoad = () => {
 		folders: folders.map((folder) => ({
 			name: folder.name,
 			path: folder.path,
-			count: folder.count,
+			folderCount: folder.folderCount,
+			postCount: folder.postCount,
+			totalFolderCount: folder.totalFolderCount,
+			totalPostCount: folder.totalPostCount,
 			date: folder.date
 		})),
 		allPosts: allPosts.map((post) => ({

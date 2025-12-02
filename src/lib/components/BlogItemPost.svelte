@@ -11,32 +11,44 @@
 	}
 
 	let { title, path, category, date, wordCount }: Props = $props();
+	
+	// 날짜 형식: YYYY-MM-DD hh:mm:ss GMT+9
+	const formatDate = (dateStr: string) => {
+		if (!dateStr) return '';
+		const d = new Date(dateStr);
+		const year = d.getFullYear();
+		const month = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		const hours = String(d.getHours()).padStart(2, '0');
+		const minutes = String(d.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day} ${hours}:${minutes} GMT+9`;
+	};
 </script>
 
 <a href="/blog/{path}" class="blog-item post">
 	<div class="icon">
 		<img src={postIcon} alt="post" />
 	</div>
-	<div class="content">
-		<div class="title">{title}</div>
-		<div class="meta">
-			<span class="category">{category}</span>
-			<span class="separator">|</span>
-			<span class="date">{date}</span>
-			<span class="separator">|</span>
-			<span class="word-count">
-				<img src={textCountIcon} alt="words" class="text-count-icon" />
-				{wordCount}
-			</span>
-		</div>
+	<div class="title">{title}</div>
+	<div class="date">{formatDate(date)}</div>
+	<div class="info-row1">
+		<span class="word-count">
+			<img src={textCountIcon} alt="words" class="text-count-icon" />
+			{wordCount}
+		</span>
+	</div>
+	<div class="info-row2">
+		<span class="category">{category}</span>
 	</div>
 </a>
 
 <style>
 	.blog-item {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.75rem;
+		display: grid;
+		grid-template-columns: 14px 1fr auto;
+		grid-template-rows: auto auto;
+		column-gap: 0.75rem;
+		row-gap: 0.2rem;
 		padding: 0.5rem 0;
 		text-decoration: none;
 		color: var(--text);
@@ -49,13 +61,13 @@
 	}
 
 	.icon {
+		grid-row: 1 / 3;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 14px;
 		height: 14px;
 		flex-shrink: 0;
-		margin-top: 0.15rem;
 	}
 
 	.icon img {
@@ -63,31 +75,43 @@
 		height: 100%;
 	}
 
-	.content {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		flex: 1;
-		min-width: 0;
-	}
-
 	.title {
+		grid-row: 1;
 		font-weight: 400;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
-	.meta {
-		display: flex;
-		gap: 0.5rem;
-		align-items: center;
+	.date {
+		grid-row: 2;
+		grid-column: 2;
 		color: var(--text-tertiary);
 		font-size: 0.7rem;
 	}
 
-	.separator {
+	.info-row1 {
+		grid-row: 1;
+		grid-column: 3;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
 		color: var(--text-tertiary);
+		font-size: 0.7rem;
+	}
+
+	.info-row2 {
+		grid-row: 2;
+		grid-column: 3;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		color: var(--text-tertiary);
+		font-size: 0.7rem;
+	}
+
+	.category {
+		font-family: var(--font-mono);
 	}
 
 	.category {

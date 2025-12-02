@@ -6,10 +6,6 @@
 	let { data }: { data: PageData } = $props();
 </script>
 
-<svelte:head>
-	<title>Blog - Saens.kr</title>
-</svelte:head>
-
 <main>
 	<div class="container">
 		<header>
@@ -51,16 +47,15 @@
 	}
 
 	header {
-		padding-bottom: 0.75rem;
-		border-bottom: 1px solid var(--border);
-		margin-bottom: 0.25rem;
+		padding-bottom: 0.25rem;
+		margin-bottom: 0.1rem;
 	}
 
 	.breadcrumb {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 1rem;
+		font-size: 1.5rem;
 		font-weight: 600;
 	}
 

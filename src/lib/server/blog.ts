@@ -17,7 +17,10 @@ export interface BlogPost {
 export interface FolderInfo {
 	name: string;
 	path: string;
-	count: number;
+	folderCount: number;
+	postCount: number;
+	totalFolderCount: number;
+	totalPostCount: number;
 	date: string;
 }
 
@@ -38,13 +41,18 @@ export function getBlogItems(relativePath: string = '') {
 		if (item.isDirectory()) {
 			// 폴더인 경우
 			const folderPath = path.join(fullPath, item.name);
-			const count = countPostsInFolder(folderPath);
+			const { folderCount, postCount } = countDirectChildren(folderPath);
+			const totalFolderCount = countAllFolders(folderPath);
+			const totalPostCount = countAllPosts(folderPath);
 			const lastModified = getLastModifiedDate(folderPath);
 
 			folders.push({
 				name: item.name,
 				path: relativePath ? `${relativePath}/${item.name}` : item.name,
-				count,
+				folderCount,
+				postCount,
+				totalFolderCount,
+				totalPostCount,
 				date: lastModified
 			});
 		} else if (item.name.endsWith('.md')) {
@@ -68,8 +76,29 @@ export function getBlogItems(relativePath: string = '') {
 	return { folders, posts };
 }
 
-// 폴더 내 포스트 개수 세기 (재귀)
-function countPostsInFolder(folderPath: string): number {
+// 바로 하위의 폴더 수와 포스트 수 세기
+function countDirectChildren(folderPath: string): { folderCount: number; postCount: number } {
+	if (!fs.existsSync(folderPath)) {
+		return { folderCount: 0, postCount: 0 };
+	}
+
+	const items = fs.readdirSync(folderPath, { withFileTypes: true });
+	let folderCount = 0;
+	let postCount = 0;
+
+	for (const item of items) {
+		if (item.isDirectory()) {
+			folderCount++;
+		} else if (item.name.endsWith('.md')) {
+			postCount++;
+		}
+	}
+
+	return { folderCount, postCount };
+}
+
+// 모든 하위 폴더를 포함한 전체 폴더 수 세기 (재귀)
+function countAllFolders(folderPath: string): number {
 	let count = 0;
 
 	if (!fs.existsSync(folderPath)) {
@@ -80,7 +109,27 @@ function countPostsInFolder(folderPath: string): number {
 
 	for (const item of items) {
 		if (item.isDirectory()) {
-			count += countPostsInFolder(path.join(folderPath, item.name));
+			count++;
+			count += countAllFolders(path.join(folderPath, item.name));
+		}
+	}
+
+	return count;
+}
+
+// 모든 하위 폴더를 포함한 전체 포스트 수 세기 (재귀)
+function countAllPosts(folderPath: string): number {
+	let count = 0;
+
+	if (!fs.existsSync(folderPath)) {
+		return 0;
+	}
+
+	const items = fs.readdirSync(folderPath, { withFileTypes: true });
+
+	for (const item of items) {
+		if (item.isDirectory()) {
+			count += countAllPosts(path.join(folderPath, item.name));
 		} else if (item.name.endsWith('.md')) {
 			count++;
 		}
