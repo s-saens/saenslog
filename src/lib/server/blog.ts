@@ -1,6 +1,7 @@
 import fs from 'fs';
-import path from 'path';
 import matter from 'gray-matter';
+import { marked } from 'marked';
+import path from 'path';
 
 const BLOG_DIR = path.join(process.cwd(), 'src/lib/blog');
 
@@ -163,12 +164,15 @@ function parseMarkdownFile(
 			? `${relativePath}/${path.basename(fileName, '.md')}`
 			: path.basename(fileName, '.md');
 
+		// 마크다운을 HTML로 변환
+		const htmlContent = marked(content) as string;
+
 		return {
 			title: data.title || 'Untitled',
 			date: data.date || new Date().toISOString().split('T')[0],
 			category: data.category || relativePath || 'Uncategorized',
 			tags: data.tags || [],
-			content,
+			content: htmlContent,
 			wordCount,
 			path: postPath
 		};

@@ -58,7 +58,20 @@
 		--text-tertiary: #808080;
 		--border: #505050;
 		--accent: #ffffff;
-		--font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+		--font-mono: 'IBM Plex Mono', monospace;
+	}
+
+	@keyframes app-enter {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	.app {
+		animation: app-enter 1s ease forwards;
 	}
 
 	:global(body) {
@@ -67,6 +80,8 @@
 		font-family: var(--font-mono);
 		color: var(--text);
 		background-color: var(--bg);
+		user-select: none;
+		-webkit-user-select: none;
 	}
 
 	:global(body *) {
@@ -160,6 +175,7 @@
 		justify-content: center;
 		position: relative;
 		overflow: hidden;
+		animation: site-main-enter 1s ease forwards;
 	}
 
 	@media (max-width: 768px) {
