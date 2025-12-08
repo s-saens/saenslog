@@ -3,14 +3,11 @@
 	import logo from '$lib/assets/logo.svg';
 	import soundcloudIcon from '$lib/assets/soundcloud.svg';
 	import tistoryIcon from '$lib/assets/tistory.svg';
+	import { fly } from 'svelte/transition';
 </script>
 
-<svelte:head>
-	<title>SAENS</title>
-</svelte:head>
-
 <main>
-	<div class="hero">
+	<div class="hero" transition:fly={{ duration: 500, x: -100 }}>
 		<div class="logo enter-1">
 			<img src={logo} alt="Saens Logo" />
 		</div>
@@ -33,13 +30,13 @@
 		</div>
 
 		<div class="social enter-7">
-			<a href="https://github.com/saens" target="_blank" rel="noopener noreferrer" title="GitHub">
+			<a href="https://github.com/s-saens" target="_blank" rel="noopener noreferrer" title="GitHub">
 				<img src={githubIcon} alt="GitHub" />
 			</a>
-			<a href="https://tistory.com" target="_blank" rel="noopener noreferrer" title="Tistory">
+			<a href="https://saens/tistory.com" target="_blank" rel="noopener noreferrer" title="Tistory">
 				<img src={tistoryIcon} alt="Tistory" />
 			</a>
-			<a href="https://soundcloud.com" target="_blank" rel="noopener noreferrer" title="SoundCloud">
+			<a href="https://soundcloud.com/s-saens" target="_blank" rel="noopener noreferrer" title="SoundCloud">
 				<img src={soundcloudIcon} alt="SoundCloud" />
 			</a>
 		</div>
@@ -239,6 +236,8 @@
 		padding: 0.5rem 1rem;
 		border: 1px solid var(--border);
 		border-radius: 4px;
+		user-select: text;
+		-webkit-user-select: text;
 	}
 
 	.email:hover {
@@ -277,7 +276,7 @@
 		}
 
 		.info h1 {
-			font-size: 0.9rem;
+			font-size: 0.8rem;
 		}
 
 		.info p {

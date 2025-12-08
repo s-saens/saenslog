@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	// TODO: 실제 음악 데이터 로드
 	let musics = $state<any[]>([]);
@@ -28,31 +29,33 @@
 </script>
 
 <main>
-	<header>
-		<h1>음악</h1>
-		<p>음악 작업물과 플레이리스트</p>
-	</header>
+	<div class="container">
+		<header transition:fly={{ duration: 500, x: -100 }}>
+			<h1>음악</h1>
+			<p>음악 작업물과 플레이리스트</p>
+		</header>
 
-	<section class="musics">
-		{#if musics.length === 0}
-			<p class="empty">아직 등록된 음악이 없습니다.</p>
-		{:else}
-			<div class="music-list">
-				{#each musics as music, index}
-					<article class="music-item">
-						<div class="music-number">{index + 1}</div>
-						<div class="music-info">
-							<h3 class="title">{music.title}</h3>
-							<p class="meta">
-								{music.artist} · {music.album} · {music.year}
-							</p>
-						</div>
-						<div class="duration">{music.duration}</div>
-					</article>
-				{/each}
-			</div>
-		{/if}
-	</section>
+		<section class="musics">
+			{#if musics.length === 0}
+				<p class="empty">아직 등록된 음악이 없습니다.</p>
+			{:else}
+				<div class="music-list">
+					{#each musics as music, index}
+						<article class="music-item">
+							<div class="music-number">{index + 1}</div>
+							<div class="music-info">
+								<h3 class="title">{music.title}</h3>
+								<p class="meta">
+									{music.artist} · {music.album} · {music.year}
+								</p>
+							</div>
+							<div class="duration">{music.duration}</div>
+						</article>
+					{/each}
+				</div>
+			{/if}
+		</section>
+	</div>
 </main>
 
 <style>

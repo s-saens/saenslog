@@ -56,15 +56,23 @@
 		grid-template-rows: auto auto;
 		column-gap: 0.75rem;
 		row-gap: 0.2rem;
-		padding: 0.5rem 0;
+
+		margin: 0.7rem 0.9rem;
+		padding: 0.1rem 0.1rem;
+
 		text-decoration: none;
 		color: var(--text);
 		transition: opacity 0.2s;
 		font-size: 0.85rem;
+		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
+		border-radius: 0.6rem;
 	}
 
 	.blog-item:hover {
-		opacity: 0.7;
+		margin: 0;
+		padding: 0.8rem 1rem;
+		background-color: var(--bg-lighter);
+		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
 	}
 
 	.icon {

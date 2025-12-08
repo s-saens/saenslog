@@ -58,20 +58,8 @@
 		--text-tertiary: #808080;
 		--border: #505050;
 		--accent: #ffffff;
+		--font-default: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
 		--font-mono: 'IBM Plex Mono', monospace;
-	}
-
-	@keyframes app-enter {
-		from {
-			opacity: 0;
-		}
-		to {
-			opacity: 1;
-		}
-	}
-
-	.app {
-		animation: app-enter 1s ease forwards;
 	}
 
 	:global(body) {
@@ -105,10 +93,9 @@
 		right: 0;
 		width: 100%;
 		z-index: 100;
+		padding: 1rem 1.5rem;
 		background-color: rgba(34, 34, 34, 0.3);
-		backdrop-filter: blur(8px) saturate(110%);
-		-webkit-backdrop-filter: blur(12px) saturate(180%);
-		padding: 1rem 2rem;
+		backdrop-filter: blur(8px) saturate(170%);
 	}
 
 	@keyframes nav-icon-enter {
@@ -128,6 +115,8 @@
 		align-items: center;
 		justify-content: center;
 		margin: 0 auto;
+		background-color: rgba(34, 34, 34, 0.3);
+		backdrop-filter: blur(8px) saturate(170%);
 	}
 
 	.nav-icon {
@@ -168,14 +157,13 @@
 		opacity: 1;
 	}
 
-	.site-main {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		position: relative;
-		overflow: hidden;
-		animation: site-main-enter 1s ease forwards;
+	.site-main > :global(*) {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		overflow-y: auto;
 	}
 
 	@media (max-width: 768px) {

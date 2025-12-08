@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import textCountIcon from '$lib/assets/text-count.svg';
 	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
+	import { fly } from 'svelte/transition';
 	import type { PageData } from './$types';
 
 	let { data } = $props<{ data: PageData }>();
@@ -21,22 +23,22 @@
 </script>
 
 <main>
-	<div class="container">
+	<div class="container" transition:fly={{ duration: 500, y: 100 }}>
 		<header>
 			<nav class="breadcrumb">
-				{#each data.breadcrumb as crumb, i}
+				{#each data.breadcrumb as crumb, i (crumb.path || crumb.label || i)}
 					{#if i > 0}
 						<span class="separator">‣</span>
 					{/if}
 					{#if data.isPost}
 						<!-- 포스트 페이지: 모든 breadcrumb이 링크 -->
-						<a href={crumb.path} class="crumb">{crumb.label}</a>
+						<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
 					{:else}
 						<!-- 폴더 페이지: 마지막은 현재 위치 (볼드, 링크 없음) -->
 						{#if i === data.breadcrumb.length - 1}
 							<span class="crumb current">{crumb.label}</span>
 						{:else}
-							<a href={crumb.path} class="crumb">{crumb.label}</a>
+							<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
 						{/if}
 					{/if}
 				{/each}
@@ -45,9 +47,9 @@
 
 		{#if data.isPost}
 			<!-- 글 페이지 -->
-			<article class="post">
+			<article class="post" in:fly={{ duration: 500, y: 100, delay: 150}}>
 				<h1>{data.title || '제목 없음'}</h1>
-			<div class="post-meta">
+			<div class="post-meta" in:fly={{ duration: 500, y: 100, delay: 300}}>
 				<span class="date">{formatDate(data.date)}</span>
 				<span class="separator">•</span>
 				<span class="word-count">
@@ -55,7 +57,7 @@
 					{data.wordCount}
 				</span>
 			</div>
-				<div class="content">
+				<div class="content" in:fly={{ duration: 1000, y: 100, delay: 600}}>
 					{@html data.content}
 				</div>
 			</article>
@@ -63,15 +65,31 @@
 			<!-- 카테고리 페이지 -->
 			<section class="items-section">
 				{#if data.folders}
-					{#each data.folders as folder}
+					{#each data.folders as folder (folder.path)}
 						<BlogItemFolder {...folder} />
 					{/each}
 				{/if}
 				{#if data.posts}
-					{#each data.posts as post}
+					{#each data.posts as post (post.path)}
 						<BlogItemPost {...post} />
 					{/each}
 				{/if}
+			</section>
+		{/if}
+
+		{#if !data.isPost && data.allPosts && data.allPosts.length > 0}
+			<section class="all-posts">
+				<div class="all-posts-header">
+					<h2>All Posts</h2>
+					<div class="all-posts-count">
+						<span>({data.allPosts.length})</span>
+					</div>
+				</div>
+				<div class="posts-list">
+					{#each data.allPosts as post (post.path)}
+						<BlogItemPost {...post} />
+					{/each}
+				</div>
 			</section>
 		{/if}
 	</div>
@@ -80,13 +98,15 @@
 <style>
 	main {
 		width: 100%;
-		max-width: 600px;
+		margin-top: 3.25rem;
 		padding: 2rem;
-		padding-top: 5rem;
-		align-self: flex-start;
+		display: flex;
+		justify-content: center;
 	}
 
 	.container {
+		width: 100%;
+		max-width: 650px;
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
@@ -138,6 +158,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.5rem;
+		font-family: var(--font-default);
 	}
 
 	.post h1 {
@@ -234,6 +255,41 @@
 
 	.post .content :global(a:hover) {
 		opacity: 0.7;
+	}
+
+	/* All Posts 섹션 */
+	.all-posts {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding-top: 2rem;
+		border-top: 1px solid var(--border);
+		margin-top: 0.5rem;
+	}
+
+	.all-posts h2 {
+		font-size: 1.1rem;
+		font-weight: 600;
+		margin: 0 0 0.5rem 0;
+	}
+
+	.all-posts-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.all-posts-count {
+		display: flex;
+		align-items: center;
+		gap: 0.55rem;
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	.posts-list {
+		display: flex;
+		flex-direction: column;
 	}
 
 	@media (max-width: 768px) {
