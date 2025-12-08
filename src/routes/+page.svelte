@@ -125,7 +125,7 @@
 		align-items: center;
 		text-align: justify;
 		gap: 1.2rem;
-        width: 200px;
+        width: 12.5rem;
 	}
 
 	.logo {
