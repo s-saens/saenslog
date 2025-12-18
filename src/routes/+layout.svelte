@@ -95,7 +95,7 @@
 		z-index: 100;
 		padding: 1rem 1.5rem;
 		background-color: rgba(34, 34, 34, 0.3);
-		backdrop-filter: blur(8px) saturate(170%);
+		backdrop-filter: blur(8px) saturate(140%);
 	}
 
 	@keyframes nav-icon-enter {
@@ -115,8 +115,6 @@
 		align-items: center;
 		justify-content: center;
 		margin: 0 auto;
-		background-color: rgba(34, 34, 34, 0.3);
-		backdrop-filter: blur(8px) saturate(170%);
 	}
 
 	.nav-icon {
