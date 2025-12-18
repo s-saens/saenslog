@@ -108,7 +108,6 @@
 	main {
 		width: 100%;
 		height: 100vh;
-		background-color: var(--bg);
 		color: var(--text);
 		display: flex;
 		flex-direction: column;
@@ -116,7 +115,6 @@
 		justify-content: center;
 		position: relative;
 		padding: 2rem;
-		overflow: hidden;
 	}
 
 	.hero {
@@ -184,7 +182,7 @@
 	.info {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.2rem;
 		text-align: justify;
 	}
 

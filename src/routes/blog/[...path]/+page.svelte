@@ -98,8 +98,7 @@
 <style>
 	main {
 		width: 100%;
-		margin-top: 3.25rem;
-		padding: 2rem;
+		padding: 5.25rem 2rem;
 		display: flex;
 		justify-content: center;
 	}
@@ -107,9 +106,28 @@
 	.container {
 		width: 100%;
 		max-width: 650px;
+		height: auto;
 		display: flex;
 		flex-direction: column;
+		overflow-y: visible;
+  		scrollbar-gutter: stable;  /* 지원 브라우저에서 레이아웃 흔들림 방지 */
+  		padding: 0 20px;
 		gap: 1rem;
+	}
+
+	.container {
+		scrollbar-width: auto;
+		scrollbar-color: var(--text-tertiary) var(--bg-lighter);
+	}
+
+	.container::-webkit-scrollbar-track {
+	background: var(--bg-lighter);
+		border-radius: 999px;
+		margin-block: 8px;
+	}
+
+	.container::-webkit-scrollbar-thumb:hover {
+		background: var(--text-tertiary);
 	}
 
 	header {
