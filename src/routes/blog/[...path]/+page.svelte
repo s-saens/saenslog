@@ -51,10 +51,10 @@
 				{#key data.title}
 					<!-- 글 페이지 -->
 					<article class="post" transition:fly|global={{ duration: 300, y:100 }}>
-						<div transition:fly|global={{ duration: 500 }}>
+						<div in:fly|global={{ duration: 500, delay: 100 }}>
 							<h1>{data.title || '제목 없음'}</h1>
 						</div>
-						<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 120}}>
+						<div class="post-meta" in:fly|global={{ duration: 400, y: 100, delay: 150}}>
 							<span class="date">{formatDate(data.date)}</span>
 							<span class="separator">•</span>
 							<span class="word-count">
@@ -62,7 +62,7 @@
 								{data.wordCount}
 							</span>
 						</div>
-						<div class="content" transition:fly|global={{ duration: 600, y: 100, delay: 150}}>
+						<div class="content" in:fly|global={{ duration: 600, y: 100, delay: 200}}>
 							{@html data.content}
 						</div>
 						<div class="footer"></div>
@@ -71,7 +71,7 @@
 			{:else}
 				{#key $page.url.pathname}
 					<!-- 카테고리 페이지 -->
-					<div class="list-wrapper" transition:fly|global={{ duration: 400, y: 100 }}>
+					<div class="list-wrapper">
 						<section class="items-section">
 						{#if data.folders}
 							{#each data.folders.filter((f: typeof data.folders[number]) => f.totalPostCount > 0) as folder, i (folder.path)}
