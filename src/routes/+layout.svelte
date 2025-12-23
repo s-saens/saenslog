@@ -1,10 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
-	import blogIcon from '$lib/assets/blog.svg';
-	import logo from '$lib/assets/logo.svg';
-	import musicIcon from '$lib/assets/music.svg';
-	import projectIcon from '$lib/assets/project.svg';
+	import { BlogIcon, LogoIcon, MoonIcon, MusicIcon, ProjectIcon, SunIcon } from '$lib/components/icons';
 	import { onMount } from 'svelte';
 
 	let { children } = $props();
@@ -82,7 +79,7 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={logo} />
+	<link rel="icon" href="/favicon.ico" />
 	<title>SAENS</title>
 </svelte:head>
 
@@ -90,34 +87,22 @@
 	<header class="site-header">
 		<nav class="nav-container">
 			<a href="/" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/')} title="Home">
-				<img src={logo} alt="Home" />
+				<LogoIcon width={24} height={24} />
 			</a>
 			<a href="/blog" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/blog')} title="Blog">
-				<img src={blogIcon} alt="Blog" />
+				<BlogIcon />
 			</a>
 			<a href="/projects" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/projects')} title="Projects">
-				<img src={projectIcon} alt="Projects" />
+				<ProjectIcon />
 			</a>
 			<a href="/musics" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/musics')} title="Music">
-				<img src={musicIcon} alt="Music" />
+				<MusicIcon />
 			</a>
 			<button class="theme-toggle nav-icon" class:entering={isMounted} onclick={toggleTheme} title={isDark ? 'Light mode' : 'Dark mode'}>
 				{#if isDark}
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<circle cx="12" cy="12" r="5"/>
-						<line x1="12" y1="1" x2="12" y2="3"/>
-						<line x1="12" y1="21" x2="12" y2="23"/>
-						<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-						<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-						<line x1="1" y1="12" x2="3" y2="12"/>
-						<line x1="21" y1="12" x2="23" y2="12"/>
-						<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-					</svg>
+					<SunIcon />
 				{:else}
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-					</svg>
+					<MoonIcon />
 				{/if}
 			</button>
 		</nav>
@@ -221,7 +206,7 @@
 		animation-delay: 0.4s;
 	}
 	
-	.nav-icon img {
+	.nav-icon :global(svg) {
 		width: 24px;
 		height: 24px;
 		opacity: 0.5;
@@ -232,8 +217,8 @@
 		color: var(--text);
 	}
 
-	.nav-icon:hover img,
-	.nav-icon.active img {
+	.nav-icon:hover :global(svg),
+	.nav-icon.active :global(svg) {
 		opacity: 1;
 	}
 
@@ -250,12 +235,12 @@
 		color: var(--text);
 	}
 
-	.theme-toggle svg {
+	.theme-toggle :global(svg) {
 		opacity: 0.5;
 		transition: opacity 0.3s ease;
 	}
 
-	.theme-toggle:hover svg {
+	.theme-toggle:hover :global(svg) {
 		opacity: 1;
 	}
 
@@ -277,7 +262,7 @@
 			gap: 1rem;
 		}
 
-		.nav-icon img {
+		.nav-icon :global(svg) {
 			width: 20px;
 			height: 20px;
 		}

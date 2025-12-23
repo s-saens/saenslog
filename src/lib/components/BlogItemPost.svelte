@@ -1,6 +1,5 @@
 <script lang="ts">
-	import postIcon from '$lib/assets/post.svg';
-	import textCountIcon from '$lib/assets/text-count.svg';
+	import { PostIcon, TextCountIcon } from '$lib/components/icons';
 
 	interface Props {
 		title: string;
@@ -27,13 +26,13 @@
 
 <a href="/blog/{path}" class="blog-item post">
 	<div class="icon">
-		<img src={postIcon} alt="post" />
+		<PostIcon />
 	</div>
 	<div class="title">{title}</div>
 	<div class="date">{formatDate(date)}</div>
 	<div class="info-row1">
 		<span class="word-count">
-			<img src={textCountIcon} alt="words" class="text-count-icon" />
+			<TextCountIcon width={10} height={10} class="text-count-icon" />
 			{wordCount}
 		</span>
 	</div>
@@ -78,7 +77,7 @@
 		flex-shrink: 0;
 	}
 
-	.icon img {
+	.icon :global(svg) {
 		width: 100%;
 		height: 100%;
 	}

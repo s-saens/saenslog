@@ -1,7 +1,5 @@
 <script lang="ts">
-	import folderMultiIcon from '$lib/assets/folder-multi.svg';
-	import folderIcon from '$lib/assets/folder.svg';
-	import postMultiIcon from '$lib/assets/post-multi.svg';
+	import { FolderIcon, FolderMultiIcon, PostMultiIcon } from '$lib/components/icons';
 
 	interface Props {
 		name: string;
@@ -34,19 +32,19 @@
 
 <a href="/blog/{path}" class="blog-item folder">
 	<div class="icon">
-		<img src={folderIcon} alt="folder" />
+		<FolderIcon />
 	</div>
 	<div class="title">{name}</div>
 	<div class="date">{formatDate(date)}</div>
 	<div class="info-row1">
 		<span class="count-item">
-			<img src={folderMultiIcon} alt="total folders" class="count-icon" />
+			<FolderMultiIcon width={10} height={10} class="count-icon" />
 			{totalFolderCount}
 		</span>
 	</div>
 	<div class="info-row2">
 		<span class="count-item">
-			<img src={postMultiIcon} alt="total posts" class="count-icon" />
+			<PostMultiIcon width={10} height={10} class="count-icon" />
 			{totalPostCount}
 		</span>
 	</div>
@@ -88,7 +86,7 @@
 		flex-shrink: 0;
 	}
 
-	.icon img {
+	.icon :global(svg) {
 		width: 100%;
 		height: 100%;
 	}

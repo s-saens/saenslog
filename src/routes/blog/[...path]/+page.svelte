@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import textCountIcon from '$lib/assets/text-count.svg';
+	import { TextCountIcon } from '$lib/components/icons';
 	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
 	import { fade, fly } from 'svelte/transition';
@@ -57,7 +57,7 @@
 					<span class="date">{formatDate(data.date)}</span>
 					<span class="separator">•</span>
 					<span class="word-count">
-						<img src={textCountIcon} alt="count" />
+						<TextCountIcon width={14} height={14} />
 						{data.wordCount}
 					</span>
 				</div>
@@ -217,7 +217,7 @@
 		align-items: center;
 		gap: 0.25rem;
 	}
-	.word-count img {
+	.word-count :global(svg) {
 		width: 14px;
 		height: 14px;
 	}

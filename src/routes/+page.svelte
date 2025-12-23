@@ -1,15 +1,12 @@
 <script lang="ts">
-	import githubIcon from '$lib/assets/github.svg';
-	import logo from '$lib/assets/logo.svg';
-	import soundcloudIcon from '$lib/assets/soundcloud.svg';
-	import tistoryIcon from '$lib/assets/tistory.svg';
+	import { GithubIcon, LogoIcon, SoundcloudIcon, TistoryIcon } from '$lib/components/icons';
 	import { fly } from 'svelte/transition';
 </script>
 
 <main>
 	<div class="hero" transition:fly={{ duration: 500, x: -100 }}>
 		<div class="logo enter-1">
-			<img src={logo} alt="Saens Logo" />
+			<LogoIcon width={88} height={88} />
 		</div>
 
 		<div class="info">
@@ -31,13 +28,13 @@
 
 		<div class="social enter-7">
 			<a href="https://github.com/s-saens" target="_blank" rel="noopener noreferrer" title="GitHub">
-				<img src={githubIcon} alt="GitHub" />
+				<GithubIcon />
 			</a>
 			<a href="https://saens/tistory.com" target="_blank" rel="noopener noreferrer" title="Tistory">
-				<img src={tistoryIcon} alt="Tistory" />
+				<TistoryIcon />
 			</a>
 			<a href="https://soundcloud.com/s-saens" target="_blank" rel="noopener noreferrer" title="SoundCloud">
-				<img src={soundcloudIcon} alt="SoundCloud" />
+				<SoundcloudIcon />
 			</a>
 		</div>
 	</div>
@@ -131,25 +128,13 @@
 		perspective: 800px;
 	}
 
-	.logo img {
+	.logo :global(svg) {
 		width: 88px;
 		height: 88px;
 		padding: 10px;
-		animation: logo-dance 8s ease-in-out infinite, logo-pulse 4s ease-in-out infinite;
+		animation: logo-dance 8s ease-in-out infinite;
 		transform-style: preserve-3d;
 		transition: all 0.4s ease;
-	}
-
-
-	@keyframes logo-pulse {
-		0%, 100% {
-			opacity: 0.15;
-			filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.1));
-		}
-		50% {
-			opacity: 1;
-			filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.5));
-		}
 	}
 
 	@keyframes logo-dance {
@@ -262,13 +247,13 @@
 		transform: translateY(-2px);
 	}
 
-	.social a img {
+	.social a :global(svg) {
 		width: 24px;
 		height: 24px;
 	}
 
 	@media (max-width: 768px) {
-		.logo img {
+		.logo :global(svg) {
 			width: 80px;
 			height: 80px;
 		}
@@ -289,7 +274,7 @@
 			gap: 1rem;
 		}
 
-		.social a img {
+		.social a :global(svg) {
 			width: 20px;
 			height: 20px;
 		}
