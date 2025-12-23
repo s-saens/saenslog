@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { BlogIcon, LogoIcon, MoonIcon, MusicIcon, ProjectIcon, SunIcon } from '$lib/components/icons';
 	import { onMount } from 'svelte';
@@ -10,6 +11,10 @@
 	let isAnimationDone = $state(false);
 
 	let isDark = $state(true);
+
+	// 마지막 방문 경로 저장을 위한 상태
+	let lastBlogPath = $state('/blog');
+	let lastProjectPath = $state('/projects');
 
 	const themes = {
 		dark: {
@@ -50,6 +55,51 @@
 		return $page.url.pathname === path || $page.url.pathname.startsWith(path + '/');
 	}
 
+	// 네비게이션 핸들러
+	function handleNavigation(e: MouseEvent, rootPath: string, lastPath: string) {
+		e.preventDefault();
+		const currentPath = $page.url.pathname;
+		
+		// 현재 같은 섹션에 있으면 루트로, 아니면 마지막 방문 경로로
+		if (currentPath.startsWith(rootPath)) {
+			goto(rootPath);
+		} else {
+			goto(lastPath);
+		}
+	}
+
+	// 경로 변경 감지 및 저장
+	$effect(() => {
+		if (!browser) return;
+
+		const currentPath = $page.url.pathname;
+
+		// blog 경로 저장 - localStorage만 업데이트
+		if (currentPath.startsWith('/blog')) {
+			localStorage.setItem('lastBlogPath', currentPath);
+		}
+
+		// projects 경로 저장 (목록 페이지는 제외)
+		if (currentPath.startsWith('/projects')) {
+			localStorage.setItem('lastProjectPath', currentPath);
+		}
+	});
+
+	// 현재 경로에 기반한 derived 값
+	$effect(() => {
+		const currentPath = $page.url.pathname;
+		
+		// blog 경로면 현재 경로로 업데이트
+		if (currentPath.startsWith('/blog')) {
+			lastBlogPath = currentPath;
+		}
+		
+		// projects 경로면 현재 경로로 업데이트
+		if (currentPath.startsWith('/projects/')) {
+			lastProjectPath = currentPath;
+		}
+	});
+
 	onMount(() => {
 		isMounted = true;
 
@@ -62,6 +112,17 @@
 			isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 		}
 		applyTheme(isDark);
+
+		// 저장된 경로 불러오기
+		const savedBlogPath = localStorage.getItem('lastBlogPath');
+		const savedProjectPath = localStorage.getItem('lastProjectPath');
+		
+		if (savedBlogPath) {
+			lastBlogPath = savedBlogPath;
+		}
+		if (savedProjectPath) {
+			lastProjectPath = savedProjectPath;
+		}
 
 		// 시스템 테마 변경 감지 (저장된 테마가 없을 때만)
 		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -89,10 +150,26 @@
 			<a href="/" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/')} title="Home">
 				<LogoIcon width={24} height={24} />
 			</a>
-			<a href="/blog" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/blog')} title="Blog">
+			<a 
+				href={lastBlogPath} 
+				class="nav-icon" 
+				class:entering={isMounted} 
+				class:default={isAnimationDone} 
+				class:active={isActive('/blog')} 
+				title="Blog"
+				onclick={(e) => handleNavigation(e, '/blog', lastBlogPath)}
+			>
 				<BlogIcon />
 			</a>
-			<a href="/projects" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/projects')} title="Projects">
+			<a 
+				href={lastProjectPath} 
+				class="nav-icon" 
+				class:entering={isMounted} 
+				class:default={isAnimationDone} 
+				class:active={isActive('/projects')} 
+				title="Projects"
+				onclick={(e) => handleNavigation(e, '/projects', lastProjectPath)}
+			>
 				<ProjectIcon />
 			</a>
 			<a href="/musics" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/musics')} title="Music">

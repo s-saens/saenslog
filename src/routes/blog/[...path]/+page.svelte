@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/stores';
 	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
 	import { TextCountIcon } from '$lib/components/icons';
-	import { fade, fly } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import type { PageData } from './$types';
 
 	let { data } = $props<{ data: PageData }>();
 	
-	const transitionDelay = 75;
+	const transitionDelay = 200;
 
 	const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -25,7 +26,7 @@
 </script>
 
 <main>
-	<div class="container" transition:fade={{ duration: 500 }}>
+	<div class="container" transition:fly|global={{ duration: 500, y: 100 }}>
 		<header>
 			<nav class="breadcrumb">
 				{#each data.breadcrumb as crumb, i (crumb.path || crumb.label || i)}
@@ -47,63 +48,71 @@
 			</nav>
 		</header>
 
-		{#if data.isPost}
-			<!-- 글 페이지 -->
-			<article class="post">
-				<div transition:fly|global={{ duration: 500 }}>
-					<h1>{data.title || '제목 없음'}</h1>
-				</div>
-				<div class="post-meta" transition:fly|global={{ duration: 500, y: 100, delay: 300}}>
-					<span class="date">{formatDate(data.date)}</span>
-					<span class="separator">•</span>
-					<span class="word-count">
-						<TextCountIcon width={14} height={14} />
-						{data.wordCount}
-					</span>
-				</div>
-				<div class="content" transition:fly|global={{ duration: 1000, y: 100, delay: 450}}>
-					{@html data.content}
-				</div>
-				<div class="footer"></div>
-			</article>
-		{:else}
-			<!-- 카테고리 페이지 -->
-			<section class="items-section" in:fade={{ duration: 500 }}>
-			{#if data.folders}
-				{#each data.folders.filter((f: typeof data.folders[number]) => f.totalPostCount > 0) as folder, i (folder.path)}
-					<div in:fly|global={{ duration: 400, x: 100, delay: i * transitionDelay}}>
-						<BlogItemFolder {...folder} />
-					</div>
-				{/each}
-			{/if}
-				{#if data.posts}
-					{#each data.posts as post, i (post.path)}
-						<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + i) * transitionDelay}}>
-							<BlogItemPost {...post} />
+		<div class="content-wrapper">
+			{#if data.isPost}
+				{#key data.title}
+					<!-- 글 페이지 -->
+					<article class="post" transition:fly|global={{ duration: 300, y:100 }}>
+						<div transition:fly|global={{ duration: 500 }}>
+							<h1>{data.title || '제목 없음'}</h1>
 						</div>
-					{/each}
-				{/if}
-			</section>
-		{/if}
+						<div class="post-meta" transition:fly|global={{ duration: 500, y: 100, delay: 300}}>
+							<span class="date">{formatDate(data.date)}</span>
+							<span class="separator">•</span>
+							<span class="word-count">
+								<TextCountIcon width={14} height={14} />
+								{data.wordCount}
+							</span>
+						</div>
+						<div class="content" transition:fly|global={{ duration: 1000, y: 100, delay: 450}}>
+							{@html data.content}
+						</div>
+						<div class="footer"></div>
+					</article>
+				{/key}
+			{:else}
+				{#key $page.url.pathname}
+					<!-- 카테고리 페이지 -->
+					<div class="list-wrapper">
+						<section class="items-section">
+						{#if data.folders}
+							{#each data.folders.filter((f: typeof data.folders[number]) => f.totalPostCount > 0) as folder, i (folder.path)}
+								<div transition:fly|global={{ duration: 400, x: 100, delay: i * transitionDelay}}>
+									<BlogItemFolder {...folder} />
+								</div>
+							{/each}
+						{/if}
+							{#if data.posts}
+								{#each data.posts as post, i (post.path)}
+									<div transition:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + i) * transitionDelay}}>
+										<BlogItemPost {...post} />
+									</div>
+								{/each}
+							{/if}
+						</section>
 
-		{#if data.allPosts && data.allPosts.length > 0}
-			<section class="all-posts">
-				<div class="all-posts-header">
-					<h2>All Posts</h2>
-					<div class="all-posts-count">
-						<span>({data.allPosts.length})</span>
+						{#if data.allPosts && data.allPosts.length > 0}
+							<section class="all-posts" transition:fly|global={{ duration: 300, y: 100 }}>
+								<div class="all-posts-header">
+									<h2>All Posts</h2>
+									<div class="all-posts-count">
+										<span>({data.allPosts.length})</span>
+									</div>
+								</div>
+								<div class="posts-list">
+									{#each data.allPosts as post, i (post.path)}
+										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + i) * transitionDelay}}>
+											<BlogItemPost {...post} />
+										</div>
+									{/each}
+								</div>
+								<div class="footer"></div>
+							</section>
+						{/if}
 					</div>
-				</div>
-				<div class="posts-list">
-					{#each data.allPosts as post, i (post.path)}
-						<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + i) * transitionDelay}}>
-							<BlogItemPost {...post} />
-						</div>
-					{/each}
-				</div>
-				<div class="footer"></div>
-			</section>
-		{/if}
+				{/key}
+			{/if}
+		</div>
 	</div>
 </main>
 
@@ -124,6 +133,26 @@
 		overflow-y: visible;
   		scrollbar-gutter: stable;  /* 지원 브라우저에서 레이아웃 흔들림 방지 */
   		padding: 0 20px;
+		gap: 1rem;
+	}
+
+	.content-wrapper {
+		position: relative;
+		width: 100%;
+		min-height: 50vh;
+	}
+
+	.post,
+	.list-wrapper {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+	}
+
+	.list-wrapper {
+		display: flex;
+		flex-direction: column;
 		gap: 1rem;
 	}
 
