@@ -95,7 +95,7 @@
 		}
 		
 		// projects 경로면 현재 경로로 업데이트
-		if (currentPath.startsWith('/projects/')) {
+		if (currentPath.startsWith('/projects')) {
 			lastProjectPath = currentPath;
 		}
 	});

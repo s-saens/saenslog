@@ -9,7 +9,7 @@
 
 	let { data } = $props<{ data: PageData }>();
 	
-	const transitionDelay = 200;
+	const transitionDelay = 70;
 
 	const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -34,10 +34,8 @@
 						<span class="separator">‣</span>
 					{/if}
 					{#if data.isPost}
-						<!-- 포스트 페이지: 모든 breadcrumb이 링크 -->
 						<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
 					{:else}
-						<!-- 폴더 페이지: 마지막은 현재 위치 (볼드, 링크 없음) -->
 						{#if i === data.breadcrumb.length - 1}
 							<span class="crumb current">{crumb.label}</span>
 						{:else}
@@ -56,7 +54,7 @@
 						<div transition:fly|global={{ duration: 500 }}>
 							<h1>{data.title || '제목 없음'}</h1>
 						</div>
-						<div class="post-meta" transition:fly|global={{ duration: 500, y: 100, delay: 300}}>
+						<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 120}}>
 							<span class="date">{formatDate(data.date)}</span>
 							<span class="separator">•</span>
 							<span class="word-count">
@@ -64,7 +62,7 @@
 								{data.wordCount}
 							</span>
 						</div>
-						<div class="content" transition:fly|global={{ duration: 1000, y: 100, delay: 450}}>
+						<div class="content" transition:fly|global={{ duration: 600, y: 100, delay: 150}}>
 							{@html data.content}
 						</div>
 						<div class="footer"></div>
@@ -73,26 +71,26 @@
 			{:else}
 				{#key $page.url.pathname}
 					<!-- 카테고리 페이지 -->
-					<div class="list-wrapper">
+					<div class="list-wrapper" transition:fly|global={{ duration: 400, y: 100 }}>
 						<section class="items-section">
 						{#if data.folders}
 							{#each data.folders.filter((f: typeof data.folders[number]) => f.totalPostCount > 0) as folder, i (folder.path)}
-								<div transition:fly|global={{ duration: 400, x: 100, delay: i * transitionDelay}}>
+								<div in:fly|global={{ duration: 400, x: 100, delay: (1 + i) * transitionDelay}}>
 									<BlogItemFolder {...folder} />
 								</div>
 							{/each}
 						{/if}
 							{#if data.posts}
 								{#each data.posts as post, i (post.path)}
-									<div transition:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + i) * transitionDelay}}>
-										<BlogItemPost {...post} />
-									</div>
+										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + 1 + i) * transitionDelay}}>
+											<BlogItemPost {...post} />
+										</div>
 								{/each}
 							{/if}
 						</section>
 
 						{#if data.allPosts && data.allPosts.length > 0}
-							<section class="all-posts" transition:fly|global={{ duration: 300, y: 100 }}>
+							<section class="all-posts">
 								<div class="all-posts-header">
 									<h2>All Posts</h2>
 									<div class="all-posts-count">
@@ -101,7 +99,7 @@
 								</div>
 								<div class="posts-list">
 									{#each data.allPosts as post, i (post.path)}
-										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + i) * transitionDelay}}>
+										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + 1 + i) * transitionDelay}}>
 											<BlogItemPost {...post} />
 										</div>
 									{/each}

@@ -133,11 +133,5 @@
 		align-items: center;
 		gap: 0.25rem;
 	}
-
-	.count-icon {
-		width: 10px;
-		height: 10px;
-		opacity: 0.7;
-	}
 </style>
 
