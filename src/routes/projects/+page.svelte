@@ -24,6 +24,31 @@
 	let startX = $state(0);
 	let scrollLeft = $state(0);
 	let hasDragged = $state(false);
+	let currentScrollLeft = $state(0);
+
+	// Carousel 좌표 기준으로 각 아이템의 scale 계산
+	function getScaleForIndex(index: number): number {
+		// currentScrollLeft를 참조하여 reactive하게 만듦
+		const scrollPos = currentScrollLeft;
+		
+		if (!carouselRef) return 1;
+		
+		const carousel = carouselRef;
+		const items = carousel.querySelectorAll('.carousel-item');
+		if (!items[index]) return 1;
+		
+		const item = items[index] as HTMLElement;
+		const carouselCenter = scrollPos + carousel.offsetWidth / 2;
+		const itemCenter = item.offsetLeft + item.offsetWidth / 2;
+		const distance = Math.abs(carouselCenter - itemCenter);
+		
+		// 거리를 viewport width 기준으로 정규화
+		const normalizedDistance = distance / (carousel.offsetWidth / 2);
+		
+		const scale = Math.max(0.2, 1.2 - normalizedDistance * 0.5);
+		
+		return scale;
+	}
 
 	$effect(() => {
 		if (carouselRef && !isDragging) {
@@ -37,6 +62,15 @@
 				const carouselWidth = carousel.offsetWidth;
 				const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
 				carousel.scrollTo({ left: scrollPosition, behavior: 'smooth' });
+				
+				// 스크롤 애니메이션 중에도 currentScrollLeft 업데이트
+				const updateScroll = () => {
+					currentScrollLeft = carousel.scrollLeft;
+					if (Math.abs(carousel.scrollLeft - scrollPosition) > 1) {
+						requestAnimationFrame(updateScroll);
+					}
+				};
+				requestAnimationFrame(updateScroll);
 			}
 		}
 	});
@@ -62,12 +96,15 @@
 		}
 		
 		carouselRef.scrollLeft = scrollLeft - walk;
+		currentScrollLeft = carouselRef.scrollLeft;
+		updateSelectedIndexFromScroll();
 	}
 
 	function handleMouseUp() {
 		if (!carouselRef) return;
 		isDragging = false;
 		carouselRef.style.cursor = 'grab';
+		currentScrollLeft = carouselRef.scrollLeft;
 		updateSelectedIndexFromScroll();
 		
 		// 드래그 상태를 약간 지연 후 리셋 (클릭 이벤트보다 먼저 처리되도록)
@@ -95,9 +132,14 @@
 		}
 		
 		carouselRef.scrollLeft = scrollLeft - walk;
+		currentScrollLeft = carouselRef.scrollLeft;
+		updateSelectedIndexFromScroll();
 	}
 
 	function handleTouchEnd() {
+		if (carouselRef) {
+			currentScrollLeft = carouselRef.scrollLeft;
+		}
 		isDragging = false;
 		updateSelectedIndexFromScroll();
 		
@@ -112,6 +154,7 @@
 		if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
 			e.preventDefault();
 			carouselRef.scrollLeft += e.deltaX || e.deltaY;
+			currentScrollLeft = carouselRef.scrollLeft;
 			updateSelectedIndexFromScroll();
 		}
 	}
@@ -157,20 +200,24 @@
 	onMount(() => {
 		if (carouselRef) {
 			// DOM이 완전히 렌더링된 후 스크롤 위치 조정
-			requestAnimationFrame(() => {
-				if (carouselRef) {
-					const carousel = carouselRef;
-					const items = carousel.querySelectorAll('.carousel-item');
-					if (items[selectedIndex]) {
-						const item = items[selectedIndex] as HTMLElement;
-						const itemLeft = item.offsetLeft;
-						const itemWidth = item.offsetWidth;
-						const carouselWidth = carousel.offsetWidth;
-						const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
-						carousel.scrollLeft = scrollPosition;
+			// transition (500ms + delay) 이 끝난 후 실행
+			setTimeout(() => {
+				requestAnimationFrame(() => {
+					if (carouselRef) {
+						const carousel = carouselRef;
+						const items = carousel.querySelectorAll('.carousel-item');
+						if (items[selectedIndex]) {
+							const item = items[selectedIndex] as HTMLElement;
+							const itemLeft = item.offsetLeft;
+							const itemWidth = item.offsetWidth;
+							const carouselWidth = carousel.offsetWidth;
+							const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
+							carousel.scrollLeft = scrollPosition;
+							currentScrollLeft = scrollPosition;
+						}
 					}
-				}
-			});
+				});
+			}, 100);
 		}
 	});
 </script>
@@ -204,12 +251,14 @@
 		>
 			<div class="carousel-track">
 				{#each data.projects as project, index}
+					{@const scale = getScaleForIndex(index)}
 					<button
 						class="carousel-item"
 						class:selected={index === selectedIndex}
+						style="--item-scale: {scale}"
 						onclick={() => handleProjectClick(index)}
 						aria-label={`${project.title} 프로젝트`}
-						transition:fly|global={{ duration: 500, y: 100, delay: index * 100 }}
+						transition:fly|global={{ duration: 500, y: 100, delay: 200 + index * 100 }}
 					>
 						<div class="project-logo">
 							<img 
@@ -310,14 +359,14 @@
 	}
 
 	.carousel-item {
-		width: 22vh;
-		height: 22vh;
+		width: 28vh;
+		height: 28vh;
 		flex-shrink: 0;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-		opacity: 0.6;
+		opacity: 0.4;
+		transition: opacity 0.4s ease-in-out;
 		cursor: pointer;
 		background: none;
 		border: none;
@@ -328,21 +377,26 @@
 
 	.carousel-item.selected {
 		opacity: 1;
+		transition: opacity 0.4s ease-in-out;
 	}
 
 	.project-logo {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+		transform: scale(var(--item-scale, 1));
 	}
 
-	.carousel-item.selected .project-logo {
-		transform: scale(1.15);
-	}
-
-	.carousel-item.selected .project-logo-reflection {
-		transform: scale(1.15);
+	.project-logo-reflection {
+		width: 28vh;
+		height: 28vh;
+		display: flex;
+		align-items: flex-start;
+		justify-content: center;
+		overflow: visible;
+		position: relative;
+		margin-top: 2px;
+		transform: scale(var(--item-scale, 1));
 	}
 
 	.project-logo img {
@@ -353,18 +407,6 @@
 		user-select: none;
 		-webkit-user-drag: none;
 		pointer-events: none;
-	}
-
-	.project-logo-reflection {
-		width: 22vh;
-		height: 22vh;
-		display: flex;
-		align-items: flex-start;
-		justify-content: center;
-		overflow: visible;
-		position: relative;
-		margin-top: 2px;
-		transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
 	.project-logo-reflection img {
@@ -383,22 +425,53 @@
 
 	@media (max-width: 768px) {
 		.project-title {
-			font-size: 1.5rem;
+			font-size: 1.8rem;
 		}
+
+		.carousel-item {
+			width: 24vh;
+			height: 24vh;
+		}
+
+		.project-logo {
+			width: 24vh;
+			height: 24vh;
+		}
+		
+		.project-logo-reflection {
+			width: 24vh;
+			height: 24vh;
+		}
+
 
 		.tag {
 			font-size: 0.65rem;
 		}
 
 		.carousel-track {
-			gap: 2rem;
+			gap: 1rem;
 		}
 	}
 
 	@media (max-width: 480px) {
 
 		.project-title {
-			font-size: 1.2rem;
+			font-size: 1.5rem;
+		}
+
+		.carousel-item {
+			width: 20vh;
+			height: 20vh;
+		}
+
+		.project-logo {
+			width: 20vh;
+			height: 20vh;
+		}
+		
+		.project-logo-reflection {
+			width: 20vh;
+			height: 20vh;
 		}
 
 		.tag {
