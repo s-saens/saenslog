@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import { BlogIcon, LogoIcon, MoonIcon, MusicIcon, ProjectIcon, SunIcon } from '$lib/components/icons';
 	import { onMount } from 'svelte';
 
@@ -137,6 +138,19 @@
 		return () => mediaQuery.removeEventListener('change', handleChange);
 	});
 
+	// 네비게이션 후 스크롤을 맨 위로 이동
+	afterNavigate(() => {
+		if (browser) {
+			// 스크롤 가능한 컨테이너를 찾아서 스크롤 위치를 0으로 설정
+			const scrollableElement = document.querySelector('.site-main .scrollable > *');
+			if (scrollableElement) {
+				scrollableElement.scrollTop = 0;
+			}
+			// 전역 window 스크롤도 초기화
+			window.scrollTo(0, 0);
+		}
+	});
+
 </script>
 
 <svelte:head>
@@ -145,6 +159,8 @@
 </svelte:head>
 
 <div class="app">
+	<CustomScrollbar />
+	
 	<header class="site-header">
 		<nav class="nav-container">
 			<a href="/" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/')} title="Home">
@@ -186,7 +202,9 @@
 	</header>
 
 	<main class="site-main">
-		{@render children()}
+		<div class="scrollable">
+			{@render children()}
+		</div>
 	</main>
 </div>
 
@@ -212,6 +230,17 @@
 		user-select: none;
 		-webkit-user-select: none;
 		transition: background-color 0.3s ease, color 0.3s ease;
+	}
+
+	/* 스크롤바 숨기기 */
+	:global(*::-webkit-scrollbar) {
+		display: none;
+	}
+
+	/* Firefox 스크롤바 숨기기 */
+	:global(*) {
+		scrollbar-width: none;
+		-ms-overflow-style: none;
 	}
 
 	:global(body *) {
@@ -324,13 +353,22 @@
 		opacity: 1;
 	}
 
-	.site-main > :global(*) {
+	.site-main > .scrollable > :global(*) {
 		position: absolute;
 		top: 0;
 		left: 0;
 		width: 100%;
 		height: 100%;
 		overflow-y: auto;
+	}
+
+	.site-main > .scrollable {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		overflow-y: hidden;
 	}
 
 	@media (max-width: 768px) {

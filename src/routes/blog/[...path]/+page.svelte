@@ -154,20 +154,6 @@
 		gap: 1rem;
 	}
 
-	.container {
-		scrollbar-width: auto;
-		scrollbar-color: var(--text-tertiary) var(--bg-lighter);
-	}
-
-	.container::-webkit-scrollbar-track {
-		background: var(--bg-lighter);
-		border-radius: 999px;
-		margin-block: 8px;
-	}
-
-	.container::-webkit-scrollbar-thumb:hover {
-		background: var(--text-tertiary);
-	}
 
 	header {
 		padding-bottom: 0.75rem;

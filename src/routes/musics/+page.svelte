@@ -61,6 +61,7 @@
 <style>
 	main {
 		max-width: 900px;
+		height: 100vh;
 		margin: 0 auto;
 		padding: 2rem;
 	}
