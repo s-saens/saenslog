@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { TextCountIcon } from '$lib/components/icons';
 	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
+	import { TextCountIcon } from '$lib/components/icons';
 	import { fade, fly } from 'svelte/transition';
 	import type { PageData } from './$types';
 
@@ -50,10 +50,10 @@
 		{#if data.isPost}
 			<!-- 글 페이지 -->
 			<article class="post">
-				<div in:fly={{ duration: 500 }}>
+				<div transition:fly|global={{ duration: 500 }}>
 					<h1>{data.title || '제목 없음'}</h1>
 				</div>
-				<div class="post-meta" in:fly={{ duration: 500, y: 100, delay: 300}}>
+				<div class="post-meta" transition:fly|global={{ duration: 500, y: 100, delay: 300}}>
 					<span class="date">{formatDate(data.date)}</span>
 					<span class="separator">•</span>
 					<span class="word-count">
@@ -61,7 +61,7 @@
 						{data.wordCount}
 					</span>
 				</div>
-				<div class="content" in:fly={{ duration: 1000, y: 100, delay: 450}}>
+				<div class="content" transition:fly|global={{ duration: 1000, y: 100, delay: 450}}>
 					{@html data.content}
 				</div>
 				<div class="footer"></div>
