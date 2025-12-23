@@ -134,6 +134,7 @@
 		background-color: var(--bg);
 		user-select: none;
 		-webkit-user-select: none;
+		transition: background-color 0.3s ease, color 0.3s ease;
 	}
 
 	:global(body *) {
@@ -142,6 +143,7 @@
 
 	:global(*) {
 		box-sizing: border-box;
+		transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, stroke 0.3s ease, fill 0.3s ease;
 	}
 
 	.app {
@@ -160,6 +162,7 @@
 		padding: 1rem 1.5rem;
 		background-color: color-mix(in srgb, var(--bg) 30%, transparent);
 		backdrop-filter: blur(8px) saturate(140%);
+		transition: background-color 0.3s ease;
 	}
 
 	@keyframes nav-icon-enter {
