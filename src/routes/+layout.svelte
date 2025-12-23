@@ -31,8 +31,8 @@
 			'--bg': '#f5f5f5',
 			'--bg-lighter': '#ffffff',
 			'--text': '#1a1a1a',
-			'--text-secondary': '#444444',
-			'--text-tertiary': '#888888',
+			'--text-secondary': '#666666',
+			'--text-tertiary': '#aaaaaa',
 			'--border': '#d0d0d0',
 			'--accent': '#1a1a1a'
 		}
@@ -146,8 +146,6 @@
 			if (scrollableElement) {
 				scrollableElement.scrollTop = 0;
 			}
-			// 전역 window 스크롤도 초기화
-			window.scrollTo(0, 0);
 		}
 	});
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 	
 	let scrollbarContainer = $state<HTMLDivElement | null>(null);
 	let scrollThumb = $state<HTMLDivElement | null>(null);
@@ -24,7 +25,12 @@
 
     function init() {
 
-        isVisible = false;
+        // 이전 이벤트 리스너 정리
+        if (scrollableElement) {
+            scrollableElement.removeEventListener('scroll', handleScroll);
+        }
+        window.removeEventListener('resize', updateScrollbar);
+        window.removeEventListener('mousemove', handleGlobalMouseMove);
 
         if (initTimeout) {
             window.clearTimeout(initTimeout);
@@ -34,14 +40,10 @@
             window.clearTimeout(hideTimeout);
         }
 
+        isVisible = false;
+        isScrollable = false;
+
         initTimeout = window.setTimeout(() => {
-            
-            // 이전 이벤트 리스너 정리
-            if (scrollableElement) {
-                scrollableElement.removeEventListener('scroll', handleScroll);
-            }
-            window.removeEventListener('resize', updateScrollbar);
-            window.removeEventListener('mousemove', handleGlobalMouseMove);
 
             const all = document.querySelectorAll('.site-main > .scrollable > *');
 
@@ -81,6 +83,7 @@
 		}
 		
 		isScrollable = true;
+        isVisible = true;
 		
 		// thumb 높이 계산 (최소 30px)
 		const ratio = clientHeight / scrollHeight;
@@ -100,7 +103,12 @@
 	
 	// 스크롤바 보이기
 	function showScrollbar(time: number = 1000) {
-		if (!isScrollable) return; // 스크롤 불가능하면 아예 보이지 않음
+        console.log('showScrollbar', isScrollable);
+
+		if (!isScrollable) {
+            isVisible = false;
+            return;
+        }
 		
 		isVisible = true;
 		
@@ -232,7 +240,9 @@
 	});
 </script>
 
+{#if isScrollable}
 <div 
+    transition:fly|global={{ x: 16, duration: 300 }}
 	class="custom-scrollbar" 
 	class:visible={isVisible}
 	bind:this={scrollbarContainer}
@@ -263,13 +273,14 @@
 		aria-label="스크롤 핸들"
 	></div>
 </div>
+{/if}
 
 <style>
 	.custom-scrollbar {
 		position: fixed;
 		top: 0;
 		right: 0;
-		width: 12px;
+		width: 16px;
 		height: 100vh;
 		z-index: 200;
 		opacity: 0;
@@ -288,12 +299,16 @@
 	.scrollbar-thumb {
 		position: absolute;
 		top: 0;
-		right: 3px;
-		width: 6px;
-		background-color: var(--text-tertiary);
-		border-radius: 3px;
+		width: 12px;
+        opacity: 0.6;
+		background: linear-gradient(
+			to bottom,
+			var(--text-tertiary) 0%,
+            var(--text-secondary) 100%
+		);
+		border-radius: 18px;
 		cursor: pointer;
-		transition: background-color 0.2s ease,
+		transition: background 0.2s ease,
                     width 0.2s ease,
                     right 0.2s ease,
                     height 0.2s ease;
@@ -301,19 +316,14 @@
 	}
 	
 	.custom-scrollbar:hover .scrollbar-thumb {
-		width: 8px;
-		right: 2px;
-		background-color: var(--text-secondary);
+		width: 16px;
+        opacity: 1;
+        transition: opacity 0.2s ease,
+                    width 0.2s ease;
 	}
 	
 	.scrollbar-thumb.dragging {
-		background-color: var(--accent);
-		width: 8px;
-		right: 2px;
-	}
-	
-	.scrollbar-thumb:active {
-		background-color: var(--accent);
+		width: 16px;
 	}
 </style>
 
