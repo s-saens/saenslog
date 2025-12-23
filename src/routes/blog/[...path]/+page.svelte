@@ -3,10 +3,12 @@
 	import textCountIcon from '$lib/assets/text-count.svg';
 	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
-	import { fly } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import type { PageData } from './$types';
 
 	let { data } = $props<{ data: PageData }>();
+	
+	const transitionDelay = 75;
 
 	const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -23,7 +25,7 @@
 </script>
 
 <main>
-	<div class="container" transition:fly={{ duration: 500, y: 100 }}>
+	<div class="container" transition:fade={{ duration: 500 }}>
 		<header>
 			<nav class="breadcrumb">
 				{#each data.breadcrumb as crumb, i (crumb.path || crumb.label || i)}
@@ -47,37 +49,44 @@
 
 		{#if data.isPost}
 			<!-- 글 페이지 -->
-			<article class="post" in:fly={{ duration: 500, y: 100, delay: 150}}>
-				<h1>{data.title || '제목 없음'}</h1>
-			<div class="post-meta" in:fly={{ duration: 500, y: 100, delay: 300}}>
-				<span class="date">{formatDate(data.date)}</span>
-				<span class="separator">•</span>
-				<span class="word-count">
-					<img src={textCountIcon} alt="count" />
-					{data.wordCount}
-				</span>
-			</div>
-				<div class="content" in:fly={{ duration: 1000, y: 100, delay: 600}}>
+			<article class="post">
+				<div in:fly={{ duration: 500 }}>
+					<h1>{data.title || '제목 없음'}</h1>
+				</div>
+				<div class="post-meta" in:fly={{ duration: 500, y: 100, delay: 300}}>
+					<span class="date">{formatDate(data.date)}</span>
+					<span class="separator">•</span>
+					<span class="word-count">
+						<img src={textCountIcon} alt="count" />
+						{data.wordCount}
+					</span>
+				</div>
+				<div class="content" in:fly={{ duration: 1000, y: 100, delay: 450}}>
 					{@html data.content}
 				</div>
+				<div class="footer"></div>
 			</article>
 		{:else}
 			<!-- 카테고리 페이지 -->
-			<section class="items-section">
-				{#if data.folders}
-					{#each data.folders as folder (folder.path)}
+			<section class="items-section" in:fade={{ duration: 500 }}>
+			{#if data.folders}
+				{#each data.folders.filter((f: typeof data.folders[number]) => f.totalPostCount > 0) as folder, i (folder.path)}
+					<div in:fly|global={{ duration: 400, x: 100, delay: i * transitionDelay}}>
 						<BlogItemFolder {...folder} />
-					{/each}
-				{/if}
+					</div>
+				{/each}
+			{/if}
 				{#if data.posts}
-					{#each data.posts as post (post.path)}
-						<BlogItemPost {...post} />
+					{#each data.posts as post, i (post.path)}
+						<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + i) * transitionDelay}}>
+							<BlogItemPost {...post} />
+						</div>
 					{/each}
 				{/if}
 			</section>
 		{/if}
 
-		{#if !data.isPost && data.allPosts && data.allPosts.length > 0}
+		{#if data.allPosts && data.allPosts.length > 0}
 			<section class="all-posts">
 				<div class="all-posts-header">
 					<h2>All Posts</h2>
@@ -86,10 +95,13 @@
 					</div>
 				</div>
 				<div class="posts-list">
-					{#each data.allPosts as post (post.path)}
-						<BlogItemPost {...post} />
+					{#each data.allPosts as post, i (post.path)}
+						<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + i) * transitionDelay}}>
+							<BlogItemPost {...post} />
+						</div>
 					{/each}
 				</div>
+				<div class="footer"></div>
 			</section>
 		{/if}
 	</div>
@@ -121,7 +133,7 @@
 	}
 
 	.container::-webkit-scrollbar-track {
-	background: var(--bg-lighter);
+		background: var(--bg-lighter);
 		border-radius: 999px;
 		margin-block: 8px;
 	}
@@ -212,7 +224,6 @@
 
 	.post .content {
 		line-height: 1.8;
-		font-size: 0.95rem;
 		user-select: text;
 		-webkit-user-select: text;
 	}
@@ -226,6 +237,11 @@
 
 	.post .content :global(p) {
 		margin: 1rem 0;
+		font-family: var(--font-default);
+		font-size: 0.95rem;
+		font-weight: 400;
+		color: var(--text-secondary);
+		text-align: justify;
 	}
 
 	.post .content :global(h1),
@@ -236,14 +252,12 @@
 	}
 
 	.post .content :global(code) {
-		background-color: var(--bg-lighter);
 		padding: 0.2rem 0.4rem;
 		border-radius: 4px;
 		font-size: 0.9em;
 	}
 
 	.post .content :global(pre) {
-		background-color: var(--bg-lighter);
 		padding: 1rem;
 		border-radius: 8px;
 		overflow-x: auto;
@@ -286,7 +300,7 @@
 	}
 
 	.all-posts h2 {
-		font-size: 1.1rem;
+		font-size: 1rem;
 		font-weight: 600;
 		margin: 0 0 0.5rem 0;
 	}
@@ -315,6 +329,16 @@
 			padding: 1rem;
 			padding-top: 4rem;
 		}
+	}
+
+	.footer {
+		display: flex;
+		height: 50px;
+		justify-content: center;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.8rem;
+		color: var(--text-tertiary);
 	}
 </style>
 

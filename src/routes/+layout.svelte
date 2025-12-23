@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import blogIcon from '$lib/assets/blog.svg';
 	import logo from '$lib/assets/logo.svg';
@@ -11,12 +12,71 @@
 	let isMounted = $state(false);
 	let isAnimationDone = $state(false);
 
+	let isDark = $state(true);
+
+	const themes = {
+		dark: {
+			'--bg': '#222222',
+			'--bg-lighter': '#2b2d30',
+			'--text': '#ffffff',
+			'--text-secondary': '#cccccc',
+			'--text-tertiary': '#808080',
+			'--border': '#505050',
+			'--accent': '#ffffff'
+		},
+		light: {
+			'--bg': '#f5f5f5',
+			'--bg-lighter': '#ffffff',
+			'--text': '#1a1a1a',
+			'--text-secondary': '#444444',
+			'--text-tertiary': '#888888',
+			'--border': '#d0d0d0',
+			'--accent': '#1a1a1a'
+		}
+	};
+
+	function applyTheme(dark: boolean) {
+		if (!browser) return;
+		const theme = dark ? themes.dark : themes.light;
+		for (const [key, value] of Object.entries(theme)) {
+			document.documentElement.style.setProperty(key, value);
+		}
+	}
+
+	function toggleTheme() {
+		isDark = !isDark;
+		localStorage.setItem('theme', isDark ? 'dark' : 'light');
+		applyTheme(isDark);
+	}
+
 	function isActive(path: string) {
 		return $page.url.pathname === path || $page.url.pathname.startsWith(path + '/');
 	}
 
 	onMount(() => {
 		isMounted = true;
+
+		// 1. localStorage에서 저장된 테마 확인
+		const savedTheme = localStorage.getItem('theme');
+		if (savedTheme) {
+			isDark = savedTheme === 'dark';
+		} else {
+			// 2. 시스템 설정 확인
+			isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+		}
+		applyTheme(isDark);
+
+		// 시스템 테마 변경 감지 (저장된 테마가 없을 때만)
+		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+		const handleChange = (e: MediaQueryListEvent) => {
+			if (!localStorage.getItem('theme')) {
+				isDark = e.matches;
+				applyTheme(isDark);
+			}
+		};
+		mediaQuery.addEventListener('change', handleChange);
+
+		return () => mediaQuery.removeEventListener('change', handleChange);
 	});
 
 </script>
@@ -41,6 +101,25 @@
 			<a href="/musics" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/musics')} title="Music">
 				<img src={musicIcon} alt="Music" />
 			</a>
+			<button class="theme-toggle nav-icon" class:entering={isMounted} onclick={toggleTheme} title={isDark ? 'Light mode' : 'Dark mode'}>
+				{#if isDark}
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="5"/>
+						<line x1="12" y1="1" x2="12" y2="3"/>
+						<line x1="12" y1="21" x2="12" y2="23"/>
+						<line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+						<line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+						<line x1="1" y1="12" x2="3" y2="12"/>
+						<line x1="21" y1="12" x2="23" y2="12"/>
+						<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+						<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+					</svg>
+				{:else}
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+					</svg>
+				{/if}
+			</button>
 		</nav>
 	</header>
 
@@ -94,7 +173,7 @@
 		width: 100%;
 		z-index: 100;
 		padding: 1rem 1.5rem;
-		background-color: rgba(34, 34, 34, 0.3);
+		background-color: color-mix(in srgb, var(--bg) 30%, transparent);
 		backdrop-filter: blur(8px) saturate(140%);
 	}
 
@@ -138,6 +217,9 @@
 	.nav-icon:nth-child(4) {
 		animation-delay: 0.3s;
 	}
+	.nav-icon:nth-child(5) {
+		animation-delay: 0.4s;
+	}
 	
 	.nav-icon img {
 		width: 24px;
@@ -152,6 +234,28 @@
 
 	.nav-icon:hover img,
 	.nav-icon.active img {
+		opacity: 1;
+	}
+
+	.theme-toggle {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		color: var(--text-tertiary);
+		transition: color 0.3s ease;
+	}
+
+	.theme-toggle:hover {
+		color: var(--text);
+	}
+
+	.theme-toggle svg {
+		opacity: 0.5;
+		transition: opacity 0.3s ease;
+	}
+
+	.theme-toggle:hover svg {
 		opacity: 1;
 	}
 

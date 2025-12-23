@@ -1,6 +1,8 @@
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
+const base = process.env.BASE_PATH ?? '';
+
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	// Consult https://svelte.dev/docs/kit/integrations
@@ -15,9 +17,7 @@ const config = {
 			strict: true
 		}),
 		paths: {
-			// GitHub Pages의 경우 레포지토리 이름이 경로가 됨
-			// 커스텀 도메인(saens.kr)을 사용한다면 주석 처리 유지
-			// base: '/saenslog'
+			base
 		},
 		prerender: {
 			handleHttpError: 'warn',

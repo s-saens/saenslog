@@ -29,8 +29,8 @@
 </script>
 
 <main>
-	<div class="container">
-		<header transition:fly={{ duration: 500, x: -100 }}>
+	<div class="container" transition:fly={{ duration: 500, x: 400 }}>
+		<header>
 			<h1>음악</h1>
 			<p>음악 작업물과 플레이리스트</p>
 		</header>

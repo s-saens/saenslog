@@ -8,6 +8,9 @@ node_modules
 /.svelte-kit
 /build
 
+# Generated blog static assets (synced from src/lib/blog by scripts/sync-blog-assets.ts)
+/static/blog
+
 # OS
 .DS_Store
 Thumbs.db

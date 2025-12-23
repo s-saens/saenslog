@@ -45,7 +45,7 @@ export function getBlogItems(relativePath: string = '') {
 			const { folderCount, postCount } = countDirectChildren(folderPath);
 			const totalFolderCount = countAllFolders(folderPath);
 			const totalPostCount = countAllPosts(folderPath);
-			const lastModified = getLastModifiedDate(folderPath);
+			const lastModified = getLatestPostDate(folderPath);
 
 			folders.push({
 				name: item.name,
@@ -139,14 +139,48 @@ function countAllPosts(folderPath: string): number {
 	return count;
 }
 
-// 폴더의 최근 수정 날짜 가져오기
-function getLastModifiedDate(folderPath: string): string {
+// 폴더 내 모든 글들 중 가장 최신 날짜 가져오기
+function getLatestPostDate(folderPath: string): string {
 	if (!fs.existsSync(folderPath)) {
-		return new Date().toISOString().split('T')[0];
+		return '1999-01-01T00:00:00';
 	}
 
-	const stats = fs.statSync(folderPath);
-	return stats.mtime.toISOString().split('T')[0];
+	const dates: Date[] = [];
+
+	function traverseForDates(dir: string) {
+		const items = fs.readdirSync(dir, { withFileTypes: true });
+
+		for (const item of items) {
+			const fullPath = path.join(dir, item.name);
+
+			if (item.isDirectory()) {
+				traverseForDates(fullPath);
+			} else if (item.name.endsWith('.md')) {
+				try {
+					const fileContents = fs.readFileSync(fullPath, 'utf8');
+					const { data } = matter(fileContents);
+
+					if (data.date) {
+						const postDate = data.date instanceof Date ? data.date : new Date(data.date);
+						if (!isNaN(postDate.getTime())) {
+							dates.push(postDate);
+						}
+					}
+				} catch {
+					// 파일 읽기 오류 무시
+				}
+			}
+		}
+	}
+
+	traverseForDates(folderPath);
+
+	if (dates.length === 0) {
+		return '1999-01-01T00:00:00';
+	}
+
+	const latestDate = dates.reduce((latest, current) => (current > latest ? current : latest));
+	return latestDate.toISOString();
 }
 
 // 마크다운 파일 파싱
@@ -167,10 +201,22 @@ function parseMarkdownFile(
 		// 마크다운을 HTML로 변환
 		const htmlContent = marked(content) as string;
 
+		// 날짜 처리: gray-matter가 Date 객체로 파싱할 수 있으므로 문자열로 변환
+		let dateStr: string;
+		if (data.date) {
+			if (data.date instanceof Date) {
+				dateStr = data.date.toISOString();
+			} else {
+				dateStr = String(data.date);
+			}
+		} else {
+			dateStr = new Date().toISOString();
+		}
+
 		return {
 			title: data.title || 'Untitled',
-			date: data.date || new Date().toISOString().split('T')[0],
-			category: data.category || relativePath || 'Uncategorized',
+			date: dateStr,
+			category: data.category || relativePath || '/',
 			tags: data.tags || [],
 			content: htmlContent,
 			wordCount,
@@ -196,9 +242,14 @@ export function getBlogPost(postPath: string): BlogPost | null {
 	return parseMarkdownFile(fullPath, dir, `${fileName}.md`);
 }
 
-// 모든 포스트 가져오기 (최근 글용)
-export function getAllPosts(limit?: number): BlogPost[] {
+// 특정 경로 하위의 모든 포스트 가져오기 (최근 글용)
+export function getAllPosts(basePath: string = '', limit?: number): BlogPost[] {
 	const posts: BlogPost[] = [];
+	const startDir = path.join(BLOG_DIR, basePath);
+
+	if (!fs.existsSync(startDir)) {
+		return posts;
+	}
 
 	function traverseDirectory(dir: string, relativePath: string = '') {
 		const items = fs.readdirSync(dir, { withFileTypes: true });
@@ -218,7 +269,7 @@ export function getAllPosts(limit?: number): BlogPost[] {
 		}
 	}
 
-	traverseDirectory(BLOG_DIR);
+	traverseDirectory(startDir, basePath);
 
 	// 날짜순으로 정렬 (최신순)
 	posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

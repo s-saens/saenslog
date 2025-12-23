@@ -1,4 +1,4 @@
-import { getBlogItems, getBlogPost } from '$lib/server/blog';
+import { getAllPosts, getBlogItems, getBlogPost } from '$lib/server/blog';
 import { error } from '@sveltejs/kit';
 import type { EntryGenerator, PageServerLoad } from './$types';
 
@@ -57,6 +57,8 @@ export const load: PageServerLoad = ({ params }) => {
 	} else {
 		// 카테고리 페이지
 		const { folders, posts } = getBlogItems(path);
+		console.log(path);
+		const allPosts = getAllPosts(path);
 
 		return {
 			path,
@@ -73,6 +75,13 @@ export const load: PageServerLoad = ({ params }) => {
 				date: folder.date
 			})),
 			posts: posts.map((post) => ({
+				title: post.title,
+				path: post.path,
+				category: post.category,
+				date: post.date,
+				wordCount: post.wordCount
+			})),
+			allPosts: allPosts.map((post) => ({
 				title: post.title,
 				path: post.path,
 				category: post.category,
