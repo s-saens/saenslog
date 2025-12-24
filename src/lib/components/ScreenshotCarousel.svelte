@@ -1,24 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
-
-	interface Project {
-		id: string;
-		title: string;
-		tags: string[];
-		startDate: string;
-		endDate: string;
-		logoPath: string;
-	}
 
 	interface Props {
-		projects: Project[];
-		selectedIndex: number;
-		onSelect: (index: number) => void;
-		onClick: (index: number) => void;
+		screenshots: string[];
+		selectedIndex?: number;
 	}
 
-	let { projects, selectedIndex = $bindable(), onSelect, onClick }: Props = $props();
+	let { screenshots, selectedIndex = $bindable(0) }: Props = $props();
 
 	let carouselRef: HTMLDivElement;
 	let isDragging = $state(false);
@@ -32,27 +20,6 @@
 	let lastTime = $state(0);
 	let animationFrame: number;
 	let wheelTimeout: number;
-
-	// Carousel 좌표 기준으로 각 아이템의 scale 계산
-	function getScaleForIndex(index: number): number {
-		const scrollPos = currentScrollLeft;
-		
-		if (!carouselRef) return 1;
-		
-		const carousel = carouselRef;
-		const items = carousel.querySelectorAll('.carousel-item');
-		if (!items[index]) return 1;
-		
-		const item = items[index] as HTMLElement;
-		const carouselCenter = scrollPos + carousel.offsetWidth / 2;
-		const itemCenter = item.offsetLeft + item.offsetWidth / 2;
-		const distance = Math.abs(carouselCenter - itemCenter);
-		
-		const normalizedDistance = distance / (carousel.offsetWidth / 2);
-		const scale = Math.max(0.2, 1.2 - normalizedDistance * 0.5);
-		
-		return scale;
-	}
 
 	// 선택된 인덱스에 따라 스크롤 위치 조정
 	$effect(() => {
@@ -116,7 +83,6 @@
 			
 			if (selectedIndex !== closestIndex) {
 				selectedIndex = closestIndex;
-				onSelect(closestIndex);
 			}
 		}
 	}
@@ -127,7 +93,6 @@
 		
 		if (Math.abs(velocity) < 0.5) {
 			velocity = 0;
-			// 관성이 끝나면 가장 가까운 아이템으로 스냅
 			snapToNearestItem();
 			return;
 		}
@@ -144,7 +109,7 @@
 		
 		carouselRef.scrollLeft = newScrollLeft;
 		currentScrollLeft = carouselRef.scrollLeft;
-		velocity *= 0.93; // 감쇠
+		velocity *= 0.93;
 		
 		updateSelectedIndexFromScroll();
 		animationFrame = requestAnimationFrame(applyMomentum);
@@ -176,12 +141,11 @@
 			hasDragged = true;
 		}
 		
-		// 속도 계산 (방향 반대로)
 		const currentTime = Date.now();
 		const timeDelta = currentTime - lastTime;
 		if (timeDelta > 0) {
 			const xDelta = e.pageX - lastX;
-			velocity = -(xDelta / timeDelta) * 16; // 60fps 기준, 방향 반대
+			velocity = -(xDelta / timeDelta) * 16;
 		}
 		
 		lastX = e.pageX;
@@ -199,7 +163,6 @@
 		currentScrollLeft = carouselRef.scrollLeft;
 		updateSelectedIndexFromScroll();
 		
-		// 관성 스크롤 시작 (임계값 이상) 또는 가장 가까운 아이템으로 스냅
 		if (Math.abs(velocity) > 1) {
 			applyMomentum();
 		} else {
@@ -233,28 +196,25 @@
 		const x = touch.pageX - carouselRef.offsetLeft;
 		const y = touch.pageY;
 		
-		// 수평 스크롤인지 확인
 		const xDiff = Math.abs(x - startX);
 		const yDiff = Math.abs(y - startY);
 		
-		// 수평 이동이 더 크면 수직 스크롤 방지
 		if (xDiff > yDiff && xDiff > 10) {
 			e.preventDefault();
 		}
 		
-		const walk = (x - startX) * 1.2; // 터치는 더 민감하게
+		const walk = (x - startX) * 1.2;
 		const distance = Math.abs(walk);
 		
 		if (distance > 5) {
 			hasDragged = true;
 		}
 		
-		// 속도 계산 (방향 반대로)
 		const currentTime = Date.now();
 		const timeDelta = currentTime - lastTime;
 		if (timeDelta > 0) {
 			const xDelta = touch.pageX - lastX;
-			velocity = -(xDelta / timeDelta) * 16; // 방향 반대
+			velocity = -(xDelta / timeDelta) * 16;
 		}
 		
 		lastX = touch.pageX;
@@ -272,7 +232,6 @@
 		isDragging = false;
 		updateSelectedIndexFromScroll();
 		
-		// 관성 스크롤 시작 (임계값 이상) 또는 가장 가까운 아이템으로 스냅
 		if (Math.abs(velocity) > 1) {
 			applyMomentum();
 		} else {
@@ -292,7 +251,6 @@
 			currentScrollLeft = carouselRef.scrollLeft;
 			updateSelectedIndexFromScroll();
 			
-			// 휠 스크롤이 멈춘 후 스냅
 			if (wheelTimeout) clearTimeout(wheelTimeout);
 			wheelTimeout = setTimeout(() => {
 				snapToNearestItem();
@@ -322,15 +280,7 @@
 
 		if (selectedIndex !== closestIndex) {
 			selectedIndex = closestIndex;
-			onSelect(closestIndex);
 		}
-	}
-
-	function handleProjectClick(index: number) {
-		if (hasDragged) {
-			return;
-		}
-		onClick(index);
 	}
 
 	onMount(() => {
@@ -354,7 +304,6 @@
 			}, 100);
 		}
 
-		// cleanup
 		return () => {
 			if (animationFrame) {
 				cancelAnimationFrame(animationFrame);
@@ -380,48 +329,30 @@
 	ontouchend={handleTouchEnd}
 	onwheel={handleWheel}
 	role="region"
-	aria-label="프로젝트 캐러셀"
+	aria-label="스크린샷 캐러셀"
 	tabindex="0"
 >
 	<div class="carousel-track">
-		{#each projects as project, index}
-			{@const scale = getScaleForIndex(index)}
-			<button
+		{#each screenshots as screenshot, index (screenshot)}
+			<div
 				class="carousel-item"
 				class:selected={index === selectedIndex}
-				style="--item-scale: {scale}"
-				onclick={() => handleProjectClick(index)}
-				aria-label={`${project.title} 프로젝트`}
-				transition:fly|global={{ duration: 500, y: 100, delay: 200 + index * 100 }}
 			>
-				<div class="project-logo">
+				<div class="screenshot-image">
 					<img 
-						src={project.logoPath} 
-						alt={`${project.title} 로고`}
-						draggable="false"
-						oncontextmenu={(e) => e.preventDefault()}
-					>
-					<div class="show-more">
-						<p>See More</p>
-					</div>
-				</div>
-				<div class="project-logo-reflection">
-					<img 
-						src={project.logoPath}
-						alt="" 
-						aria-hidden="true"
+						src={screenshot} 
+						alt={`스크린샷 ${index + 1}`}
 						draggable="false"
 						oncontextmenu={(e) => e.preventDefault()}
 					/>
 				</div>
-			</button>
+			</div>
 		{/each}
 	</div>
 </div>
 
 <style>
 	.carousel-container {
-		overflow: hidden !important;
 		width: 100%;
 		overflow-x: auto;
 		overflow-y: visible;
@@ -429,10 +360,10 @@
 		scrollbar-width: none;
 		-ms-overflow-style: none;
 		position: relative;
-		flex: 0.7;
 		display: flex;
-		align-items: flex-start;
-		touch-action: pan-x; /* 수평 터치만 허용 */
+		align-items: center;
+		touch-action: pan-x;
+		padding: 2rem 0;
 	}
 
 	.carousel-container::-webkit-scrollbar {
@@ -441,25 +372,19 @@
 
 	.carousel-track {
 		display: flex;
-		gap: 3rem;
-		padding: 10vh 50vw;
+		gap: 2rem;
+		padding: 0 50vw;
 		align-items: center;
 		overflow: visible;
 	}
 
 	.carousel-item {
-		width: 28vh;
-		height: 28vh;
 		flex-shrink: 0;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
+		justify-content: center;
 		opacity: 0.4;
 		transition: opacity 0.4s ease-in-out;
-		cursor: pointer;
-		background: none;
-		border: none;
-		padding: 0;
 		position: relative;
 		overflow: visible;
 	}
@@ -469,99 +394,44 @@
 		transition: opacity 0.4s ease-in-out;
 	}
 
-	.project-logo {
+	.screenshot-image {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transform: scale(var(--item-scale, 1));
-		transition: transform 0.2s ease-out;
+		max-width: 60vw;
+		max-height: 60vh;
 	}
 
-	.project-logo-reflection {
-		width: 28vh;
-		height: 28vh;
-		display: flex;
-		align-items: flex-start;
-		justify-content: center;
-		overflow: visible;
-		position: relative;
-		margin-top: 10vh;
-		transform: scale(var(--item-scale, 1));
-		transition: transform 0.2s ease-out;
-	}
-
-	.project-logo img {
+	.screenshot-image img {
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
-		border-radius: 32px;
+		border-radius: 12px;
+		border: 1px solid var(--border);
 		user-select: none;
 		-webkit-user-drag: none;
 		pointer-events: none;
-	}
-
-	.project-logo-reflection img {
-		width: 100%;
-		height: 100%;
-		object-fit: contain;
-		border-radius: 32px;
-		transform: scaleY(-1);
-		opacity: 0.6;
-		mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 100%);
-		-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 100%);
-		user-select: none;
-		-webkit-user-drag: none;
-		pointer-events: none;
-	}
-
-	.show-more {
-		position: absolute;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 32px;
-		opacity: 0;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: rgba(0, 0, 0, 0.7);
-		color: white;
-		font-size: 3vh;
-
-		transition: opacity 0.2s ease-in-out;
-	}
-
-	.carousel-item.selected:hover .show-more{
-		opacity: 1;
-		transition: opacity 0.2s ease-in-out;
 	}
 
 	@media (max-width: 768px) {
-		.carousel-item {
-			width: 24vh;
-			height: 24vh;
-		}
-
-		.project-logo-reflection {
-			width: 24vh;
-			height: 24vh;
-		}
-
 		.carousel-track {
-			gap: 1rem;
+			gap: 1.5rem;
+		}
+
+		.screenshot-image {
+			max-width: 80vw;
+			max-height: 50vh;
 		}
 	}
 
 	@media (max-width: 480px) {
-		.carousel-item {
-			width: 20vh;
-			height: 20vh;
+		.carousel-track {
+			gap: 1rem;
 		}
 
-		.project-logo-reflection {
-			width: 20vh;
-			height: 20vh;
+		.screenshot-image {
+			max-width: 90vw;
+			max-height: 40vh;
 		}
 	}
 </style>

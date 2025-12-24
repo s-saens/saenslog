@@ -1,10 +1,17 @@
 export const prerender = true;
 
+interface Link {
+	name: string;
+	icon: string;
+	url: string;
+}
+
 interface ProjectInfo {
 	title: string;
 	tags: string[];
 	startDate: string;
 	endDate: string;
+	links?: Link[];
 }
 
 interface Project extends ProjectInfo {

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import ProjectCarousel from '$lib/components/ProjectCarousel.svelte';
-	import { fly } from 'svelte/transition';
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		data: {
@@ -19,6 +20,11 @@
 	let { data }: Props = $props();
 
 	let selectedIndex = $state(0);
+	let mounted = $state(false);
+
+	onMount(() => {
+		mounted = true;
+	});
 
 	function handleSelect(index: number) {
 		selectedIndex = index;
@@ -36,23 +42,25 @@
 </script>
 
 <main>
-	<div class="content-wrapper" transition:fly={{ duration: 500, y: 100 }}>
-		<div class="header-section">
-			<h1 class="project-title">{data.projects[selectedIndex]?.title || ''}</h1>
-			<div class="tags">
-				{#each data.projects[selectedIndex]?.tags || [] as tag}
-					<span class="tag">{tag.toUpperCase()}</span>
-				{/each}
+	{#if mounted}
+		<div class="content-wrapper" transition:fade|global={{ duration: 500 }}>
+			<div class="header-section">
+				<h1 class="project-title">{data.projects[selectedIndex]?.title || ''}</h1>
+				<div class="tags">
+					{#each data.projects[selectedIndex]?.tags || [] as tag}
+						<span class="tag">{tag.toUpperCase()}</span>
+					{/each}
+				</div>
 			</div>
-		</div>
 
-		<ProjectCarousel
-			projects={data.projects}
-			bind:selectedIndex
-			onSelect={handleSelect}
-			onClick={handleClick}
-		/>
-	</div>
+			<ProjectCarousel
+				projects={data.projects}
+				bind:selectedIndex
+				onSelect={handleSelect}
+				onClick={handleClick}
+			/>
+		</div>
+	{/if}
 </main>
 
 <style>
