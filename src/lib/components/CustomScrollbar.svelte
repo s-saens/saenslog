@@ -277,10 +277,12 @@
 
 <style>
 	.custom-scrollbar {
+        --width: 8px;
+
 		position: fixed;
 		top: 0;
-		right: 0;
-		width: 16px;
+		right: 4px;
+		width: calc(var(--width) + 4px);
 		height: 100vh;
 		z-index: 200;
 		opacity: 0;
@@ -299,7 +301,8 @@
 	.scrollbar-thumb {
 		position: absolute;
 		top: 0;
-		width: 12px;
+        right: 0;
+		width: calc(var(--width) - 4px);
         opacity: 0.6;
 		background: linear-gradient(
 			to bottom,
@@ -316,14 +319,20 @@
 	}
 	
 	.custom-scrollbar:hover .scrollbar-thumb {
-		width: 16px;
+		width: var(--width);
+        right: 4px;
         opacity: 1;
         transition: opacity 0.2s ease,
-                    width 0.2s ease;
+                    width 0.2s ease,
+                    right 0.2s ease;
 	}
 	
 	.scrollbar-thumb.dragging {
-		width: 16px;
+		width: var(--width);
+        right: 4px;
+        opacity: 1;
+        transition: opacity 0.2s ease,
+                    width 0.2s ease;
 	}
 </style>
 
