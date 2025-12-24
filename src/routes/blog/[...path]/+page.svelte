@@ -4,12 +4,18 @@
 	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
 	import { TextCountIcon } from '$lib/components/icons';
-	import { fly } from 'svelte/transition';
+	import { fly, fade } from 'svelte/transition';
+	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 
 	let { data } = $props<{ data: PageData }>();
 	
 	const transitionDelay = 70;
+	let mounted = $state(false);
+
+	onMount(() => {
+		mounted = true;
+	});
 
 	const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -26,28 +32,29 @@
 </script>
 
 <main>
-	<div class="container" transition:fly|global={{ duration: 500, y: 100 }}>
-		<header>
-			<nav class="breadcrumb">
-				{#each data.breadcrumb as crumb, i (crumb.path || crumb.label || i)}
-					{#if i > 0}
-						<span class="separator">‣</span>
-					{/if}
-					{#if data.isPost}
-						<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
-					{:else}
-						{#if i === data.breadcrumb.length - 1}
-							<span class="crumb current">{crumb.label}</span>
-						{:else}
-							<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
+	{#if mounted}
+		<div class="container" in:fade|global={{ duration: 500 }}>
+			<header>
+				<nav class="breadcrumb">
+					{#each data.breadcrumb as crumb, i (crumb.path || crumb.label || i)}
+						{#if i > 0}
+							<span class="separator">‣</span>
 						{/if}
-					{/if}
-				{/each}
-			</nav>
-		</header>
+						{#if data.isPost}
+							<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
+						{:else}
+							{#if i === data.breadcrumb.length - 1}
+								<span class="crumb current">{crumb.label}</span>
+							{:else}
+								<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
+							{/if}
+						{/if}
+					{/each}
+				</nav>
+			</header>
 
-		<div class="content-wrapper">
-			{#if data.isPost}
+			<div class="content-wrapper">
+				{#if data.isPost}
 				{#key data.title}
 					<!-- 글 페이지 -->
 					<article class="post" transition:fly|global={{ duration: 300, y:100 }}>
@@ -110,8 +117,9 @@
 					</div>
 				{/key}
 			{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 </main>
 
 <style>
