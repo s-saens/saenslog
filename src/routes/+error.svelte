@@ -5,14 +5,14 @@
 </script>
 
 <main>
-	<div class="error-container" in:fade={{ duration: 500 }}>
-		<div class="error-code" in:fly={{ duration: 600, y: -30, delay: 100 }}>
+	<div class="error-container" transition:fade={{ duration: 500 }}>
+		<div class="error-code" transition:fly={{ duration: 600, y: -30, delay: 100 }}>
 			{page.status}
 		</div>
-		<div class="error-message" in:fly={{ duration: 600, y: 30, delay: 200 }}>
+		<div class="error-message" transition:fly={{ duration: 600, y: 30, delay: 200 }}>
 			{page.error?.message || 'Something went wrong'}
 		</div>
-		<a href={resolve('/blog')} class="back-link" in:fade={{ duration: 400, delay: 400 }}>
+		<a href={resolve('/blog')} class="back-link" transition:fade={{ duration: 400, delay: 400 }}>
 			← Back to Blog
 		</a>
 	</div>

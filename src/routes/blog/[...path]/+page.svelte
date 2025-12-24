@@ -4,8 +4,8 @@
 	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
 	import { TextCountIcon } from '$lib/components/icons';
-	import { fly, fade } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 	import type { PageData } from './$types';
 
 	let { data } = $props<{ data: PageData }>();
@@ -33,7 +33,7 @@
 
 <main>
 	{#if mounted}
-		<div class="container" in:fade|global={{ duration: 500 }}>
+		<div class="container" transition:fade|global={{ duration: 500 }}>
 			<header>
 				<nav class="breadcrumb">
 					{#each data.breadcrumb as crumb, i (crumb.path || crumb.label || i)}
@@ -58,10 +58,10 @@
 				{#key data.title}
 					<!-- 글 페이지 -->
 					<article class="post" transition:fly|global={{ duration: 300, y:100 }}>
-						<div in:fly|global={{ duration: 500, delay: 100 }}>
+						<div transition:fly|global={{ duration: 500, delay: 100 }}>
 							<h1>{data.title || '제목 없음'}</h1>
 						</div>
-						<div class="post-meta" in:fly|global={{ duration: 400, y: 100, delay: 150}}>
+						<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 150}}>
 							<span class="date">{formatDate(data.date)}</span>
 							<span class="separator">•</span>
 							<span class="word-count">
@@ -69,7 +69,7 @@
 								{data.wordCount}
 							</span>
 						</div>
-						<div class="content" in:fly|global={{ duration: 600, y: 100, delay: 200}}>
+						<div class="content" transition:fly|global={{ duration: 600, y: 100, delay: 200}}>
 							{@html data.content}
 						</div>
 						<div class="footer"></div>
@@ -82,14 +82,14 @@
 						<section class="items-section">
 						{#if data.folders}
 							{#each data.folders.filter((f: typeof data.folders[number]) => f.totalPostCount > 0) as folder, i (folder.path)}
-								<div in:fly|global={{ duration: 400, x: 100, delay: (1 + i) * transitionDelay}}>
+								<div transition:fly|global={{ duration: 400, x: 100, delay: (1 + i) * transitionDelay}}>
 									<BlogItemFolder {...folder} />
 								</div>
 							{/each}
 						{/if}
 							{#if data.posts}
 								{#each data.posts as post, i (post.path)}
-										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + 1 + i) * transitionDelay}}>
+										<div transition:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + 1 + i) * transitionDelay}}>
 											<BlogItemPost {...post} />
 										</div>
 								{/each}
@@ -106,7 +106,7 @@
 								</div>
 								<div class="posts-list">
 									{#each data.allPosts as post, i (post.path)}
-										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + 1 + i) * transitionDelay}}>
+										<div transition:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + 1 + i) * transitionDelay}}>
 											<BlogItemPost {...post} />
 										</div>
 									{/each}

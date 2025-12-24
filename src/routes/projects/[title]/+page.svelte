@@ -35,7 +35,7 @@
 
 <main>
 	{#if mounted}
-		<div class="container" in:fade|global={{ duration: 500 }}>
+		<div class="container" transition:fade|global={{ duration: 500 }}>
 			<a href="/projects" class="back-button">
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
 					<path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
