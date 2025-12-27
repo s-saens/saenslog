@@ -82,14 +82,14 @@
 						<section class="items-section">
 						{#if data.folders}
 							{#each data.folders.filter((f: typeof data.folders[number]) => f.totalPostCount > 0) as folder, i (folder.path)}
-								<div transition:fly|global={{ duration: 400, x: 100, delay: (1 + i) * transitionDelay}}>
+								<div in:fly|global={{ duration: 400, x: 100, delay: (1 + i) * transitionDelay}}>
 									<BlogItemFolder {...folder} />
 								</div>
 							{/each}
 						{/if}
 							{#if data.posts}
 								{#each data.posts as post, i (post.path)}
-										<div transition:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + 1 + i) * transitionDelay}}>
+										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + 1 + i) * transitionDelay}}>
 											<BlogItemPost {...post} />
 										</div>
 								{/each}
@@ -98,7 +98,7 @@
 
 						{#if data.allPosts && data.allPosts.length > 0}
 							<section class="all-posts">
-								<div class="all-posts-header">
+								<div class="all-posts-header" in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + 1) * transitionDelay}}>
 									<h2>All Posts</h2>
 									<div class="all-posts-count">
 										<span>({data.allPosts.length})</span>
@@ -106,7 +106,7 @@
 								</div>
 								<div class="posts-list">
 									{#each data.allPosts as post, i (post.path)}
-										<div transition:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + 1 + i) * transitionDelay}}>
+										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + 1 + i) * transitionDelay}}>
 											<BlogItemPost {...post} />
 										</div>
 									{/each}
