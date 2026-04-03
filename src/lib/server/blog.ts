@@ -1,7 +1,19 @@
 import fs from 'fs';
+import hljs from 'highlight.js';
 import matter from 'gray-matter';
 import { marked } from 'marked';
+import { markedHighlight } from 'marked-highlight';
 import path from 'path';
+
+marked.use(
+	markedHighlight({
+		langPrefix: 'hljs language-',
+		highlight(code, lang) {
+			const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+			return hljs.highlight(code, { language }).value;
+		}
+	})
+);
 
 const BLOG_DIR = path.join(process.cwd(), 'src/lib/blog');
 
@@ -13,6 +25,7 @@ export interface BlogPost {
 	content: string;
 	wordCount: number;
 	path: string;
+	tistory?: string;
 }
 
 export interface FolderInfo {
@@ -220,7 +233,8 @@ function parseMarkdownFile(
 			tags: data.tags || [],
 			content: htmlContent,
 			wordCount,
-			path: postPath
+			path: postPath,
+			...(data.tistory ? { tistory: String(data.tistory) } : {})
 		};
 	} catch (error) {
 		console.error(`Error parsing ${filePath}:`, error);
