@@ -1,34 +1,31 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import BlogItemFolder from '$lib/components/BlogItemFolder.svelte';
-	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
-	import { TextCountIcon } from '$lib/components/icons';
-	import { onMount } from 'svelte';
+	import { TextCountIcon, TistoryIcon } from '$lib/components/icons';
+	import BlogListSection from '$lib/components/BlogListSection.svelte';
+	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
+	import { setupCodeBlocks } from '$lib/actions/setupCodeBlocks';
+	import { formatDate } from '$lib/utils/dateFormatter';
 	import { fade, fly } from 'svelte/transition';
 	import type { PageData } from './$types';
 
 	let { data } = $props<{ data: PageData }>();
-	
-	const transitionDelay = 70;
+
+	const TRANSITION_DELAY = 70;
 	let mounted = $state(false);
 
-	onMount(() => {
-		mounted = true;
+	$effect(() => {
+		mounted = browser;
 	});
 
-	const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+	$effect(() => {
+		if (!browser || !mounted) return;
+		data.content; // reactive dependency
+		const contentEl = document.querySelector('.post .content');
+		if (contentEl) setupCodeBlocks(contentEl);
+	});
 
-	function formatDate(dateStr: string): string {
-		const d = new Date(dateStr);
-		const year = d.getFullYear();
-		const month = String(d.getMonth() + 1).padStart(2, '0');
-		const day = String(d.getDate()).padStart(2, '0');
-		const dayName = days[d.getDay()];
-		const hours = String(d.getHours()).padStart(2, '0');
-		const minutes = String(d.getMinutes()).padStart(2, '0');
-		return `${year}.${month}.${day}.${dayName}. ${hours}:${minutes} GMT+9`;
-	}
 </script>
 
 <main>
@@ -59,7 +56,14 @@
 					<!-- 글 페이지 -->
 					<article class="post" transition:fly|global={{ duration: 300, y:100 }}>
 						<div transition:fly|global={{ duration: 500, delay: 100 }}>
-							<h1>{data.title || '제목 없음'}</h1>
+							<div class="title-row">
+								<h1>{data.title || '제목 없음'}</h1>
+								{#if data.tistory}
+									<a href={data.tistory} target="_blank" rel="noopener noreferrer" class="tistory-link" aria-label="티스토리에서 보기">
+										<TistoryIcon width={24} height={24} />
+									</a>
+								{/if}
+							</div>
 						</div>
 						<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 150}}>
 							<span class="date">{formatDate(data.date)}</span>
@@ -79,41 +83,17 @@
 				{#key $page.url.pathname}
 					<!-- 카테고리 페이지 -->
 					<div class="list-wrapper">
-						<section class="items-section">
-						{#if data.folders}
-							{#each data.folders.filter((f: typeof data.folders[number]) => f.totalPostCount > 0) as folder, i (folder.path)}
-								<div in:fly|global={{ duration: 400, x: 100, delay: (1 + i) * transitionDelay}}>
-									<BlogItemFolder {...folder} />
-								</div>
-							{/each}
-						{/if}
-							{#if data.posts}
-								{#each data.posts as post, i (post.path)}
-										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + 1 + i) * transitionDelay}}>
-											<BlogItemPost {...post} />
-										</div>
-								{/each}
-							{/if}
-						</section>
-
-						{#if data.allPosts && data.allPosts.length > 0}
-							<section class="all-posts">
-								<div class="all-posts-header" in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + 1) * transitionDelay}}>
-									<h2>All Posts</h2>
-									<div class="all-posts-count">
-										<span>({data.allPosts.length})</span>
-									</div>
-								</div>
-								<div class="posts-list">
-									{#each data.allPosts as post, i (post.path)}
-										<div in:fly|global={{ duration: 400, x: 100, delay: ((data.folders?.length || 0) + (data.posts?.length || 0) + 1 + i) * transitionDelay}}>
-											<BlogItemPost {...post} />
-										</div>
-									{/each}
-								</div>
-								<div class="footer"></div>
-							</section>
-						{/if}
+						<BlogListSection
+							folders={data.folders}
+							posts={data.posts}
+							transitionDelay={TRANSITION_DELAY}
+						/>
+						<BlogAllPostsSection
+							allPosts={data.allPosts || []}
+							folderCount={data.folders?.length || 0}
+							postCount={data.posts?.length || 0}
+							transitionDelay={TRANSITION_DELAY}
+						/>
 					</div>
 				{/key}
 			{/if}
@@ -125,7 +105,7 @@
 <style>
 	main {
 		width: 100%;
-		padding: 5.25rem 2rem;
+		padding: 5.25rem 2rem 0;
 		display: flex;
 		justify-content: center;
 	}
@@ -138,7 +118,7 @@
 		flex-direction: column;
 		overflow-y: visible;
   		scrollbar-gutter: stable;  /* 지원 브라우저에서 레이아웃 흔들림 방지 */
-  		padding: 0 20px;
+  		padding: 0 20px 5.25rem;
 		gap: 1rem;
 	}
 
@@ -199,10 +179,6 @@
 		font-size: 0.8rem;
 	}
 
-	.items-section {
-		display: flex;
-		flex-direction: column;
-	}
 
 	/* 글 페이지 */
 	.post {
@@ -212,11 +188,31 @@
 		font-family: var(--font-default);
 	}
 
+	.title-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
 	.post h1 {
 		font-size: 1.5rem;
 		font-weight: 600;
 		margin: 0;
 		margin-bottom: -0.5rem;
+	}
+
+	.tistory-link {
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+		margin-bottom: -0.5rem;
+		color: var(--text-tertiary);
+		transition: color 0.2s, opacity 0.2s;
+	}
+
+	.tistory-link:hover {
+		color: var(--text);
+		opacity: 0.7;
 	}
 
 	.post-meta {
@@ -254,6 +250,12 @@
 		max-width: 100%;
 		height: auto;
 		border-radius: 10px;
+		filter: var(--img-filter);
+		transition: filter 0.3s ease;
+	}
+
+	.post .content :global(img.no-invert) {
+		filter: none;
 	}
 
 	.post .content :global(p) {
@@ -272,21 +274,141 @@
 		margin-bottom: 1rem;
 	}
 
+	/* 인라인 코드 */
 	.post .content :global(code) {
-		padding: 0.2rem 0.4rem;
-		border-radius: 4px;
-		font-size: 0.9em;
+		font-family: var(--font-mono);
+		font-size: 0.85em;
+		padding: 0.15em 0.45em;
+		border-radius: 5px;
+		background-color: color-mix(in srgb, var(--text) 8%, var(--bg));
+		border: 1px solid var(--border);
+		color: var(--text-secondary);
 	}
 
+	/* 코드블럭 */
 	.post .content :global(pre) {
-		padding: 1rem;
-		border-radius: 8px;
-		overflow-x: auto;
+		margin: 1.5rem 0;
+		border-radius: 10px;
+		overflow: hidden;
+		border: 1px solid var(--border);
+		background: var(--code-bg) !important;
 	}
 
 	.post .content :global(pre code) {
-		background: none;
-		padding: 0;
+		display: block;
+		padding: 1.1rem 1.25rem;
+		overflow-x: auto;
+		background: none !important;
+		border: none;
+		font-size: 0.82rem;
+		line-height: 1.7;
+		color: inherit;
+	}
+
+	/* 코드블럭 접기/펴기 wrapper */
+	.post .content :global(.code-collapse-wrapper) {
+		position: relative;
+		margin: 1.5rem 0;
+		border-radius: 10px;
+		border: 1px solid var(--border);
+		background: var(--code-bg);
+		/* overflow: hidden 제거 — sticky button 작동을 위해 */
+	}
+
+	.post .content :global(.code-collapse-wrapper pre) {
+		margin: 0;
+		border-radius: 10px 10px 0 0;
+		border: none;
+		background: transparent !important;
+		overflow: hidden; /* pre 자체 content 클리핑용 */
+	}
+
+	.post .content :global(.code-collapse-wrapper.collapsed pre) {
+		max-height: calc(12 * 0.82rem * 1.7 + 2.2rem);
+		overflow-y: auto;
+	}
+
+	.post .content :global(.code-collapse-wrapper.expanded pre) {
+		max-height: none;
+		overflow-y: visible;
+	}
+
+	/* 접기/펴기 버튼 */
+	.post .content :global(.code-collapse-btn) {
+		position: sticky;
+		bottom: 0;
+		z-index: 2;
+		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.3rem 0;
+		background: var(--code-bg);
+		border: none;
+		border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+		border-radius: 0 0 9px 9px;
+		cursor: pointer;
+		color: var(--text-tertiary);
+		transition: color 0.2s ease, background-color 0.2s ease;
+	}
+
+	.post .content :global(.code-collapse-btn:hover) {
+		color: var(--text-secondary);
+		background: color-mix(in srgb, var(--code-bg) 85%, var(--text));
+	}
+
+	.post .content :global(.code-collapse-btn svg) {
+		display: block;
+		transition: transform 0.3s ease;
+	}
+
+	.post .content :global(.code-collapse-wrapper.expanded .code-collapse-btn svg) {
+		transform: rotate(180deg);
+	}
+
+	/* 표 */
+	.post .content :global(table) {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 1.5rem 0;
+		font-size: 0.875rem;
+		border-radius: 10px;
+		overflow: hidden;
+		border: 1px solid var(--border);
+	}
+
+	.post .content :global(thead) {
+		background-color: color-mix(in srgb, var(--text) 6%, var(--bg));
+	}
+
+	.post .content :global(th) {
+		padding: 0.65rem 0.9rem;
+		text-align: left;
+		font-weight: 600;
+		color: var(--text);
+		border-bottom: 1px solid var(--border);
+		font-size: 0.82rem;
+		letter-spacing: 0.02em;
+	}
+
+	.post .content :global(td) {
+		padding: 0.55rem 0.9rem;
+		color: var(--text-secondary);
+		border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+		vertical-align: top;
+	}
+
+	.post .content :global(tr:last-child td) {
+		border-bottom: none;
+	}
+
+	.post .content :global(tbody tr:nth-child(even)) {
+		background-color: color-mix(in srgb, var(--text) 3%, transparent);
+	}
+
+	.post .content :global(tbody tr:hover) {
+		background-color: color-mix(in srgb, var(--text) 5%, transparent);
+		transition: background-color 0.15s ease;
 	}
 
 	.post .content :global(blockquote) {
@@ -310,56 +432,16 @@
 		opacity: 0.7;
 	}
 
-	/* All Posts 섹션 */
-	.all-posts {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding-top: 2rem;
-		border-top: 1px solid var(--border);
-		margin-top: 0.5rem;
-	}
-
-	.all-posts h2 {
-		font-size: 1rem;
-		font-weight: 600;
-		margin: 0 0 0.5rem 0;
-	}
-
-	.all-posts-header {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.all-posts-count {
-		display: flex;
-		align-items: center;
-		gap: 0.55rem;
-		font-size: 0.75rem;
-		color: var(--text-secondary);
-	}
-
-	.posts-list {
-		display: flex;
-		flex-direction: column;
-	}
 
 	@media (max-width: 768px) {
 		main {
-			padding: 1rem;
-			padding-top: 4rem;
+			padding: 4rem 1rem 0;
+		}
+
+		.container {
+			padding-bottom: 1rem;
 		}
 	}
 
-	.footer {
-		display: flex;
-		height: 50px;
-		justify-content: center;
-		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.8rem;
-		color: var(--text-tertiary);
-	}
 </style>
 
