@@ -1,5 +1,4 @@
 import { getAllPosts, getBlogItems, getBlogPost } from '$lib/server/blog';
-import { error } from '@sveltejs/kit';
 import type { EntryGenerator, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params }) => {
@@ -18,19 +17,12 @@ export const load: PageServerLoad = ({ params }) => {
 		})
 	];
 
-	// 마지막 세그먼트가 숫자인지 확인 (글 인덱스)
-	const lastSegment = segments[segments.length - 1];
-	const isPost = /^\d+$/.test(lastSegment);
+	// .md 파일이 실제로 존재하면 글 페이지로 처리
+	const post = getBlogPost(path);
+	const isPost = post !== null;
 
 	if (isPost) {
-		// 글 페이지
-		const post = getBlogPost(path);
-
-		if (!post) {
-			throw error(404, 'Post not found');
-		}
-
-		// 포스트에서는 breadcrumb에 숫자(포스트 인덱스) 제외
+		// 포스트에서는 breadcrumb에 마지막 파일명 세그먼트 제외
 		const postBreadcrumb = [
 			{ label: 'Blog', path: '/blog' },
 			...segments.slice(0, -1).map((segment, index) => {
@@ -52,7 +44,8 @@ export const load: PageServerLoad = ({ params }) => {
 			category: post.category,
 			content: post.content,
 			wordCount: post.wordCount,
-			tags: post.tags
+			tags: post.tags,
+			tistory: post.tistory
 		};
 	} else {
 		// 카테고리 페이지
@@ -79,14 +72,16 @@ export const load: PageServerLoad = ({ params }) => {
 				path: post.path,
 				category: post.category,
 				date: post.date,
-				wordCount: post.wordCount
+				wordCount: post.wordCount,
+				tistory: post.tistory
 			})),
 			allPosts: allPosts.map((post) => ({
 				title: post.title,
 				path: post.path,
 				category: post.category,
 				date: post.date,
-				wordCount: post.wordCount
+				wordCount: post.wordCount,
+				tistory: post.tistory
 			}))
 		};
 	}
