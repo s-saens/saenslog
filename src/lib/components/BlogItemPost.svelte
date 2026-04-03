@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PostIcon, TextCountIcon } from '$lib/components/icons';
+	import { PostIcon, TextCountIcon, TistoryIcon } from '$lib/components/icons';
 
 	interface Props {
 		title: string;
@@ -7,9 +7,10 @@
 		category: string;
 		date: string;
 		wordCount: number;
+		tistory?: string;
 	}
 
-	let { title, path, category, date, wordCount }: Props = $props();
+	let { title, path, category, date, wordCount, tistory }: Props = $props();
 	
 	// 날짜 형식: YYYY-MM-DD hh:mm:ss GMT+9
 	const formatDate = (dateStr: string) => {
@@ -28,7 +29,14 @@
 	<div class="icon">
 		<PostIcon />
 	</div>
-	<div class="title">{title}</div>
+	<div class="title">
+		<span class="title-text">{title}</span>
+		{#if tistory}
+			<a href={tistory} target="_blank" rel="noopener noreferrer" class="tistory-link" aria-label="티스토리에서 보기">
+				<TistoryIcon width={18} height={18} />
+			</a>
+		{/if}
+	</div>
 	<div class="date">{formatDate(date)}</div>
 	<div class="info-row1">
 		<span class="word-count">
@@ -85,9 +93,30 @@
 	.title {
 		grid-row: 1;
 		font-weight: 400;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		overflow: hidden;
+	}
+
+	.title-text {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		min-width: 0;
+	}
+
+	.tistory-link {
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
+		color: var(--text-tertiary);
+		transition: color 0.2s, opacity 0.2s;
+	}
+
+	.tistory-link:hover {
+		color: var(--text);
+		opacity: 0.7;
 	}
 
 	.date {
