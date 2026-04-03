@@ -15,6 +15,21 @@ marked.use(
 	})
 );
 
+// 이미지 경로를 절대 경로로 변환
+const renderer = new marked.Renderer();
+const originalImage = renderer.image;
+
+renderer.image = function (token) {
+	let href = token.href;
+	// 상대 경로(/)로 시작하지 않으면 /로 프리픽스 추가
+	if (!href.startsWith('/') && !href.startsWith('http')) {
+		href = '/' + href;
+	}
+	return originalImage.call(this, { ...token, href });
+};
+
+marked.setOptions({ renderer });
+
 const BLOG_DIR = path.join(process.cwd(), 'src/lib/blog');
 
 export interface BlogPost {
