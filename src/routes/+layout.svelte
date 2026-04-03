@@ -1,4 +1,5 @@
 <script lang="ts">
+	import 'highlight.js/styles/github-dark-dimmed.css';
 	import { browser } from '$app/environment';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -25,7 +26,9 @@
 			'--text-secondary': '#cccccc',
 			'--text-tertiary': '#808080',
 			'--border': '#505050',
-			'--accent': '#ffffff'
+			'--accent': '#ffffff',
+			'--img-filter': 'invert(1)',
+			'--code-bg': '#1e2228'
 		},
 		light: {
 			'--bg': '#f5f5f5',
@@ -34,7 +37,9 @@
 			'--text-secondary': '#666666',
 			'--text-tertiary': '#aaaaaa',
 			'--border': '#d0d0d0',
-			'--accent': '#1a1a1a'
+			'--accent': '#1a1a1a',
+			'--img-filter': 'none',
+			'--code-bg': '#f6f8fa'
 		}
 	};
 
@@ -44,6 +49,7 @@
 		for (const [key, value] of Object.entries(theme)) {
 			document.documentElement.style.setProperty(key, value);
 		}
+		document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 	}
 
 	function toggleTheme() {
@@ -217,6 +223,61 @@
 		--accent: #ffffff;
 		--font-default: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
 		--font-mono: 'IBM Plex Mono', monospace;
+		--img-filter: invert(1);
+		--code-bg: #1e2228;
+	}
+
+	/* 라이트 모드 highlight.js 오버라이드 */
+	:global([data-theme='light'] .hljs) {
+		background: #f6f8fa;
+		color: #24292e;
+	}
+	:global([data-theme='light'] .hljs-doctag),
+	:global([data-theme='light'] .hljs-keyword),
+	:global([data-theme='light'] .hljs-meta .hljs-keyword),
+	:global([data-theme='light'] .hljs-template-tag),
+	:global([data-theme='light'] .hljs-template-variable),
+	:global([data-theme='light'] .hljs-type),
+	:global([data-theme='light'] .hljs-variable.language_) {
+		color: #d73a49;
+	}
+	:global([data-theme='light'] .hljs-title),
+	:global([data-theme='light'] .hljs-title.class_),
+	:global([data-theme='light'] .hljs-title.class_.inherited__),
+	:global([data-theme='light'] .hljs-title.function_) {
+		color: #6f42c1;
+	}
+	:global([data-theme='light'] .hljs-attr),
+	:global([data-theme='light'] .hljs-attribute),
+	:global([data-theme='light'] .hljs-literal),
+	:global([data-theme='light'] .hljs-meta),
+	:global([data-theme='light'] .hljs-number),
+	:global([data-theme='light'] .hljs-operator),
+	:global([data-theme='light'] .hljs-variable),
+	:global([data-theme='light'] .hljs-selector-attr),
+	:global([data-theme='light'] .hljs-selector-class),
+	:global([data-theme='light'] .hljs-selector-id) {
+		color: #005cc5;
+	}
+	:global([data-theme='light'] .hljs-regexp),
+	:global([data-theme='light'] .hljs-string),
+	:global([data-theme='light'] .hljs-meta .hljs-string) {
+		color: #032f62;
+	}
+	:global([data-theme='light'] .hljs-built_in),
+	:global([data-theme='light'] .hljs-symbol) {
+		color: #e36209;
+	}
+	:global([data-theme='light'] .hljs-comment),
+	:global([data-theme='light'] .hljs-code),
+	:global([data-theme='light'] .hljs-formula) {
+		color: #6a737d;
+	}
+	:global([data-theme='light'] .hljs-name),
+	:global([data-theme='light'] .hljs-quote),
+	:global([data-theme='light'] .hljs-selector-tag),
+	:global([data-theme='light'] .hljs-selector-pseudo) {
+		color: #22863a;
 	}
 
 	:global(body) {
