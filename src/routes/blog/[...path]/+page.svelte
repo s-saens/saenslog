@@ -309,7 +309,7 @@
 	.post .content :global(.code-collapse-wrapper) {
 		position: relative;
 		margin: 1.5rem 0;
-		border-radius: 10px;
+		border-radius: 10px 10px 0 0;
 		border: 1px solid var(--border);
 		background: var(--code-bg);
 		/* overflow: hidden 제거 — sticky button 작동을 위해 */
@@ -346,7 +346,7 @@
 		background: var(--code-bg);
 		border: none;
 		border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
-		border-radius: 0 0 9px 9px;
+		border-radius: 10px 10px 0 0;
 		cursor: pointer;
 		color: var(--text-tertiary);
 		transition: color 0.2s ease, background-color 0.2s ease;
@@ -409,6 +409,12 @@
 	.post .content :global(tbody tr:hover) {
 		background-color: color-mix(in srgb, var(--text) 5%, transparent);
 		transition: background-color 0.15s ease;
+	}
+
+	.post .content :global(hr) {
+		border: none;
+		border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+		margin: 1.5rem 0;
 	}
 
 	.post .content :global(blockquote) {
