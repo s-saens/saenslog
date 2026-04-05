@@ -259,8 +259,12 @@
 
 	/* 마크다운 콘텐츠 스타일 */
 	.post .content :global(img) {
+		max-height: 40vh;
 		max-width: 100%;
+		width: auto;
 		height: auto;
+		display: block;
+		margin: 0 auto;
 		border-radius: 10px;
 		filter: var(--img-filter);
 		transition: filter 0.3s ease;
@@ -444,10 +448,12 @@
 
 	.post .content :global(td img),
 	.post .content :global(th img) {
+		max-height: none;
 		width: 100%;
 		height: auto;
 		border-radius: 0;
 		display: block;
+		margin: 0;
 	}
 
 	/* 표 스크롤 화살표 버튼 */
