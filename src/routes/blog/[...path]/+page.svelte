@@ -95,12 +95,14 @@
 							posts={data.posts}
 							transitionDelay={TRANSITION_DELAY}
 						/>
+					{#if $page.url.pathname === '/blog' || $page.url.pathname === '/blog/'}
 						<BlogAllPostsSection
 							allPosts={data.allPosts || []}
 							folderCount={data.folders?.length || 0}
 							postCount={data.posts?.length || 0}
 							transitionDelay={TRANSITION_DELAY}
 						/>
+					{/if}
 					</div>
 				{/key}
 			{/if}
