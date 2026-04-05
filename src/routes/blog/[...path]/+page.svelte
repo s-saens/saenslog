@@ -501,6 +501,17 @@
 	.post .content :global(ul),
 	.post .content :global(ol) {
 		padding-left: 1.5rem;
+		margin: 1rem 0;
+	}
+
+	.post .content :global(li) {
+		font-family: var(--font-default);
+		font-size: 0.95rem;
+		font-weight: 400;
+		color: var(--text-secondary);
+		overflow-wrap: break-word;
+		hyphens: auto;
+		-webkit-hyphens: auto;
 	}
 
 	.post .content :global(a) {
