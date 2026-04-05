@@ -96,7 +96,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;
-		overflow: visible;
+		overflow: hidden;
+		min-width: 0;
 	}
 
 	.title-text {
