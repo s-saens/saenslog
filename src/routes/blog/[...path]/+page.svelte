@@ -149,6 +149,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+		padding-bottom: 5rem;
 	}
 
 
@@ -195,6 +196,7 @@
 		flex-direction: column;
 		gap: 1.5rem;
 		font-family: var(--font-default);
+		padding-bottom: 5rem;
 	}
 
 	.title-row {
