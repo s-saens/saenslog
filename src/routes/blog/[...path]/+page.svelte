@@ -22,7 +22,7 @@
 	});
 
 	$effect(() => {
-		if (!browser || !mounted) return;
+		if (!browser || !mounted || !data.isPost) return;
 		data.content; // reactive dependency
 		const contentEl = document.querySelector('.post .content');
 		if (!contentEl) return;
