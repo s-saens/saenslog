@@ -13,7 +13,6 @@
 			<h1 class="enter-2">SANGHUN SONG, 1999</h1>
 			<p class="role enter-3">PRODUCT &nbsp;DEVELOPER</p>
 			<p class="skills enter-4">GAME, APP, WEB, AI</p>
-			<p class="status enter-5">WORKING AS A STAFF<br/>IN A MIDDLE SCHOOL</p>
 		</div>
 
 		<div class="contact enter-6">
@@ -204,6 +203,7 @@
 	.contact {
 		margin-top: 2rem;
         width: 100%;
+		font-size: 0.9rem;
         text-align: center;
 	}
 
@@ -213,7 +213,6 @@
 		gap: 0.5rem;
 		color: var(--text);
 		text-decoration: none;
-		font-size: 0.95rem;
 		letter-spacing: 0.05em;
 		transition: all 0.3s ease;
 		padding: 0.5rem 1rem;
@@ -277,6 +276,12 @@
 		.social a :global(svg) {
 			width: 20px;
 			height: 20px;
+		}
+
+		.contact {
+			margin-top: 2rem;
+			width: 88%;
+			text-align: center;
 		}
 	}
 </style>
