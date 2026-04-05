@@ -2,10 +2,12 @@
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import { TextCountIcon, TistoryIcon } from '$lib/components/icons';
-	import BlogListSection from '$lib/components/BlogListSection.svelte';
-	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
 	import { setupCodeBlocks } from '$lib/actions/setupCodeBlocks';
+	import { setupTables } from '$lib/actions/setupTables';
+	import { setupTOC } from '$lib/actions/setupTOC';
+	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
+	import BlogListSection from '$lib/components/BlogListSection.svelte';
+	import { TextCountIcon, TistoryIcon } from '$lib/components/icons';
 	import { formatDate } from '$lib/utils/dateFormatter';
 	import { fade, fly } from 'svelte/transition';
 	import type { PageData } from './$types';
@@ -23,7 +25,12 @@
 		if (!browser || !mounted) return;
 		data.content; // reactive dependency
 		const contentEl = document.querySelector('.post .content');
-		if (contentEl) setupCodeBlocks(contentEl);
+		if (!contentEl) return;
+
+		setupCodeBlocks(contentEl);
+		setupTables(contentEl);
+		const cleanupTOC = setupTOC(contentEl);
+		return cleanupTOC;
 	});
 
 </script>
@@ -243,6 +250,10 @@
 		line-height: 1.8;
 		user-select: text;
 		-webkit-user-select: text;
+		word-break: keep-all;
+		overflow-wrap: break-word;
+		hyphens: auto;
+		-webkit-hyphens: auto;
 	}
 
 	/* 마크다운 콘텐츠 스타일 */
@@ -283,6 +294,8 @@
 		background-color: color-mix(in srgb, var(--text) 8%, var(--bg));
 		border: 1px solid var(--border);
 		color: var(--text-secondary);
+		word-break: break-all;
+		overflow-wrap: break-word;
 	}
 
 	/* 코드블럭 */
@@ -367,14 +380,33 @@
 	}
 
 	/* 표 */
-	.post .content :global(table) {
-		width: 100%;
-		border-collapse: collapse;
+	.post .content :global(.table-container) {
+		position: relative;
 		margin: 1.5rem 0;
+	}
+
+	.post .content :global(.table-wrapper) {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.post .content :global(table) {
+		width: max-content;
+		min-width: 100%;
+		border-collapse: collapse;
 		font-size: 0.875rem;
-		border-radius: 10px;
-		overflow: hidden;
 		border: 1px solid var(--border);
+		white-space: nowrap;
+	}
+
+	/* 이미지가 있는 표는 width 100%, 스크롤 없음 */
+	.post .content :global(table:has(img)) {
+		width: 100%;
+		white-space: normal;
+	}
+
+	.post .content :global(.table-wrapper:has(img)) {
+		overflow-x: clip;
 	}
 
 	.post .content :global(thead) {
@@ -383,32 +415,74 @@
 
 	.post .content :global(th) {
 		padding: 0.65rem 0.9rem;
-		text-align: left;
+		text-align: center;
 		font-weight: 600;
 		color: var(--text);
-		border-bottom: 1px solid var(--border);
+		border: 1px solid var(--border);
 		font-size: 0.82rem;
 		letter-spacing: 0.02em;
 	}
 
 	.post .content :global(td) {
 		padding: 0.55rem 0.9rem;
+		text-align: center;
 		color: var(--text-secondary);
-		border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-		vertical-align: top;
+		border: 1px solid var(--border);
+		vertical-align: middle;
+		background-color: transparent;
 	}
 
-	.post .content :global(tr:last-child td) {
-		border-bottom: none;
+	.post .content :global(td:has(> img)),
+	.post .content :global(th:has(> img)) {
+		padding: 0;
+		overflow: hidden;
 	}
 
-	.post .content :global(tbody tr:nth-child(even)) {
-		background-color: color-mix(in srgb, var(--text) 3%, transparent);
+	.post .content :global(td img),
+	.post .content :global(th img) {
+		width: 100%;
+		height: auto;
+		border-radius: 0;
+		display: block;
 	}
 
-	.post .content :global(tbody tr:hover) {
-		background-color: color-mix(in srgb, var(--text) 5%, transparent);
-		transition: background-color 0.15s ease;
+	/* 표 스크롤 화살표 버튼 */
+	.post .content :global(.table-scroll-btn) {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		z-index: 3;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		border: 1px solid var(--border);
+		background: var(--bg);
+		color: var(--text-secondary);
+		cursor: pointer;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.2s ease, background-color 0.15s ease;
+		box-shadow: 0 1px 4px color-mix(in srgb, var(--text) 12%, transparent);
+	}
+
+	.post .content :global(.table-scroll-btn.visible) {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	.post .content :global(.table-scroll-btn:hover) {
+		background: color-mix(in srgb, var(--bg) 80%, var(--text));
+	}
+
+	.post .content :global(.table-scroll-left) {
+		left: 0;
+	}
+
+	.post .content :global(.table-scroll-right) {
+		right: 0;
 	}
 
 	.post .content :global(hr) {
@@ -448,6 +522,7 @@
 			padding-bottom: 1rem;
 		}
 	}
+
 
 </style>
 

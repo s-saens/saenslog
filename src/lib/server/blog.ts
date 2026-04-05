@@ -21,11 +21,15 @@ const originalImage = renderer.image;
 
 renderer.image = function (token) {
 	let href = token.href;
-	// 상대 경로(/)로 시작하지 않으면 /로 프리픽스 추가
 	if (!href.startsWith('/') && !href.startsWith('http')) {
 		href = '/' + href;
 	}
 	return originalImage.call(this, { ...token, href });
+};
+
+renderer.table = function (token) {
+	const originalTable = marked.Renderer.prototype.table.call(this, token);
+	return `<div class="table-wrapper">${originalTable}</div>`;
 };
 
 marked.setOptions({ renderer });
