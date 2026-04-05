@@ -213,12 +213,37 @@
 	}
 
 	.tistory-link {
+		position: relative;
 		display: flex;
 		align-items: center;
 		flex-shrink: 0;
 		margin-bottom: -0.5rem;
 		color: var(--text-tertiary);
 		transition: color 0.2s, opacity 0.2s;
+	}
+
+	.tistory-link::after {
+		content: 'Tistory에서 보기';
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 50%;
+		transform: translateX(-50%) translateY(4px);
+		background: color-mix(in srgb, var(--text) 90%, transparent);
+		color: var(--bg);
+		font-size: 0.72rem;
+		font-weight: 500;
+		letter-spacing: 0.01em;
+		white-space: nowrap;
+		padding: 0.3rem 0.6rem;
+		border-radius: 6px;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.15s ease, transform 0.15s ease;
+	}
+
+	.tistory-link:hover::after {
+		opacity: 1;
+		transform: translateX(-50%) translateY(0);
 	}
 
 	.tistory-link:hover {
