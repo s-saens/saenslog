@@ -80,9 +80,9 @@
 								{data.wordCount}
 							</span>
 						</div>
-						<div class="content" transition:fly|global={{ duration: 600, y: 100, delay: 200}}>
-							{@html data.content}
-						</div>
+					<div class="content" lang="en" transition:fly|global={{ duration: 600, y: 100, delay: 200}}>
+						{@html data.content}
+					</div>
 						<div class="footer"></div>
 					</article>
 				{/key}
@@ -250,10 +250,7 @@
 		line-height: 1.8;
 		user-select: text;
 		-webkit-user-select: text;
-		word-break: keep-all;
 		overflow-wrap: break-word;
-		hyphens: auto;
-		-webkit-hyphens: auto;
 	}
 
 	/* 마크다운 콘텐츠 스타일 */
@@ -276,6 +273,9 @@
 		font-weight: 400;
 		color: var(--text-secondary);
 		text-align: justify;
+		overflow-wrap: break-word;
+		hyphens: auto;
+		-webkit-hyphens: auto;
 	}
 
 	.post .content :global(h1),
