@@ -4,7 +4,8 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
-	import { BlogIcon, LogoIcon, MoonIcon, MusicIcon, ProjectIcon, SunIcon } from '$lib/components/icons';
+	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
+	import { BlogIcon, LogoIcon, MoonIcon, ProjectIcon, SunIcon } from '$lib/components/icons';
 	import { onMount } from 'svelte';
 
 	let { children } = $props();
@@ -192,9 +193,6 @@
 			>
 				<ProjectIcon />
 			</a>
-			<a href="/musics" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/musics')} title="Music">
-				<MusicIcon />
-			</a>
 			<button class="theme-toggle nav-icon" class:entering={isMounted} onclick={toggleTheme} title={isDark ? 'Light mode' : 'Dark mode'}>
 				{#if isDark}
 					<SunIcon />
@@ -210,6 +208,8 @@
 			{@render children()}
 		</div>
 	</main>
+
+	<MusicPlayerPill />
 </div>
 
 <style>
@@ -369,9 +369,6 @@
 	}
 	.nav-icon:nth-child(4) {
 		animation-delay: 0.3s;
-	}
-	.nav-icon:nth-child(5) {
-		animation-delay: 0.4s;
 	}
 	
 	.nav-icon :global(svg) {
