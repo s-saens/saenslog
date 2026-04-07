@@ -39,14 +39,22 @@
 	});
 </script>
 
-<a href="/blog/{path}" class="blog-item post">
+<!-- 카드 전체는 .card-link 오버레이, 티스토리는 z-index로 분리 (중첩 <a> 방지) -->
+<div class="blog-item post" class:overflowing={isOverflowing} data-title={title}>
+	<a href="/blog/{path}" class="card-link" aria-label="블로그 글: {title}"></a>
 	<div class="icon">
 		<PostIcon />
 	</div>
-	<div class="title" class:overflowing={isOverflowing} data-title={title}>
+	<div class="title">
 		<span class="title-text" bind:this={titleEl}>{title}</span>
 		{#if tistory}
-			<a href={tistory} target="_blank" rel="noopener noreferrer" class="tistory-link" aria-label="티스토리에서 보기">
+			<a
+				href={tistory}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="tistory-link"
+				aria-label="티스토리에서 보기"
+			>
 				<TistoryIcon width={18} height={18} />
 			</a>
 		{/if}
@@ -54,17 +62,18 @@
 	<div class="date">{formatDate(date)}</div>
 	<div class="info-row1">
 		<span class="word-count">
-			<TextCountIcon width={10} height={10} class="text-count-icon" />
+			<TextCountIcon width={10} height={10} />
 			{wordCount}
 		</span>
 	</div>
 	<div class="info-row2">
 		<span class="category">{category}</span>
 	</div>
-</a>
+</div>
 
 <style>
 	.blog-item {
+		position: relative;
 		display: grid;
 		grid-template-columns: 14px 1fr auto;
 		grid-template-rows: auto auto;
@@ -78,15 +87,34 @@
 		color: var(--text);
 		transition: opacity 0.2s;
 		font-size: 0.85rem;
-		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
+		transition:
+			margin 0.15s ease-in-out,
+			padding 0.15s ease-in-out,
+			background-color 0.2s ease-in-out;
 		border-radius: 0.6rem;
+	}
+
+	.card-link {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		border-radius: inherit;
+	}
+
+	.blog-item > :not(.card-link) {
+		position: relative;
+		z-index: 1;
+		pointer-events: none;
 	}
 
 	.blog-item:hover {
 		margin: 0;
 		padding: 0.8rem 1rem;
 		background-color: var(--bg-lighter);
-		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
+		transition:
+			margin 0.15s ease-in-out,
+			padding 0.15s ease-in-out,
+			background-color 0.2s ease-in-out;
 	}
 
 	.icon {
@@ -121,11 +149,11 @@
 		min-width: 0;
 	}
 
-	.title.overflowing::after {
+	.blog-item.overflowing::after {
 		content: attr(data-title);
 		position: absolute;
+		left: calc(14px + 0.75rem);
 		bottom: calc(100% + 6px);
-		left: 0;
 		transform: translateY(4px);
 		background: color-mix(in srgb, var(--text) 92%, transparent);
 		color: var(--bg);
@@ -136,17 +164,18 @@
 		border-radius: 6px;
 		pointer-events: none;
 		opacity: 0;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
 		white-space: normal;
 		max-width: 320px;
 		z-index: 20;
 	}
 
-	.title.overflowing:hover::after {
+	.blog-item.overflowing:hover::after {
 		opacity: 1;
 		transform: translateY(0);
 	}
-
 
 	.tistory-link {
 		position: relative;
@@ -154,7 +183,11 @@
 		align-items: center;
 		flex-shrink: 0;
 		color: var(--text-tertiary);
-		transition: color 0.2s, opacity 0.2s;
+		transition:
+			color 0.2s,
+			opacity 0.2s;
+		pointer-events: auto;
+		z-index: 2;
 	}
 
 	.tistory-link::after {
@@ -173,7 +206,9 @@
 		border-radius: 6px;
 		pointer-events: none;
 		opacity: 0;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
 		z-index: 10;
 	}
 
@@ -210,7 +245,9 @@
 		border-radius: 5px;
 		pointer-events: none;
 		opacity: 0;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
 		white-space: nowrap;
 		z-index: 10;
 	}
@@ -244,20 +281,9 @@
 		font-family: var(--font-mono);
 	}
 
-	.category {
-		font-family: var(--font-mono);
-	}
-
 	.word-count {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
 	}
-
-	.text-count-icon {
-		width: 10px;
-		height: 10px;
-		opacity: 0.7;
-	}
 </style>
-

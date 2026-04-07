@@ -9,7 +9,7 @@
 		transitionDelay: number;
 	}
 
-	let { folders, posts, transitionDelay } = $props<Props>();
+	let { folders, posts, transitionDelay }: Props = $props();
 
 	const TRANSITION_DURATION = 400;
 	const TRANSITION_X = 100;
