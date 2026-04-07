@@ -205,7 +205,7 @@
 		<!-- Playlist dropdown -->
 		{#if isPlaylistOpen}
 			<div class="playlist" transition:fly={{ y: 8, duration: 180, opacity: 0 }}>
-				{#each music.tracks as track, i}
+				{#each music.tracks as track, i (track.id)}
 					<button
 						class="playlist-item"
 						class:active={i === music.currentIndex}
@@ -231,9 +231,27 @@
 			<!-- Music note icon -->
 			<div class="note-icon" aria-hidden="true">
 				<svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-					<path d="M20 14V3L9 5V16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-					<path d="M17 19H18C19.1046 19 20 18.1046 20 17V14H17C15.8954 14 15 14.8954 15 16V17C15 18.1046 15.8954 19 17 19Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-					<path d="M6 21H7C8.10457 21 9 20.1046 9 19V16H6C4.89543 16 4 16.8954 4 18V19C4 20.1046 4.89543 21 6 21Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+					<path
+						d="M20 14V3L9 5V16"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+					<path
+						d="M17 19H18C19.1046 19 20 18.1046 20 17V14H17C15.8954 14 15 14.8954 15 16V17C15 18.1046 15.8954 19 17 19Z"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
+					<path
+						d="M6 21H7C8.10457 21 9 20.1046 9 19V16H6C4.89543 16 4 16.8954 4 18V19C4 20.1046 4.89543 21 6 21Z"
+						stroke="currentColor"
+						stroke-width="1.8"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					/>
 				</svg>
 			</div>
 
@@ -256,12 +274,12 @@
 				>
 					{#if music.isPlaying}
 						<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-							<rect x="5" y="3" width="5" height="18" rx="1.5"/>
-							<rect x="14" y="3" width="5" height="18" rx="1.5"/>
+							<rect x="5" y="3" width="5" height="18" rx="1.5" />
+							<rect x="14" y="3" width="5" height="18" rx="1.5" />
 						</svg>
 					{:else}
 						<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M6 4.5v15l13.5-7.5L6 4.5z"/>
+							<path d="M6 4.5v15l13.5-7.5L6 4.5z" />
 						</svg>
 					{/if}
 				</button>
@@ -273,24 +291,54 @@
 					onclick={cycleRepeat}
 					disabled={!hasTracks}
 					aria-label="반복 모드 변경"
-					title={music.repeatMode === 'once' ? '한 번만 재생' : music.repeatMode === 'repeat-one' ? '한 곡 반복' : '다음 곡 재생'}
+					title={music.repeatMode === 'once'
+						? '한 번만 재생'
+						: music.repeatMode === 'repeat-one'
+							? '한 곡 반복'
+							: '다음 곡 재생'}
 				>
 					{#if music.repeatMode === 'repeat-one'}
 						<!-- Repeat one: circular arrows + 1 -->
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M17 1l4 4-4 4"/>
-							<path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-							<path d="M7 23l-4-4 4-4"/>
-							<path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-							<text x="11" y="15.5" font-size="6.5" font-weight="bold" fill="currentColor" stroke="none" text-anchor="middle">1</text>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M17 1l4 4-4 4" />
+							<path d="M3 11V9a4 4 0 0 1 4-4h14" />
+							<path d="M7 23l-4-4 4-4" />
+							<path d="M21 13v2a4 4 0 0 1-4 4H3" />
+							<text
+								x="11"
+								y="15.5"
+								font-size="6.5"
+								font-weight="bold"
+								fill="currentColor"
+								stroke="none"
+								text-anchor="middle">1</text
+							>
 						</svg>
 					{:else}
 						<!-- Repeat all / once: same arrows -->
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M17 1l4 4-4 4"/>
-							<path d="M3 11V9a4 4 0 0 1 4-4h14"/>
-							<path d="M7 23l-4-4 4-4"/>
-							<path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M17 1l4 4-4 4" />
+							<path d="M3 11V9a4 4 0 0 1 4-4h14" />
+							<path d="M7 23l-4-4 4-4" />
+							<path d="M21 13v2a4 4 0 0 1-4 4H3" />
 						</svg>
 					{/if}
 				</button>
@@ -408,8 +456,12 @@
 	}
 
 	@keyframes drag-pulse {
-		from { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4); }
-		to   { box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55); }
+		from {
+			box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+		}
+		to {
+			box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55);
+		}
 	}
 
 	/* ── Note icon ───────────────────────────────── */
@@ -426,13 +478,7 @@
 		flex: 1;
 		overflow: hidden;
 		min-width: 0;
-		mask-image: linear-gradient(
-			to right,
-			transparent 0%,
-			black 8%,
-			black 92%,
-			transparent 100%
-		);
+		mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
 		-webkit-mask-image: linear-gradient(
 			to right,
 			transparent 0%,
@@ -456,8 +502,12 @@
 	}
 
 	@keyframes marquee {
-		0%   { transform: translateX(0); }
-		100% { transform: translateX(-50%); }
+		0% {
+			transform: translateX(0);
+		}
+		100% {
+			transform: translateX(-50%);
+		}
 	}
 
 	/* ── Controls ─────────────────────────────────── */
