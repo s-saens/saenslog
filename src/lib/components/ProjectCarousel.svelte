@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -20,6 +21,39 @@
 
 	let { projects, selectedIndex = $bindable(), onSelect, onClick }: Props = $props();
 
+	/** 로고 URL 순차 preload 완료된 프로젝트 인덱스 */
+	let loadedLogo = $state<Set<number>>(new Set());
+
+	$effect(() => {
+		if (!browser) return;
+		const list = projects;
+		loadedLogo = new Set();
+		let i = 0;
+		let cancelled = false;
+
+		const loadNext = () => {
+			if (cancelled || i >= list.length) return;
+			const el = new Image();
+			el.onload = () => {
+				if (cancelled) return;
+				loadedLogo = new Set(loadedLogo).add(i);
+				i += 1;
+				loadNext();
+			};
+			el.onerror = () => {
+				if (cancelled) return;
+				i += 1;
+				loadNext();
+			};
+			el.src = list[i].logoPath;
+		};
+
+		loadNext();
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	let carouselRef: HTMLDivElement;
 	let isDragging = $state(false);
 	let startX = $state(0);
@@ -36,21 +70,21 @@
 	// Carousel 좌표 기준으로 각 아이템의 scale 계산
 	function getScaleForIndex(index: number): number {
 		const scrollPos = currentScrollLeft;
-		
+
 		if (!carouselRef) return 1;
-		
+
 		const carousel = carouselRef;
 		const items = carousel.querySelectorAll('.carousel-item');
 		if (!items[index]) return 1;
-		
+
 		const item = items[index] as HTMLElement;
 		const carouselCenter = scrollPos + carousel.offsetWidth / 2;
 		const itemCenter = item.offsetLeft + item.offsetWidth / 2;
 		const distance = Math.abs(carouselCenter - itemCenter);
-		
+
 		const normalizedDistance = distance / (carousel.offsetWidth / 2);
 		const scale = Math.max(0.2, 1.2 - normalizedDistance * 0.5);
-		
+
 		return scale;
 	}
 
@@ -64,9 +98,9 @@
 				const itemLeft = item.offsetLeft;
 				const itemWidth = item.offsetWidth;
 				const carouselWidth = carousel.offsetWidth;
-				const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
+				const scrollPosition = itemLeft - carouselWidth / 2 + itemWidth / 2;
 				carousel.scrollTo({ left: scrollPosition, behavior: 'smooth' });
-				
+
 				const updateScroll = () => {
 					currentScrollLeft = carousel.scrollLeft;
 					if (Math.abs(carousel.scrollLeft - scrollPosition) > 1) {
@@ -81,7 +115,7 @@
 	// 가장 가까운 아이템으로 스냅
 	function snapToNearestItem() {
 		if (!carouselRef) return;
-		
+
 		const carousel = carouselRef;
 		const items = carousel.querySelectorAll('.carousel-item');
 		const carouselCenter = carousel.scrollLeft + carousel.offsetWidth / 2;
@@ -106,14 +140,14 @@
 			const itemLeft = item.offsetLeft;
 			const itemWidth = item.offsetWidth;
 			const carouselWidth = carousel.offsetWidth;
-			const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
-			
+			const scrollPosition = itemLeft - carouselWidth / 2 + itemWidth / 2;
+
 			// 스크롤 범위 제한 (첫/마지막 아이템)
 			const maxScroll = carousel.scrollWidth - carousel.offsetWidth;
 			const clampedPosition = Math.max(0, Math.min(scrollPosition, maxScroll));
-			
+
 			carousel.scrollTo({ left: clampedPosition, behavior: 'smooth' });
-			
+
 			if (selectedIndex !== closestIndex) {
 				selectedIndex = closestIndex;
 				onSelect(closestIndex);
@@ -124,28 +158,28 @@
 	// 관성 스크롤 애니메이션
 	function applyMomentum() {
 		if (!carouselRef) return;
-		
+
 		if (Math.abs(velocity) < 0.5) {
 			velocity = 0;
 			// 관성이 끝나면 가장 가까운 아이템으로 스냅
 			snapToNearestItem();
 			return;
 		}
-		
+
 		const newScrollLeft = carouselRef.scrollLeft + velocity;
 		const maxScroll = carouselRef.scrollWidth - carouselRef.offsetWidth;
-		
+
 		// 경계 체크
 		if (newScrollLeft < 0 || newScrollLeft > maxScroll) {
 			velocity = 0;
 			snapToNearestItem();
 			return;
 		}
-		
+
 		carouselRef.scrollLeft = newScrollLeft;
 		currentScrollLeft = carouselRef.scrollLeft;
 		velocity *= 0.93; // 감쇠
-		
+
 		updateSelectedIndexFromScroll();
 		animationFrame = requestAnimationFrame(applyMomentum);
 	}
@@ -156,7 +190,7 @@
 		hasDragged = false;
 		velocity = 0;
 		if (animationFrame) cancelAnimationFrame(animationFrame);
-		
+
 		startX = e.pageX - carouselRef.offsetLeft;
 		scrollLeft = carouselRef.scrollLeft;
 		lastX = e.pageX;
@@ -167,15 +201,15 @@
 	function handleMouseMove(e: MouseEvent) {
 		if (!isDragging || !carouselRef) return;
 		e.preventDefault();
-		
+
 		const x = e.pageX - carouselRef.offsetLeft;
 		const walk = (x - startX) * 1.5;
 		const distance = Math.abs(walk);
-		
+
 		if (distance > 5) {
 			hasDragged = true;
 		}
-		
+
 		// 속도 계산 (방향 반대로)
 		const currentTime = Date.now();
 		const timeDelta = currentTime - lastTime;
@@ -183,10 +217,10 @@
 			const xDelta = e.pageX - lastX;
 			velocity = -(xDelta / timeDelta) * 16; // 60fps 기준, 방향 반대
 		}
-		
+
 		lastX = e.pageX;
 		lastTime = currentTime;
-		
+
 		carouselRef.scrollLeft = scrollLeft - walk;
 		currentScrollLeft = carouselRef.scrollLeft;
 		updateSelectedIndexFromScroll();
@@ -198,14 +232,14 @@
 		carouselRef.style.cursor = 'grab';
 		currentScrollLeft = carouselRef.scrollLeft;
 		updateSelectedIndexFromScroll();
-		
+
 		// 관성 스크롤 시작 (임계값 이상) 또는 가장 가까운 아이템으로 스냅
 		if (Math.abs(velocity) > 1) {
 			applyMomentum();
 		} else {
 			snapToNearestItem();
 		}
-		
+
 		setTimeout(() => {
 			hasDragged = false;
 		}, 100);
@@ -217,7 +251,7 @@
 		hasDragged = false;
 		velocity = 0;
 		if (animationFrame) cancelAnimationFrame(animationFrame);
-		
+
 		const touch = e.touches[0];
 		startX = touch.pageX - carouselRef.offsetLeft;
 		startY = touch.pageY;
@@ -228,27 +262,27 @@
 
 	function handleTouchMove(e: TouchEvent) {
 		if (!isDragging || !carouselRef) return;
-		
+
 		const touch = e.touches[0];
 		const x = touch.pageX - carouselRef.offsetLeft;
 		const y = touch.pageY;
-		
+
 		// 수평 스크롤인지 확인
 		const xDiff = Math.abs(x - startX);
 		const yDiff = Math.abs(y - startY);
-		
+
 		// 수평 이동이 더 크면 수직 스크롤 방지
 		if (xDiff > yDiff && xDiff > 10) {
 			e.preventDefault();
 		}
-		
+
 		const walk = (x - startX) * 1.2; // 터치는 더 민감하게
 		const distance = Math.abs(walk);
-		
+
 		if (distance > 5) {
 			hasDragged = true;
 		}
-		
+
 		// 속도 계산 (방향 반대로)
 		const currentTime = Date.now();
 		const timeDelta = currentTime - lastTime;
@@ -256,10 +290,10 @@
 			const xDelta = touch.pageX - lastX;
 			velocity = -(xDelta / timeDelta) * 16; // 방향 반대
 		}
-		
+
 		lastX = touch.pageX;
 		lastTime = currentTime;
-		
+
 		carouselRef.scrollLeft = scrollLeft - walk;
 		currentScrollLeft = carouselRef.scrollLeft;
 		updateSelectedIndexFromScroll();
@@ -271,14 +305,14 @@
 		}
 		isDragging = false;
 		updateSelectedIndexFromScroll();
-		
+
 		// 관성 스크롤 시작 (임계값 이상) 또는 가장 가까운 아이템으로 스냅
 		if (Math.abs(velocity) > 1) {
 			applyMomentum();
 		} else {
 			snapToNearestItem();
 		}
-		
+
 		setTimeout(() => {
 			hasDragged = false;
 		}, 100);
@@ -291,7 +325,7 @@
 			carouselRef.scrollLeft += e.deltaX || e.deltaY;
 			currentScrollLeft = carouselRef.scrollLeft;
 			updateSelectedIndexFromScroll();
-			
+
 			// 휠 스크롤이 멈춘 후 스냅
 			if (wheelTimeout) clearTimeout(wheelTimeout);
 			wheelTimeout = setTimeout(() => {
@@ -345,7 +379,7 @@
 							const itemLeft = item.offsetLeft;
 							const itemWidth = item.offsetWidth;
 							const carouselWidth = carousel.offsetWidth;
-							const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
+							const scrollPosition = itemLeft - carouselWidth / 2 + itemWidth / 2;
 							carousel.scrollLeft = scrollPosition;
 							currentScrollLeft = scrollPosition;
 						}
@@ -384,7 +418,7 @@
 	tabindex="0"
 >
 	<div class="carousel-track">
-		{#each projects as project, index}
+		{#each projects as project, index (project.id)}
 			{@const scale = getScaleForIndex(index)}
 			<button
 				class="carousel-item"
@@ -395,24 +429,34 @@
 				transition:fly|global={{ duration: 500, y: 100, delay: 200 + index * 100 }}
 			>
 				<div class="project-logo">
-					<img 
-						src={project.logoPath} 
-						alt={`${project.title} 로고`}
-						draggable="false"
-						oncontextmenu={(e) => e.preventDefault()}
-					>
+					{#if loadedLogo.has(index)}
+						<img
+							src={project.logoPath}
+							alt={`${project.title} 로고`}
+							decoding="async"
+							draggable="false"
+							oncontextmenu={(e) => e.preventDefault()}
+						/>
+					{:else}
+						<div class="logo-placeholder" aria-hidden="true"></div>
+					{/if}
 					<div class="show-more">
 						<p>See More</p>
 					</div>
 				</div>
 				<div class="project-logo-reflection">
-					<img 
-						src={project.logoPath}
-						alt="" 
-						aria-hidden="true"
-						draggable="false"
-						oncontextmenu={(e) => e.preventDefault()}
-					/>
+					{#if loadedLogo.has(index)}
+						<img
+							src={project.logoPath}
+							alt=""
+							aria-hidden="true"
+							decoding="async"
+							draggable="false"
+							oncontextmenu={(e) => e.preventDefault()}
+						/>
+					{:else}
+						<div class="logo-placeholder logo-placeholder--reflection" aria-hidden="true"></div>
+					{/if}
 				</div>
 			</button>
 		{/each}
@@ -490,6 +534,28 @@
 		transition: transform 0.2s ease-out;
 	}
 
+	.logo-placeholder {
+		width: 100%;
+		height: 100%;
+		min-height: 28vh;
+		border-radius: 32px;
+		background: color-mix(in srgb, var(--bg-lighter) 88%, var(--text));
+		animation: logo-pulse 1.1s ease-in-out infinite;
+	}
+
+	.logo-placeholder--reflection {
+		transform: scaleY(-1);
+		opacity: 0.35;
+		mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 100%);
+		-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.3) 0%, transparent 100%);
+	}
+
+	@keyframes logo-pulse {
+		50% {
+			opacity: 0.75;
+		}
+	}
+
 	.project-logo img {
 		width: 100%;
 		height: 100%;
@@ -532,7 +598,7 @@
 		transition: opacity 0.2s ease-in-out;
 	}
 
-	.carousel-item.selected:hover .show-more{
+	.carousel-item.selected:hover .show-more {
 		opacity: 1;
 		transition: opacity 0.2s ease-in-out;
 	}
@@ -565,4 +631,3 @@
 		}
 	}
 </style>
-

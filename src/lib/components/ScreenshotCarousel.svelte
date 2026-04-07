@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -7,6 +8,39 @@
 	}
 
 	let { screenshots, selectedIndex = $bindable(0) }: Props = $props();
+
+	/** 순차 preload 완료된 인덱스 (0 → 1 → … 로 확장) */
+	let loadedScreenshot = $state<Set<number>>(new Set());
+
+	$effect(() => {
+		if (!browser) return;
+		const paths = screenshots;
+		loadedScreenshot = new Set();
+		let i = 0;
+		let cancelled = false;
+
+		const loadNext = () => {
+			if (cancelled || i >= paths.length) return;
+			const el = new Image();
+			el.onload = () => {
+				if (cancelled) return;
+				loadedScreenshot = new Set(loadedScreenshot).add(i);
+				i += 1;
+				loadNext();
+			};
+			el.onerror = () => {
+				if (cancelled) return;
+				i += 1;
+				loadNext();
+			};
+			el.src = paths[i];
+		};
+
+		loadNext();
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	let carouselRef: HTMLDivElement;
 	let isDragging = $state(false);
@@ -339,12 +373,17 @@
 				class:selected={index === selectedIndex}
 			>
 				<div class="screenshot-image">
-					<img 
-						src={screenshot} 
-						alt={`스크린샷 ${index + 1}`}
-						draggable="false"
-						oncontextmenu={(e) => e.preventDefault()}
-					/>
+					{#if loadedScreenshot.has(index)}
+						<img
+							src={screenshot}
+							alt={`스크린샷 ${index + 1}`}
+							decoding="async"
+							draggable="false"
+							oncontextmenu={(e) => e.preventDefault()}
+						/>
+					{:else}
+						<div class="screenshot-placeholder" aria-hidden="true"></div>
+					{/if}
 				</div>
 			</div>
 		{/each}
@@ -413,6 +452,21 @@
 		pointer-events: none;
 	}
 
+	.screenshot-placeholder {
+		width: min(60vw, 720px);
+		height: min(60vh, 480px);
+		border-radius: 12px;
+		border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+		background: color-mix(in srgb, var(--bg-lighter) 88%, var(--text));
+		animation: screenshot-pulse 1.1s ease-in-out infinite;
+	}
+
+	@keyframes screenshot-pulse {
+		50% {
+			opacity: 0.72;
+		}
+	}
+
 	@media (max-width: 768px) {
 		.carousel-track {
 			gap: 1.5rem;
@@ -421,6 +475,11 @@
 		.screenshot-image {
 			max-width: 80vw;
 			max-height: 50vh;
+		}
+
+		.screenshot-placeholder {
+			width: min(80vw, 640px);
+			height: min(50vh, 400px);
 		}
 	}
 
@@ -432,6 +491,11 @@
 		.screenshot-image {
 			max-width: 90vw;
 			max-height: 40vh;
+		}
+
+		.screenshot-placeholder {
+			width: min(90vw, 560px);
+			height: min(40vh, 320px);
 		}
 	}
 </style>
