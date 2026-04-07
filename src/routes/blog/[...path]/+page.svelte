@@ -331,13 +331,84 @@
 		overflow-wrap: break-word;
 	}
 
-	/* 코드블럭 */
+	/* 코드블럭 (hydration 후 .code-block-shell로 감쌈) */
 	.post .content :global(pre) {
-		margin: 1.5rem 0;
 		border-radius: 10px;
 		overflow: hidden;
 		border: 1px solid var(--border);
 		background: var(--code-bg) !important;
+	}
+
+	.post .content > :global(pre) {
+		margin: 1.5rem 0;
+	}
+
+	.post .content :global(.code-block-shell) {
+		position: relative;
+		margin: 1.5rem 0;
+	}
+
+	.post .content :global(.code-block-shell pre) {
+		margin: 0;
+	}
+
+	.post .content :global(.code-pre-wrap) {
+		position: relative;
+	}
+
+	/* 복사: 코드 영역 오른쪽 세로 중앙 (pre 내부 스크롤과 무관) */
+	.post .content :global(.code-copy-track) {
+		position: absolute;
+		top: 50%;
+		right: -0.05rem;
+		transform: translateY(-50%);
+		z-index: 50;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		pointer-events: none;
+	}
+
+	.post .content :global(.code-pre-wrap pre code),
+	.post .content :global(.code-block-shell > pre code) {
+		padding-right: 2.75rem;
+	}
+
+	.post .content :global(.code-copy-btn) {
+		pointer-events: auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+		border-radius: 9px 0 0 9px;
+		background: color-mix(in srgb, var(--bg) 22%, transparent);
+		backdrop-filter: blur(1px) saturate(150%);
+		color: var(--text-tertiary);
+		cursor: pointer;
+		transition:
+			color 0.18s ease,
+			background-color 0.18s ease,
+			border-color 0.18s ease,
+	}
+
+	.post .content :global(.code-copy-btn:hover) {
+		color: var(--text);
+		background: color-mix(in srgb, var(--bg) 58%, transparent);
+		border-color: color-mix(in srgb, var(--border) 75%, var(--text));
+	}
+
+	.post .content :global(.code-copy-btn:active) {
+		transform: translateY(0);
+	}
+
+	.post .content :global(.code-copy-btn.copied) {
+		color: var(--text-secondary);
+	}
+
+	.post .content :global(.code-copy-btn svg) {
+		display: block;
 	}
 
 	.post .content :global(pre code) {
@@ -359,6 +430,10 @@
 		border: 1px solid var(--border);
 		background: var(--code-bg);
 		/* overflow: hidden 제거 — sticky button 작동을 위해 */
+	}
+
+	.post .content :global(.code-block-shell .code-collapse-wrapper) {
+		margin: 0;
 	}
 
 	.post .content :global(.code-collapse-wrapper pre) {
@@ -536,7 +611,7 @@
 	.post .content :global(ul),
 	.post .content :global(ol) {
 		padding-left: 1.5rem;
-		margin: 1rem 0;
+		margin: 0.2rem 0;
 	}
 
 	.post .content :global(li) {
@@ -547,6 +622,11 @@
 		overflow-wrap: break-word;
 		hyphens: auto;
 		-webkit-hyphens: auto;
+		margin: 0.2rem, 0;
+	}
+
+	.post .content :global(li > p) {
+		margin: 0.2rem 0;
 	}
 
 	.post .content :global(a) {
