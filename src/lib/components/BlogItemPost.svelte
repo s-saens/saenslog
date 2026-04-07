@@ -11,8 +11,7 @@
 	}
 
 	let { title, path, category, date, wordCount, tistory }: Props = $props();
-	
-	// 날짜 형식: YYYY-MM-DD hh:mm:ss GMT+9
+
 	const formatDate = (dateStr: string) => {
 		if (!dateStr) return '';
 		const d = new Date(dateStr);
@@ -21,16 +20,31 @@
 		const day = String(d.getDate()).padStart(2, '0');
 		const hours = String(d.getHours()).padStart(2, '0');
 		const minutes = String(d.getMinutes()).padStart(2, '0');
-		return `${year}-${month}-${day} ${hours}:${minutes} (GMT+9)`;
+		return `${year}-${month}-${day} ${hours}:${minutes}`;
 	};
+
+	let titleEl: HTMLSpanElement | null = null;
+	let isOverflowing = $state(false);
+
+	$effect(() => {
+		if (titleEl) {
+			const update = () => {
+				isOverflowing = titleEl!.scrollWidth > titleEl!.clientWidth;
+			};
+			update();
+			const observer = new ResizeObserver(update);
+			observer.observe(titleEl);
+			return () => observer.disconnect();
+		}
+	});
 </script>
 
 <a href="/blog/{path}" class="blog-item post">
 	<div class="icon">
 		<PostIcon />
 	</div>
-	<div class="title">
-		<span class="title-text">{title}</span>
+	<div class="title" class:overflowing={isOverflowing} data-title={title}>
+		<span class="title-text" bind:this={titleEl}>{title}</span>
 		{#if tistory}
 			<a href={tistory} target="_blank" rel="noopener noreferrer" class="tistory-link" aria-label="티스토리에서 보기">
 				<TistoryIcon width={18} height={18} />
@@ -91,12 +105,12 @@
 	}
 
 	.title {
+		position: relative;
 		grid-row: 1;
 		font-weight: 400;
 		display: flex;
 		align-items: center;
 		gap: 0.35rem;
-		overflow: hidden;
 		min-width: 0;
 	}
 
@@ -106,6 +120,33 @@
 		text-overflow: ellipsis;
 		min-width: 0;
 	}
+
+	.title.overflowing::after {
+		content: attr(data-title);
+		position: absolute;
+		bottom: calc(100% + 6px);
+		left: 0;
+		transform: translateY(4px);
+		background: color-mix(in srgb, var(--text) 92%, transparent);
+		color: var(--bg);
+		font-size: 0.75rem;
+		font-weight: 400;
+		line-height: 1.5;
+		padding: 0.4rem 0.7rem;
+		border-radius: 6px;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.15s ease, transform 0.15s ease;
+		white-space: normal;
+		max-width: 320px;
+		z-index: 20;
+	}
+
+	.title.overflowing:hover::after {
+		opacity: 1;
+		transform: translateY(0);
+	}
+
 
 	.tistory-link {
 		position: relative;
@@ -147,10 +188,36 @@
 	}
 
 	.date {
+		position: relative;
 		grid-row: 2;
 		grid-column: 2;
 		color: var(--text-tertiary);
 		font-size: 0.7rem;
+		cursor: default;
+	}
+
+	.date::after {
+		content: 'GMT+9';
+		position: absolute;
+		top: calc(100% + 4px);
+		left: 0;
+		transform: translateY(-4px);
+		background: color-mix(in srgb, var(--text) 92%, transparent);
+		color: var(--bg);
+		font-size: 0.7rem;
+		font-weight: 500;
+		padding: 0.2rem 0.5rem;
+		border-radius: 5px;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.15s ease, transform 0.15s ease;
+		white-space: nowrap;
+		z-index: 10;
+	}
+
+	.date:hover::after {
+		opacity: 1;
+		transform: translateY(0);
 	}
 
 	.info-row1 {
