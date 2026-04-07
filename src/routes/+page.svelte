@@ -1,42 +1,86 @@
 <script lang="ts">
-	import { GithubIcon, LogoIcon, SoundcloudIcon, TistoryIcon } from '$lib/components/icons';
-	import { fly } from 'svelte/transition';
+	import { CopyIcon, GithubIcon, LogoIcon, MailIcon, SoundcloudIcon, TistoryIcon } from '$lib/components/icons';
+	import { onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
+
+	const EMAIL = 'saens@saens.kr';
+	let hovered = $state<string | null>(null);
+	let copied = $state(false);
+	let mounted = $state(false);
+
+	onMount(() => {
+		mounted = true;
+	});
+
+	async function copyEmail(e: MouseEvent) {
+		e.preventDefault();
+		await navigator.clipboard.writeText(EMAIL);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
 </script>
 
 <main>
+	{#if mounted}
 	<div class="hero" transition:fly={{ duration: 500, x: -100 }}>
 		<div class="logo enter-1">
 			<LogoIcon width={88} height={88} />
 		</div>
 
-		<div class="info">
-			<h1 class="enter-2">SANGHUN SONG, 1999</h1>
-			<p class="role enter-3">PRODUCT &nbsp;DEVELOPER</p>
-			<p class="skills enter-4">GAME, APP, WEB, AI</p>
-		</div>
-
-		<div class="contact enter-6">
-			<a href="mailto:saens@saens.kr" class="email">
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-					<polyline points="22,6 12,13 2,6"/>
-				</svg>
-				saens@saens.kr
-			</a>
-		</div>
-
 		<div class="social enter-7">
-			<a href="https://github.com/s-saens" target="_blank" rel="noopener noreferrer" title="GitHub">
-				<GithubIcon />
-			</a>
-			<a href="https://saens/tistory.com" target="_blank" rel="noopener noreferrer" title="Tistory">
-				<TistoryIcon />
-			</a>
-			<a href="https://soundcloud.com/s-saens" target="_blank" rel="noopener noreferrer" title="SoundCloud">
-				<SoundcloudIcon />
-			</a>
+			<div class="icon-wrapper" role="none" onmouseenter={() => (hovered = 'github')} onmouseleave={() => (hovered = null)} transition:fly={{ duration: 150, y: 20, delay: 500 }}>
+				<a href="https://github.com/s-saens" target="_blank" rel="noopener noreferrer" class="social-icon">
+					<GithubIcon />
+				</a>
+				{#if hovered === 'github'}
+					<div class="tooltip" transition:fade={{ duration: 150 }}>GitHub</div>
+				{/if}
+			</div>
+
+			<div class="icon-wrapper" role="none" onmouseenter={() => (hovered = 'tistory')} onmouseleave={() => (hovered = null)} transition:fly={{ duration: 150, y: 20, delay: 600 }}>
+				<a href="https://saens.tistory.com" target="_blank" rel="noopener noreferrer" class="social-icon">
+					<TistoryIcon />
+				</a>
+				{#if hovered === 'tistory'}
+					<div class="tooltip" transition:fade={{ duration: 150 }}>Tistory</div>
+				{/if}
+			</div>
+
+			<div class="icon-wrapper" role="none" onmouseenter={() => (hovered = 'soundcloud')} onmouseleave={() => (hovered = null)} transition:fly={{ duration: 150, y: 20, delay: 700 }}>
+				<a href="https://soundcloud.com/s-saens" target="_blank" rel="noopener noreferrer" class="social-icon">
+					<SoundcloudIcon />
+				</a>
+				{#if hovered === 'soundcloud'}
+					<div class="tooltip" transition:fade={{ duration: 150 }}>SoundCloud</div>
+				{/if}
+			</div>
+
+			<div
+				class="icon-wrapper icon-wrapper--email"
+				role="none"
+				onmouseenter={() => (hovered = 'email')}
+				onmouseleave={() => (hovered = null)}
+				transition:fly={{ duration: 150, y: 20, delay: 800 }}
+			>
+				<a href="mailto:{EMAIL}" class="social-icon">
+					<MailIcon />
+				</a>
+				{#if hovered === 'email'}
+					<div class="tooltip" transition:fade={{ duration: 150 }}>
+						<span>{EMAIL}</span>
+						<button class="copy-btn" onclick={copyEmail} title="이메일 복사">
+							{#if copied}
+								<span class="copied-text">복사됨</span>
+							{:else}
+								<CopyIcon width={14} height={14} />
+							{/if}
+						</button>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
+	{/if}
 </main>
 
 <style>
@@ -69,36 +113,6 @@
 
 	.enter-1 {
 		animation: enter-logo 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-	}
-
-	.enter-2 {
-		opacity: 0;
-		animation: enter-fade-up 0.6s ease-out 0.4s forwards;
-	}
-
-	.enter-3 {
-		opacity: 0;
-		animation: enter-fade-up 0.6s ease-out 0.55s forwards;
-	}
-
-	.enter-4 {
-		opacity: 0;
-		animation: enter-fade-up 0.6s ease-out 0.7s forwards;
-	}
-
-	.enter-5 {
-		opacity: 0;
-		animation: enter-fade-up 0.6s ease-out 0.85s forwards;
-	}
-
-	.enter-6 {
-		opacity: 0;
-		animation: enter-fade-up 0.6s ease-out 1s forwards;
-	}
-
-	.enter-7 {
-		opacity: 0;
-		animation: enter-fade-up 0.6s ease-out 1.15s forwards;
 	}
 
 	main {
@@ -163,77 +177,33 @@
 		}
 	}
 
-	.info {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-		text-align: justify;
-	}
-
-	.info h1 {
-		font-size: 0.95rem;
-		font-weight: 400;
-		letter-spacing: 0.1em;
-		margin: 0;
-		color: var(--text);
-	}
-
-	.info p {
-		font-size: 0.95rem;
-		font-weight: 400;
-		letter-spacing: 0.1em;
-		margin: 0;
-		color: var(--text-secondary);
-	}
-
-	.role {
-		margin-top: 1rem;
-	}
-
-	.skills {
-		color: var(--text-secondary);
-	}
-
-	.status {
-		margin-top: 1rem;
-		color: var(--text-tertiary);
-		font-size: 0.85rem;
-	}
-
-	.contact {
-		margin-top: 2rem;
-        width: 100%;
-		font-size: 0.9rem;
-        text-align: center;
-	}
-
-	.email {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		color: var(--text);
-		text-decoration: none;
-		letter-spacing: 0.05em;
-		transition: all 0.3s ease;
-		padding: 0.5rem 1rem;
-		border: 1px solid var(--border);
-		border-radius: 4px;
-		user-select: text;
-		-webkit-user-select: text;
-	}
-
-	.email:hover {
-		color: var(--text);
-		border-color: var(--text-tertiary);
-	}
-
 	.social {
 		display: flex;
 		gap: 1.5rem;
 		margin-top: 2rem;
 	}
 
-	.social a {
+	.icon-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* 아이콘·툴팁 사이 hover 브리지 (패딩 확장은 툴팁 위치를 깨뜨림) */
+	.icon-wrapper--email::before {
+		content: '';
+		position: absolute;
+		bottom: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(260px, 85vw);
+		height: 3.25rem;
+		pointer-events: auto;
+		z-index: 1;
+	}
+
+	.social-icon {
 		transition: all 0.3s ease;
 		display: flex;
 		align-items: center;
@@ -241,14 +211,65 @@
 		opacity: 0.5;
 	}
 
-	.social a:hover {
+	.social-icon:hover {
 		opacity: 1;
 		transform: translateY(-2px);
 	}
 
-	.social a :global(svg) {
+	.social-icon :global(svg) {
 		width: 24px;
 		height: 24px;
+	}
+
+	.tooltip {
+		position: absolute;
+		bottom: calc(100% + 10px);
+		left: 50%;
+		transform: translateX(-50%);
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 6px 10px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		white-space: nowrap;
+		font-size: 0.78rem;
+		color: var(--text);
+		pointer-events: auto;
+		z-index: 10;
+	}
+
+	.tooltip::after {
+		content: '';
+		position: absolute;
+		top: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		border: 5px solid transparent;
+		border-top-color: var(--border);
+	}
+
+	.copy-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		color: var(--text);
+		opacity: 0.6;
+		transition: opacity 0.2s ease;
+		min-width: 14px;
+	}
+
+	.copy-btn:hover {
+		opacity: 1;
+	}
+
+	.copied-text {
+		font-size: 0.72rem;
+		color: var(--text-tertiary, #888);
 	}
 
 	@media (max-width: 768px) {
@@ -257,31 +278,13 @@
 			height: 80px;
 		}
 
-		.info h1 {
-			font-size: 0.8rem;
-		}
-
-		.info p {
-			font-size: 0.8rem;
-		}
-
-		.email {
-			font-size: 0.85rem;
-		}
-
 		.social {
 			gap: 1rem;
 		}
 
-		.social a :global(svg) {
+		.social-icon :global(svg) {
 			width: 20px;
 			height: 20px;
-		}
-
-		.contact {
-			margin-top: 2rem;
-			width: 88%;
-			text-align: center;
 		}
 	}
 </style>
