@@ -51,9 +51,9 @@
 
 	// Sync audio playback with store state
 	$effect(() => {
-		if (!audioEl) return;
+		if (!audioEl || music.tracks.length === 0) return;
 		const track = music.tracks[music.currentIndex];
-		if (track.src && audioEl.src !== track.src) {
+		if (track.src && audioEl.src !== new URL(track.src, location.href).href) {
 			audioEl.src = track.src;
 			audioEl.load();
 		}
@@ -65,6 +65,14 @@
 			audioEl.pause();
 		}
 	});
+
+	function onAudioMetadata() {
+		if (!audioEl || music.tracks.length === 0) return;
+		const secs = Math.floor(audioEl.duration);
+		const m = Math.floor(secs / 60);
+		const s = String(secs % 60).padStart(2, '0');
+		music.tracks[music.currentIndex].duration = `${m}:${s}`;
+	}
 
 	function onAudioEnded() {
 		if (music.repeatMode === 'repeat-one') {
@@ -169,15 +177,18 @@
 		isPlaylistOpen = false;
 	}
 
+	const hasTracks = $derived(music.tracks.length > 0);
 	const currentTrack = $derived(music.tracks[music.currentIndex]);
 	const marqueeText = $derived(
-		`${currentTrack.title}\u2002—\u2002${currentTrack.artist}\u2002\u2002\u2002\u2002`
+		currentTrack
+			? `${currentTrack.title}${currentTrack.subtitle ? ` · ${currentTrack.subtitle}` : ''}\u2002—\u2002${currentTrack.artist}\u2002\u2002\u2002\u2002`
+			: 'No tracks\u2002\u2002\u2002\u2002'
 	);
 </script>
 
 <!-- Hidden audio element -->
 <!-- svelte-ignore a11y_media_has_caption -->
-<audio bind:this={audioEl} onended={onAudioEnded}></audio>
+<audio bind:this={audioEl} onended={onAudioEnded} onloadedmetadata={onAudioMetadata}></audio>
 
 {#if mounted}
 	<div
@@ -240,6 +251,7 @@
 				<button
 					class="ctrl-btn"
 					onclick={togglePlay}
+					disabled={!hasTracks}
 					aria-label={music.isPlaying ? '일시정지' : '재생'}
 				>
 					{#if music.isPlaying}
@@ -259,6 +271,7 @@
 					class="ctrl-btn repeat-btn"
 					class:dim={music.repeatMode === 'once'}
 					onclick={cycleRepeat}
+					disabled={!hasTracks}
 					aria-label="반복 모드 변경"
 					title={music.repeatMode === 'once' ? '한 번만 재생' : music.repeatMode === 'repeat-one' ? '한 곡 반복' : '다음 곡 재생'}
 				>
@@ -478,10 +491,11 @@
 	}
 
 	.ctrl-btn.dim {
-		opacity: 0.35;
+		color: color-mix(in srgb, var(--text-secondary) 28%, transparent);
 	}
 
 	.ctrl-btn.dim:hover {
-		opacity: 0.7;
+		color: color-mix(in srgb, var(--text-secondary) 52%, transparent);
+		background: color-mix(in srgb, var(--text) 5%, transparent);
 	}
 </style>

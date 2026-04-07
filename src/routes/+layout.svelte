@@ -6,12 +6,21 @@
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
 	import { BlogIcon, LogoIcon, MoonIcon, ProjectIcon, SunIcon } from '$lib/components/icons';
+	import { music } from '$lib/stores/music.svelte';
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 
-	let { children } = $props();
+	let { children, data } = $props();
+
+	$effect.pre(() => {
+		if (data.tracks.length > 0) {
+			music.tracks = data.tracks;
+		}
+	});
 
 	let isMounted = $state(false);
 	let isAnimationDone = $state(false);
+	let navHovered = $state<string | null>(null);
 
 	let isDark = $state(true);
 
@@ -82,14 +91,12 @@
 
 		const currentPath = $page.url.pathname;
 
-		// blog 경로 저장 - localStorage만 업데이트
 		if (currentPath.startsWith('/blog')) {
-			localStorage.setItem('lastBlogPath', currentPath);
+			sessionStorage.setItem('lastBlogPath', currentPath);
 		}
 
-		// projects 경로 저장 (목록 페이지는 제외)
 		if (currentPath.startsWith('/projects')) {
-			localStorage.setItem('lastProjectPath', currentPath);
+			sessionStorage.setItem('lastProjectPath', currentPath);
 		}
 	});
 
@@ -121,9 +128,8 @@
 		}
 		applyTheme(isDark);
 
-		// 저장된 경로 불러오기
-		const savedBlogPath = localStorage.getItem('lastBlogPath');
-		const savedProjectPath = localStorage.getItem('lastProjectPath');
+		const savedBlogPath = sessionStorage.getItem('lastBlogPath');
+		const savedProjectPath = sessionStorage.getItem('lastProjectPath');
 		
 		if (savedBlogPath) {
 			lastBlogPath = savedBlogPath;
@@ -168,38 +174,61 @@
 	
 	<header class="site-header">
 		<nav class="nav-container">
-			<a href="/" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/')} title="Home">
-				<LogoIcon width={24} height={24} />
-			</a>
-			<a 
-				href={lastBlogPath} 
-				class="nav-icon" 
-				class:entering={isMounted} 
-				class:default={isAnimationDone} 
-				class:active={isActive('/blog')} 
-				title="Blog"
-				onclick={(e) => handleNavigation(e, '/blog', lastBlogPath)}
-			>
-				<BlogIcon />
-			</a>
-			<a 
-				href={lastProjectPath} 
-				class="nav-icon" 
-				class:entering={isMounted} 
-				class:default={isAnimationDone} 
-				class:active={isActive('/projects')} 
-				title="Projects"
-				onclick={(e) => handleNavigation(e, '/projects', lastProjectPath)}
-			>
-				<ProjectIcon />
-			</a>
-			<button class="theme-toggle nav-icon" class:entering={isMounted} onclick={toggleTheme} title={isDark ? 'Light mode' : 'Dark mode'}>
-				{#if isDark}
-					<SunIcon />
-				{:else}
-					<MoonIcon />
+			<div class="nav-tooltip-wrapper" role="none" onmouseenter={() => (navHovered = 'home')} onmouseleave={() => (navHovered = null)}>
+				<a href="/" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/')}>
+					<LogoIcon width={24} height={24} />
+				</a>
+				{#if navHovered === 'home'}
+					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Home</div>
 				{/if}
-			</button>
+			</div>
+
+			<div class="nav-tooltip-wrapper" role="none" onmouseenter={() => (navHovered = 'blog')} onmouseleave={() => (navHovered = null)}>
+				<a
+					href={lastBlogPath}
+					class="nav-icon"
+					class:entering={isMounted}
+					class:default={isAnimationDone}
+					class:active={isActive('/blog')}
+					onclick={(e) => handleNavigation(e, '/blog', lastBlogPath)}
+				>
+					<BlogIcon />
+				</a>
+				{#if navHovered === 'blog'}
+					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Blog</div>
+				{/if}
+			</div>
+
+			<div class="nav-tooltip-wrapper" role="none" onmouseenter={() => (navHovered = 'projects')} onmouseleave={() => (navHovered = null)}>
+				<a
+					href={lastProjectPath}
+					class="nav-icon"
+					class:entering={isMounted}
+					class:default={isAnimationDone}
+					class:active={isActive('/projects')}
+					onclick={(e) => handleNavigation(e, '/projects', lastProjectPath)}
+				>
+					<ProjectIcon />
+				</a>
+				{#if navHovered === 'projects'}
+					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Projects</div>
+				{/if}
+			</div>
+
+			<div class="nav-tooltip-wrapper" role="none" onmouseenter={() => (navHovered = 'theme')} onmouseleave={() => (navHovered = null)}>
+				<button class="theme-toggle nav-icon" class:entering={isMounted} onclick={toggleTheme}>
+					{#if isDark}
+						<SunIcon />
+					{:else}
+						<MoonIcon />
+					{/if}
+				</button>
+				{#if navHovered === 'theme'}
+					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>
+						{isDark ? 'Turn to light mode' : 'Turn to dark mode'}
+					</div>
+				{/if}
+			</div>
 		</nav>
 	</header>
 
@@ -221,7 +250,7 @@
 		--text-tertiary: #808080;
 		--border: #505050;
 		--accent: #ffffff;
-		--font-default: 'IBM Plex Sans KR', 'Noto Sans KR', sans-serif;
+		--font-default: 'IBM Plex Sans KR', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
 		--font-mono: 'IBM Plex Mono', monospace;
 		--img-filter: invert(1);
 		--code-bg: #1e2228;
@@ -347,6 +376,39 @@
 		align-items: center;
 		justify-content: center;
 		margin: 0 auto;
+	}
+
+	.nav-tooltip-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.nav-tooltip {
+		position: absolute;
+		top: calc(100% + 10px);
+		left: 50%;
+		transform: translateX(-50%);
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 6px 10px;
+		white-space: nowrap;
+		font-size: 0.78rem;
+		color: var(--text);
+		pointer-events: none;
+		z-index: 200;
+	}
+
+	.nav-tooltip::before {
+		content: '';
+		position: absolute;
+		bottom: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		border: 5px solid transparent;
+		border-bottom-color: var(--border);
 	}
 
 	.nav-icon {
