@@ -1,8 +1,10 @@
 export { default as BlogIcon } from './BlogIcon.svelte';
+export { default as CopyIcon } from './CopyIcon.svelte';
 export { default as FaviconIcon } from './FaviconIcon.svelte';
 export { default as FolderIcon } from './FolderIcon.svelte';
 export { default as FolderMultiIcon } from './FolderMultiIcon.svelte';
 export { default as GithubIcon } from './GithubIcon.svelte';
+export { default as MailIcon } from './MailIcon.svelte';
 export { default as LogoIcon } from './LogoIcon.svelte';
 export { default as MoonIcon } from './MoonIcon.svelte';
 export { default as MusicIcon } from './MusicIcon.svelte';
