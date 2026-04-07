@@ -6,11 +6,21 @@
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
 	import { BlogIcon, LogoIcon, MoonIcon, ProjectIcon, SunIcon } from '$lib/components/icons';
+	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, setContext } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	let { children, data } = $props();
+
+	/** 메인 스크롤 영역 — 스크롤바·TOC·afterNavigate가 공유 */
+	let mainScrollEl = $state<HTMLElement | null>(null);
+
+	setContext<MainScrollContext>(MAIN_SCROLL_KEY, {
+		get scrollRoot() {
+			return mainScrollEl;
+		}
+	});
 
 	$effect.pre(() => {
 		if (data.tracks.length > 0) {
@@ -76,7 +86,7 @@
 	function handleNavigation(e: MouseEvent, rootPath: string, lastPath: string) {
 		e.preventDefault();
 		const currentPath = $page.url.pathname;
-		
+
 		// 현재 같은 섹션에 있으면 루트로, 아니면 마지막 방문 경로로
 		if (currentPath.startsWith(rootPath)) {
 			goto(rootPath);
@@ -85,7 +95,7 @@
 		}
 	}
 
-	// 경로 변경 감지 및 저장
+	// 경로 변경 시 sessionStorage + 내비용 마지막 경로 동기화
 	$effect(() => {
 		if (!browser) return;
 
@@ -93,24 +103,11 @@
 
 		if (currentPath.startsWith('/blog')) {
 			sessionStorage.setItem('lastBlogPath', currentPath);
+			lastBlogPath = currentPath;
 		}
 
 		if (currentPath.startsWith('/projects')) {
 			sessionStorage.setItem('lastProjectPath', currentPath);
-		}
-	});
-
-	// 현재 경로에 기반한 derived 값
-	$effect(() => {
-		const currentPath = $page.url.pathname;
-		
-		// blog 경로면 현재 경로로 업데이트
-		if (currentPath.startsWith('/blog')) {
-			lastBlogPath = currentPath;
-		}
-		
-		// projects 경로면 현재 경로로 업데이트
-		if (currentPath.startsWith('/projects')) {
 			lastProjectPath = currentPath;
 		}
 	});
@@ -130,7 +127,7 @@
 
 		const savedBlogPath = sessionStorage.getItem('lastBlogPath');
 		const savedProjectPath = sessionStorage.getItem('lastProjectPath');
-		
+
 		if (savedBlogPath) {
 			lastBlogPath = savedBlogPath;
 		}
@@ -151,17 +148,11 @@
 		return () => mediaQuery.removeEventListener('change', handleChange);
 	});
 
-	// 네비게이션 후 스크롤을 맨 위로 이동
 	afterNavigate(() => {
-		if (browser) {
-			// 스크롤 가능한 컨테이너를 찾아서 스크롤 위치를 0으로 설정
-			const scrollableElement = document.querySelector('.site-main .scrollable > *');
-			if (scrollableElement) {
-				scrollableElement.scrollTop = 0;
-			}
+		if (browser && mainScrollEl) {
+			mainScrollEl.scrollTop = 0;
 		}
 	});
-
 </script>
 
 <svelte:head>
@@ -171,11 +162,22 @@
 
 <div class="app">
 	<CustomScrollbar />
-	
+
 	<header class="site-header">
 		<nav class="nav-container">
-			<div class="nav-tooltip-wrapper" role="none" onmouseenter={() => (navHovered = 'home')} onmouseleave={() => (navHovered = null)}>
-				<a href="/" class="nav-icon" class:entering={isMounted} class:default={isAnimationDone} class:active={isActive('/')}>
+			<div
+				class="nav-tooltip-wrapper"
+				role="none"
+				onmouseenter={() => (navHovered = 'home')}
+				onmouseleave={() => (navHovered = null)}
+			>
+				<a
+					href="/"
+					class="nav-icon"
+					class:entering={isMounted}
+					class:default={isAnimationDone}
+					class:active={isActive('/')}
+				>
 					<LogoIcon width={24} height={24} />
 				</a>
 				{#if navHovered === 'home'}
@@ -183,7 +185,12 @@
 				{/if}
 			</div>
 
-			<div class="nav-tooltip-wrapper" role="none" onmouseenter={() => (navHovered = 'blog')} onmouseleave={() => (navHovered = null)}>
+			<div
+				class="nav-tooltip-wrapper"
+				role="none"
+				onmouseenter={() => (navHovered = 'blog')}
+				onmouseleave={() => (navHovered = null)}
+			>
 				<a
 					href={lastBlogPath}
 					class="nav-icon"
@@ -199,7 +206,12 @@
 				{/if}
 			</div>
 
-			<div class="nav-tooltip-wrapper" role="none" onmouseenter={() => (navHovered = 'projects')} onmouseleave={() => (navHovered = null)}>
+			<div
+				class="nav-tooltip-wrapper"
+				role="none"
+				onmouseenter={() => (navHovered = 'projects')}
+				onmouseleave={() => (navHovered = null)}
+			>
 				<a
 					href={lastProjectPath}
 					class="nav-icon"
@@ -215,7 +227,12 @@
 				{/if}
 			</div>
 
-			<div class="nav-tooltip-wrapper" role="none" onmouseenter={() => (navHovered = 'theme')} onmouseleave={() => (navHovered = null)}>
+			<div
+				class="nav-tooltip-wrapper"
+				role="none"
+				onmouseenter={() => (navHovered = 'theme')}
+				onmouseleave={() => (navHovered = null)}
+			>
 				<button class="theme-toggle nav-icon" class:entering={isMounted} onclick={toggleTheme}>
 					{#if isDark}
 						<SunIcon />
@@ -234,7 +251,9 @@
 
 	<main class="site-main">
 		<div class="scrollable">
-			{@render children()}
+			<div id="main-content" class="main-scroll-region" bind:this={mainScrollEl}>
+				{@render children()}
+			</div>
 		</div>
 	</main>
 
@@ -250,7 +269,8 @@
 		--text-tertiary: #808080;
 		--border: #505050;
 		--accent: #ffffff;
-		--font-default: 'IBM Plex Sans KR', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+		--font-default:
+			'IBM Plex Sans KR', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
 		--font-mono: 'IBM Plex Mono', monospace;
 		--img-filter: invert(1);
 		--code-bg: #1e2228;
@@ -317,7 +337,9 @@
 		background-color: var(--bg);
 		user-select: none;
 		-webkit-user-select: none;
-		transition: background-color 0.3s ease, color 0.3s ease;
+		transition:
+			background-color 0.3s ease,
+			color 0.3s ease;
 	}
 
 	/* 스크롤바 숨기기 */
@@ -337,7 +359,12 @@
 
 	:global(*) {
 		box-sizing: border-box;
-		transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, stroke 0.3s ease, fill 0.3s ease;
+		transition:
+			background-color 0.3s ease,
+			color 0.3s ease,
+			border-color 0.3s ease,
+			stroke 0.3s ease,
+			fill 0.3s ease;
 	}
 
 	.app {
@@ -366,7 +393,7 @@
 		}
 		to {
 			opacity: 1;
-			transform: scale(1) rotate(0deg) ;
+			transform: scale(1) rotate(0deg);
 		}
 	}
 
@@ -432,7 +459,7 @@
 	.nav-icon:nth-child(4) {
 		animation-delay: 0.3s;
 	}
-	
+
 	.nav-icon :global(svg) {
 		width: 24px;
 		height: 24px;
@@ -440,7 +467,8 @@
 		transition: opacity 0.5s ease;
 	}
 
-	.nav-icon:hover, .nav-icon {
+	.nav-icon:hover,
+	.nav-icon {
 		color: var(--text);
 	}
 
@@ -471,7 +499,7 @@
 		opacity: 1;
 	}
 
-	.site-main > .scrollable > :global(*) {
+	.site-main > .scrollable > :global(.main-scroll-region) {
 		position: absolute;
 		top: 0;
 		left: 0;
