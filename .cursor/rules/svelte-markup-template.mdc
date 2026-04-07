@@ -1,0 +1,21 @@
+---
+description: Svelte 5 — 마크업·템플릿 지시문·바인딩 우선, 얇은 script
+globs: "**/*.svelte"
+alwaysApply: true
+---
+
+# 마크업과 템플릿 문법 우선
+
+## 원칙
+
+1. **`{#if}`, `{#each}`, `{#key}`, `{@const}`, `{@render}`, 스니펫, `bind:`, `class`, `style`, `transition|in:|out:|animate:`** 로 표현할 수 있으면 그렇게 한다.
+2. **`<script>`는 얇게** — 데이터 준비·룬·가벼운 헬퍼만. UI 상태/표시 분기를 TS로 흉내 내지 말고 템플릿으로 옮긴다.
+
+## 피할 패턴 → 대안
+
+| 피하기 | 대신 |
+|--------|------|
+| 조건부 클래스를 TS에서 문자열 조합 | `class:className={cond}` 또는 객체/배열 패턴 |
+| 스크롤/윈도 크기를 수동 리스너로만 처리 | `<svelte:window bind:innerWidth />`, `bind:scrollY` 등 |
+| 리스트 키 없이 `{#each}` | 안정적인 `(key)` / `{#key}` 패턴 |
+| DOM `querySelector`로 토글·포커스 | `bind:this`, `use:` action, `tick` 등 Svelte 방식 |
