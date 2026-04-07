@@ -21,12 +21,6 @@
 
 	let scrollableElement = $state<HTMLElement | null>(null);
 
-	function setScrollbarWidth(width: number) {
-		if (scrollbarContainer) {
-			scrollbarContainer.style.width = `${width}px`;
-		}
-	}
-
 	function updateScrollbar() {
 		if (!scrollableElement) return;
 

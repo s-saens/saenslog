@@ -24,7 +24,7 @@
 
 	$effect(() => {
 		if (!browser || !data.isPost || !postContentEl) return;
-		data.content; // reactive dependency
+		void data.content; // reactive dependency
 		setupCodeBlocks(postContentEl);
 		setupTables(postContentEl);
 		const cleanupTOC = setupTOC(postContentEl, {
