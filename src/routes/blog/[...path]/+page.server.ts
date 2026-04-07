@@ -50,7 +50,6 @@ export const load: PageServerLoad = ({ params }) => {
 	} else {
 		// 카테고리 페이지
 		const { folders, posts } = getBlogItems(path);
-		console.log(path);
 		const allPosts = getAllPosts(path);
 
 		return {
