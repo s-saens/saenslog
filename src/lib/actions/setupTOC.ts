@@ -103,7 +103,12 @@ function injectStyles() {
 	document.head.appendChild(style);
 }
 
-export function setupTOC(node: Element): () => void {
+export type SetupTOCOptions = {
+	/** 메인 스크롤 컨테이너 — 레이아웃 MAIN_SCROLL_KEY와 동일 참조 */
+	getScrollRoot?: () => HTMLElement | null;
+};
+
+export function setupTOC(node: Element, options?: SetupTOCOptions): () => void {
 	injectStyles();
 
 	const headingEls = Array.from(node.querySelectorAll<HTMLElement>('h2, h3, h4, h5, h6'));
@@ -117,7 +122,7 @@ export function setupTOC(node: Element): () => void {
 		el,
 		level: parseInt(el.tagName[1]),
 		text: el.textContent?.trim() ?? '',
-		id: el.id,
+		id: el.id
 	}));
 
 	const minLevel = Math.min(...headings.map((h) => h.level));
@@ -159,7 +164,7 @@ export function setupTOC(node: Element): () => void {
 
 		a.addEventListener('click', (e) => {
 			e.preventDefault();
-			const sc = document.querySelector<HTMLElement>('.site-main .scrollable > *');
+			const sc = options?.getScrollRoot?.() ?? null;
 			if (sc) {
 				const top = h.el.getBoundingClientRect().top + sc.scrollTop - 90;
 				sc.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
@@ -260,12 +265,16 @@ export function setupTOC(node: Element): () => void {
 	pill.addEventListener('click', () => (isExpanded ? collapse() : expand()));
 	document.addEventListener('click', handleOutsideClick);
 
-	const scrollEl = document.querySelector<HTMLElement>('.site-main .scrollable > *') ?? window;
-	scrollEl.addEventListener('scroll', updateCurrentHeading, { passive: true });
+	const scrollEl = options?.getScrollRoot?.() ?? null;
+	if (scrollEl) {
+		scrollEl.addEventListener('scroll', updateCurrentHeading, { passive: true });
+	}
 	requestAnimationFrame(updateCurrentHeading);
 
 	return () => {
-		scrollEl.removeEventListener('scroll', updateCurrentHeading);
+		if (scrollEl) {
+			scrollEl.removeEventListener('scroll', updateCurrentHeading);
+		}
 		document.removeEventListener('click', handleOutsideClick);
 		widget.remove();
 	};

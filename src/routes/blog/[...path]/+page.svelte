@@ -8,35 +8,34 @@
 	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
 	import BlogListSection from '$lib/components/BlogListSection.svelte';
 	import { TextCountIcon, TistoryIcon } from '$lib/components/icons';
+	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { formatDate } from '$lib/utils/dateFormatter';
 	import { fade, fly } from 'svelte/transition';
+	import { getContext } from 'svelte';
 	import type { PageData } from './$types';
 
-	let { data } = $props<{ data: PageData }>();
+	let { data }: { data: PageData } = $props();
+
+	const mainScroll = getContext<MainScrollContext | undefined>(MAIN_SCROLL_KEY);
 
 	const TRANSITION_DELAY = 70;
-	let mounted = $state(false);
+
+	let postContentEl: HTMLDivElement | undefined = $state();
 
 	$effect(() => {
-		mounted = browser;
-	});
-
-	$effect(() => {
-		if (!browser || !mounted || !data.isPost) return;
+		if (!browser || !data.isPost || !postContentEl) return;
 		data.content; // reactive dependency
-		const contentEl = document.querySelector('.post .content');
-		if (!contentEl) return;
-
-		setupCodeBlocks(contentEl);
-		setupTables(contentEl);
-		const cleanupTOC = setupTOC(contentEl);
+		setupCodeBlocks(postContentEl);
+		setupTables(postContentEl);
+		const cleanupTOC = setupTOC(postContentEl, {
+			getScrollRoot: () => mainScroll?.scrollRoot ?? null
+		});
 		return cleanupTOC;
 	});
-
 </script>
 
 <main>
-	{#if mounted}
+	{#if browser}
 		<div class="container" transition:fade|global={{ duration: 500 }}>
 			<header>
 				<nav class="breadcrumb">
@@ -45,13 +44,15 @@
 							<span class="separator">‣</span>
 						{/if}
 						{#if data.isPost}
-							<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
+							<a href={resolve(crumb.path as '/blog' | `/blog/${string}`)} class="crumb"
+								>{crumb.label}</a
+							>
+						{:else if i === data.breadcrumb.length - 1}
+							<span class="crumb current">{crumb.label}</span>
 						{:else}
-							{#if i === data.breadcrumb.length - 1}
-								<span class="crumb current">{crumb.label}</span>
-							{:else}
-								<a href={resolve(crumb.path)} class="crumb">{crumb.label}</a>
-							{/if}
+							<a href={resolve(crumb.path as '/blog' | `/blog/${string}`)} class="crumb"
+								>{crumb.label}</a
+							>
 						{/if}
 					{/each}
 				</nav>
@@ -59,53 +60,64 @@
 
 			<div class="content-wrapper">
 				{#if data.isPost}
-				{#key data.title}
-					<!-- 글 페이지 -->
-					<article class="post" transition:fly|global={{ duration: 300, y:100 }}>
-						<div transition:fly|global={{ duration: 500, delay: 100 }}>
-							<div class="title-row">
-								<h1>{data.title || '제목 없음'}</h1>
-								{#if data.tistory}
-									<a href={data.tistory} target="_blank" rel="noopener noreferrer" class="tistory-link" aria-label="티스토리에서 보기">
-										<TistoryIcon width={24} height={24} />
-									</a>
-								{/if}
+					{#key data.title}
+						<!-- 글 페이지 -->
+						<article class="post" transition:fly|global={{ duration: 300, y: 100 }}>
+							<div transition:fly|global={{ duration: 500, delay: 100 }}>
+								<div class="title-row">
+									<h1>{data.title || '제목 없음'}</h1>
+									{#if data.tistory}
+										<a
+											href={data.tistory}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="tistory-link"
+											aria-label="티스토리에서 보기"
+										>
+											<TistoryIcon width={24} height={24} />
+										</a>
+									{/if}
+								</div>
 							</div>
+							<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 150 }}>
+								<span class="date">{formatDate(data.date ?? '')}</span>
+								<span class="separator">•</span>
+								<span class="word-count">
+									<TextCountIcon width={14} height={14} />
+									{data.wordCount}
+								</span>
+							</div>
+							<div
+								class="content"
+								lang="en"
+								bind:this={postContentEl}
+								transition:fly|global={{ duration: 600, y: 100, delay: 200 }}
+							>
+								{@html data.content}
+							</div>
+							<div class="footer"></div>
+						</article>
+					{/key}
+				{:else}
+					{#key $page.url.pathname}
+						<!-- 카테고리 페이지 -->
+						<div class="list-wrapper">
+							<BlogListSection
+								folders={data.folders}
+								posts={data.posts}
+								transitionDelay={TRANSITION_DELAY}
+							/>
+							{#if $page.url.pathname === '/blog' || $page.url.pathname === '/blog/'}
+								<BlogAllPostsSection
+									allPosts={data.allPosts || []}
+									folderCount={data.folders?.length || 0}
+									postCount={data.posts?.length || 0}
+									transitionDelay={TRANSITION_DELAY}
+								/>
+							{/if}
 						</div>
-						<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 150}}>
-							<span class="date">{formatDate(data.date)}</span>
-							<span class="separator">•</span>
-							<span class="word-count">
-								<TextCountIcon width={14} height={14} />
-								{data.wordCount}
-							</span>
-						</div>
-					<div class="content" lang="en" transition:fly|global={{ duration: 600, y: 100, delay: 200}}>
-						{@html data.content}
-					</div>
-						<div class="footer"></div>
-					</article>
-				{/key}
-			{:else}
-				{#key $page.url.pathname}
-					<!-- 카테고리 페이지 -->
-					<div class="list-wrapper">
-						<BlogListSection
-							folders={data.folders}
-							posts={data.posts}
-							transitionDelay={TRANSITION_DELAY}
-						/>
-					{#if $page.url.pathname === '/blog' || $page.url.pathname === '/blog/'}
-						<BlogAllPostsSection
-							allPosts={data.allPosts || []}
-							folderCount={data.folders?.length || 0}
-							postCount={data.posts?.length || 0}
-							transitionDelay={TRANSITION_DELAY}
-						/>
-					{/if}
-					</div>
-				{/key}
-			{/if}
+					{/key}
+				{/if}
 			</div>
 		</div>
 	{/if}
@@ -126,8 +138,8 @@
 		display: flex;
 		flex-direction: column;
 		overflow-y: visible;
-  		scrollbar-gutter: stable;  /* 지원 브라우저에서 레이아웃 흔들림 방지 */
-  		padding: 0 20px 5.25rem;
+		scrollbar-gutter: stable; /* 지원 브라우저에서 레이아웃 흔들림 방지 */
+		padding: 0 20px 5.25rem;
 		gap: 1rem;
 	}
 
@@ -151,7 +163,6 @@
 		gap: 1rem;
 		padding-bottom: 5rem;
 	}
-
 
 	header {
 		padding-bottom: 0.75rem;
@@ -189,7 +200,6 @@
 		font-size: 0.8rem;
 	}
 
-
 	/* 글 페이지 */
 	.post {
 		display: flex;
@@ -219,7 +229,9 @@
 		flex-shrink: 0;
 		margin-bottom: -0.5rem;
 		color: var(--text-tertiary);
-		transition: color 0.2s, opacity 0.2s;
+		transition:
+			color 0.2s,
+			opacity 0.2s;
 	}
 
 	.tistory-link::after {
@@ -238,7 +250,9 @@
 		border-radius: 6px;
 		pointer-events: none;
 		opacity: 0;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
 	}
 
 	.tistory-link:hover::after {
@@ -390,7 +404,7 @@
 		transition:
 			color 0.18s ease,
 			background-color 0.18s ease,
-			border-color 0.18s ease,
+			border-color 0.18s ease;
 	}
 
 	.post .content :global(.code-copy-btn:hover) {
@@ -470,7 +484,9 @@
 		border-radius: 10px 10px 0 0;
 		cursor: pointer;
 		color: var(--text-tertiary);
-		transition: color 0.2s ease, background-color 0.2s ease;
+		transition:
+			color 0.2s ease,
+			background-color 0.2s ease;
 	}
 
 	.post .content :global(.code-collapse-btn:hover) {
@@ -574,7 +590,9 @@
 		cursor: pointer;
 		opacity: 0;
 		pointer-events: none;
-		transition: opacity 0.2s ease, background-color 0.15s ease;
+		transition:
+			opacity 0.2s ease,
+			background-color 0.15s ease;
 		box-shadow: 0 1px 4px color-mix(in srgb, var(--text) 12%, transparent);
 	}
 
@@ -638,7 +656,6 @@
 		opacity: 0.7;
 	}
 
-
 	@media (max-width: 768px) {
 		main {
 			padding: 4rem 1rem 0;
@@ -648,7 +665,4 @@
 			padding-bottom: 1rem;
 		}
 	}
-
-
 </style>
-
