@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import ScreenshotCarousel from '$lib/components/ScreenshotCarousel.svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -27,9 +28,24 @@
 	let { data }: Props = $props();
 	let project = data.project;
 	let mounted = $state(false);
+	let logoReady = $state(false);
 
 	onMount(() => {
 		mounted = true;
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		const path = project.logoPath;
+		logoReady = false;
+		const img = new Image();
+		img.onload = () => {
+			logoReady = true;
+		};
+		img.onerror = () => {
+			logoReady = true;
+		};
+		img.src = path;
 	});
 </script>
 
@@ -45,7 +61,16 @@
 
 			<header>
 				<div class="logo-container">
-					<img src={project.logoPath} alt={`${project.title} 로고`} class="project-logo" />
+					{#if logoReady}
+						<img
+							src={project.logoPath}
+							alt={`${project.title} 로고`}
+							class="project-logo"
+							decoding="async"
+						/>
+					{:else}
+						<div class="project-logo-placeholder" aria-hidden="true"></div>
+					{/if}
 				</div>
 				<h1>{project.title}</h1>
 				<div class="tags">
@@ -137,6 +162,21 @@
 		height: 100%;
 		object-fit: contain;
 		border-radius: 18px;
+	}
+
+	.project-logo-placeholder {
+		width: 100%;
+		height: 100%;
+		min-height: 200px;
+		border-radius: 18px;
+		background: color-mix(in srgb, var(--bg-lighter) 88%, var(--text));
+		animation: project-logo-pulse 1.1s ease-in-out infinite;
+	}
+
+	@keyframes project-logo-pulse {
+		50% {
+			opacity: 0.75;
+		}
 	}
 
 	h1 {
