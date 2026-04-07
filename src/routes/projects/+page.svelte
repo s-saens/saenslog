@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import ProjectCarousel from '$lib/components/ProjectCarousel.svelte';
-	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -20,11 +20,6 @@
 	let { data }: Props = $props();
 
 	let selectedIndex = $state(0);
-	let mounted = $state(false);
-
-	onMount(() => {
-		mounted = true;
-	});
 
 	function handleSelect(index: number) {
 		selectedIndex = index;
@@ -42,12 +37,12 @@
 </script>
 
 <main>
-	{#if mounted}
+	{#if browser}
 		<div class="content-wrapper" transition:fade|global={{ duration: 500 }}>
 			<div class="header-section">
 				<h1 class="project-title">{data.projects[selectedIndex]?.title || ''}</h1>
 				<div class="tags">
-					{#each data.projects[selectedIndex]?.tags || [] as tag}
+					{#each data.projects[selectedIndex]?.tags || [] as tag (tag)}
 						<span class="tag">{tag.toUpperCase()}</span>
 					{/each}
 				</div>
@@ -132,4 +127,3 @@
 		}
 	}
 </style>
-
