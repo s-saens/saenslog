@@ -261,6 +261,11 @@ function parseMarkdownFile(
 	}
 }
 
+/** 프론트매터 없는 마크다운 조각(프로젝트 설명 등)을 HTML로 */
+export function renderMarkdownContent(markdown: string): string {
+	return marked(markdown) as string;
+}
+
 // 특정 포스트 가져오기
 export function getBlogPost(postPath: string): BlogPost | null {
 	const fullPath = path.join(BLOG_DIR, `${postPath}.md`);
@@ -309,4 +314,3 @@ export function getAllPosts(basePath: string = '', limit?: number): BlogPost[] {
 
 	return limit ? posts.slice(0, limit) : posts;
 }
-

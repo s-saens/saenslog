@@ -1,13 +1,13 @@
 <script lang="ts">
-	import 'highlight.js/styles/github-dark-dimmed.css';
 	import { browser } from '$app/environment';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
-	import { BlogIcon, LogoIcon, MoonIcon, ProjectIcon, SunIcon } from '$lib/components/icons';
+	import { BlogIcon, LogoIcon, MoonIcon, SunIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
+	import 'highlight.js/styles/github-dark-dimmed.css';
 	import { onMount, setContext } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -206,6 +206,7 @@
 				{/if}
 			</div>
 
+			<!-- TODO : 프로젝트 페이지 제대로 구현 후 주석 해제
 			<div
 				class="nav-tooltip-wrapper"
 				role="none"
@@ -226,6 +227,7 @@
 					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Projects</div>
 				{/if}
 			</div>
+			-->
 
 			<div
 				class="nav-tooltip-wrapper"
@@ -262,6 +264,8 @@
 
 <style>
 	:global(:root) {
+		/* 고정 네비 높이 + 노치 — 본문 패딩·풀뷰포트 섹션에서 공통 사용 */
+		--site-header-height: calc(5.25rem + env(safe-area-inset-top, 0px));
 		--bg: #222222;
 		--bg-lighter: #2b2d30;
 		--text: #ffffff;

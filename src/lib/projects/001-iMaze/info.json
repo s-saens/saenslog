@@ -1,20 +1,26 @@
 {
-    "title": "iMaze",
-    "tags": ["Game", "Unity", "Jenkins"],
-    "startDate": "2022-01",
-    "endDate": "in progress",
-    "links": [
-        {
-            "name": "App Store",
-            "icon": "lib/components/icons/AppStoreIcon.svelte",
-            "url": "https://apps.apple.com/us/app/imaze-%EB%AC%B4%ED%95%9C%EC%9D%98-%EB%AF%B8%EB%A1%9C/id6443496386?l=ko"
-        },
-        {
-            "name": "Google Play",
-            "icon": "lib/components/icons/GooglePlayIcon.svelte",
-            "url": "https://play.google.com/store/apps/details?id=com.saens.MazeR"
-        }
-    ]
-
-    
+	"title": "iMaze",
+	"tags": ["Game", "Unity", "Jenkins"],
+	"startDate": "2022-01",
+	"endDate": "in progress",
+	"links": [
+		{
+			"name": "App Store",
+			"icon": "lib/components/icons/AppStoreIcon.svelte",
+			"url": "https://apps.apple.com/us/app/imaze-%EB%AC%B4%ED%95%9C%EC%9D%98-%EB%AF%B8%EB%A1%9C/id6443496386?l=ko"
+		},
+		{
+			"name": "Google Play",
+			"icon": "lib/components/icons/GooglePlayIcon.svelte",
+			"url": "https://play.google.com/store/apps/details?id=com.saens.MazeR"
+		}
+	],
+	"related-posts": ["blog/Dev/Unity/t13", "blog/Dev/Unity/t39"],
+	"prizes": [
+		{
+			"name": "Fake Game Jam",
+			"date": "1999-10",
+			"award": "2nd Prize"
+		}
+	]
 }

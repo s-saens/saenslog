@@ -87,10 +87,7 @@
 		color: var(--text);
 		transition: opacity 0.2s;
 		font-size: 0.85rem;
-		transition:
-			margin 0.15s ease-in-out,
-			padding 0.15s ease-in-out,
-			background-color 0.2s ease-in-out;
+		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
 		border-radius: 0.6rem;
 	}
 
@@ -107,14 +104,16 @@
 		pointer-events: none;
 	}
 
+	.tistory-link {
+		pointer-events: auto;
+		z-index: 2;
+	}
+
 	.blog-item:hover {
 		margin: 0;
 		padding: 0.8rem 1rem;
 		background-color: var(--bg-lighter);
-		transition:
-			margin 0.15s ease-in-out,
-			padding 0.15s ease-in-out,
-			background-color 0.2s ease-in-out;
+		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
 	}
 
 	.icon {
@@ -149,11 +148,11 @@
 		min-width: 0;
 	}
 
-	.blog-item.overflowing::after {
+	.blog-item.overflowing:hover::after {
 		content: attr(data-title);
 		position: absolute;
-		left: calc(14px + 0.75rem);
 		bottom: calc(100% + 6px);
+		left: calc(14px + 0.75rem);
 		transform: translateY(4px);
 		background: color-mix(in srgb, var(--text) 92%, transparent);
 		color: var(--bg);
@@ -164,9 +163,7 @@
 		border-radius: 6px;
 		pointer-events: none;
 		opacity: 0;
-		transition:
-			opacity 0.15s ease,
-			transform 0.15s ease;
+		transition: opacity 0.15s ease, transform 0.15s ease;
 		white-space: normal;
 		max-width: 320px;
 		z-index: 20;
@@ -183,11 +180,7 @@
 		align-items: center;
 		flex-shrink: 0;
 		color: var(--text-tertiary);
-		transition:
-			color 0.2s,
-			opacity 0.2s;
-		pointer-events: auto;
-		z-index: 2;
+		transition: color 0.2s, opacity 0.2s;
 	}
 
 	.tistory-link::after {
@@ -206,9 +199,7 @@
 		border-radius: 6px;
 		pointer-events: none;
 		opacity: 0;
-		transition:
-			opacity 0.15s ease,
-			transform 0.15s ease;
+		transition: opacity 0.15s ease, transform 0.15s ease;
 		z-index: 10;
 	}
 
@@ -245,9 +236,7 @@
 		border-radius: 5px;
 		pointer-events: none;
 		opacity: 0;
-		transition:
-			opacity 0.15s ease,
-			transform 0.15s ease;
+		transition: opacity 0.15s ease, transform 0.15s ease;
 		white-space: nowrap;
 		z-index: 10;
 	}
