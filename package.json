@@ -39,6 +39,8 @@
 		"vitest-browser-svelte": "^2.0.1"
 	},
 	"dependencies": {
+		"@fontsource/ibm-plex-mono": "^5.2.7",
+		"@fontsource/ibm-plex-sans-kr": "^5.2.8",
 		"gray-matter": "^4.0.3",
 		"highlight.js": "^11.11.1",
 		"marked": "^17.0.1",

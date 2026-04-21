@@ -2,6 +2,14 @@
 	import { browser } from '$app/environment';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import '@fontsource/ibm-plex-mono/400.css';
+	import '@fontsource/ibm-plex-mono/500.css';
+	import '@fontsource/ibm-plex-mono/600.css';
+	import '@fontsource/ibm-plex-mono/700.css';
+	import '@fontsource/ibm-plex-sans-kr/400.css';
+	import '@fontsource/ibm-plex-sans-kr/500.css';
+	import '@fontsource/ibm-plex-sans-kr/600.css';
+	import '@fontsource/ibm-plex-sans-kr/700.css';
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
 	import { BlogIcon, LogoIcon, MoonIcon, SunIcon } from '$lib/components/icons';
@@ -275,7 +283,7 @@
 		--accent: #ffffff;
 		--font-default:
 			'IBM Plex Sans KR', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-		--font-mono: 'IBM Plex Mono', monospace;
+		--font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
 		--img-filter: invert(1);
 		--code-bg: #1e2228;
 	}
