@@ -2,6 +2,11 @@
 	import { browser } from '$app/environment';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
+	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
+	import { BlogIcon, LogoIcon, MoonIcon, SunIcon } from '$lib/components/icons';
+	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
+	import { music } from '$lib/stores/music.svelte';
 	import '@fontsource/ibm-plex-mono/400.css';
 	import '@fontsource/ibm-plex-mono/500.css';
 	import '@fontsource/ibm-plex-mono/600.css';
@@ -10,11 +15,6 @@
 	import '@fontsource/ibm-plex-sans-kr/500.css';
 	import '@fontsource/ibm-plex-sans-kr/600.css';
 	import '@fontsource/ibm-plex-sans-kr/700.css';
-	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
-	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
-	import { BlogIcon, LogoIcon, MoonIcon, SunIcon } from '$lib/components/icons';
-	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
-	import { music } from '$lib/stores/music.svelte';
 	import 'highlight.js/styles/github-dark-dimmed.css';
 	import { onMount, setContext } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -385,6 +385,13 @@
 		flex-direction: column;
 	}
 
+	/* 본문 영역: 단일 in-flow child가 뷰포트 높이를 쓰게 해 scrollable % 기준을 잡는다. */
+	.site-main {
+		flex: 1 1 0;
+		min-height: 0;
+		position: relative;
+	}
+
 	.site-header {
 		position: fixed;
 		top: 0;
@@ -511,13 +518,28 @@
 		opacity: 1;
 	}
 
+	/* 전환(out+in) 시 동시에 두 개의 +page 루트(각각 <main>)가 머문다. 동일 셀에 쌓아야
+	   트랜지션이 겹쳐 보이고, 세로로 쌓이는 레이아웃 버그가 난다. */
 	.site-main > .scrollable > :global(.main-scroll-region) {
 		position: absolute;
 		top: 0;
 		left: 0;
 		width: 100%;
 		height: 100%;
+		min-height: 0;
 		overflow-y: auto;
+		overflow-x: hidden;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		align-content: start;
+		align-items: start;
+		justify-items: stretch;
+	}
+
+	.site-main > .scrollable > :global(.main-scroll-region) > :global(*) {
+		grid-row: 1;
+		grid-column: 1;
+		min-width: 0;
 	}
 
 	.site-main > .scrollable {
