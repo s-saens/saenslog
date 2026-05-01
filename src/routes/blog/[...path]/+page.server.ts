@@ -1,5 +1,5 @@
 import { getAllPosts, getBlogItems, getBlogPost } from '$lib/server/blog';
-import type { EntryGenerator, PageServerLoad } from './$types';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params }) => {
 	const path = params.path || '';
@@ -84,33 +84,4 @@ export const load: PageServerLoad = ({ params }) => {
 			}))
 		};
 	}
-};
-
-// 프리렌더할 경로들을 명시적으로 지정
-export const entries: EntryGenerator = () => {
-	const paths: Array<{ path: string }> = [];
-
-	// 재귀적으로 모든 경로 수집
-	function collectPaths(currentPath: string = '') {
-		const { folders, posts } = getBlogItems(currentPath);
-
-		// 현재 경로 추가 (빈 문자열이 아닌 경우)
-		if (currentPath) {
-			paths.push({ path: currentPath });
-		}
-
-		// 하위 폴더 탐색
-		for (const folder of folders) {
-			collectPaths(folder.path);
-		}
-
-		// 포스트 경로 추가
-		for (const post of posts) {
-			paths.push({ path: post.path });
-		}
-	}
-
-	collectPaths();
-
-	return paths;
 };

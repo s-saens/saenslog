@@ -1,4 +1,4 @@
-export const prerender = true;
+export const prerender = 'auto';
 
 interface ProjectInfo {
 	title: string;
@@ -15,14 +15,18 @@ interface Project extends ProjectInfo {
 export async function load() {
 	// lib/projects 폴더에서 모든 프로젝트 정보 로드
 	const projectModules = import.meta.glob('/src/lib/projects/*/info.json');
-	const logoModules = import.meta.glob('/src/lib/projects/*/logo.png', { eager: true, query: '?url', import: 'default' });
+	const logoModules = import.meta.glob('/src/lib/projects/*/logo.png', {
+		eager: true,
+		query: '?url',
+		import: 'default'
+	});
 
 	const projects: Project[] = [];
 
 	for (const path in projectModules) {
 		const info = (await projectModules[path]()) as { default: ProjectInfo };
 		const match = path.match(/\/(\d{3}-[^/]+)\/info\.json$/);
-		
+
 		if (match) {
 			const projectId = match[1];
 			const logoPath = `/src/lib/projects/${projectId}/logo.png`;
@@ -43,4 +47,3 @@ export async function load() {
 		projects
 	};
 }
-

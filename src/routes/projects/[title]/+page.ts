@@ -1,4 +1,4 @@
-export const prerender = true;
+export const prerender = 'auto';
 
 export async function entries() {
 	const projectModules = import.meta.glob('/src/lib/projects/*/info.json');

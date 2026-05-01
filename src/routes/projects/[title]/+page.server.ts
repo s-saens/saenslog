@@ -5,7 +5,7 @@ import matter from 'gray-matter';
 import { getBlogPost, renderMarkdownContent } from '$lib/server/blog';
 import type { PageServerLoad } from './$types';
 
-export const prerender = true;
+export const prerender = 'auto';
 
 interface Link {
 	name: string;
