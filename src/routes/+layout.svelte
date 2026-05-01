@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
-	import { BlogIcon, LogoIcon, MoonIcon, SunIcon } from '$lib/components/icons';
+	import { BlogIcon, LogoIcon, MailIcon, MoonIcon, PostIcon, SunIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
 	import '@fontsource/ibm-plex-mono/400.css';
@@ -211,6 +211,67 @@
 				</a>
 				{#if navHovered === 'blog'}
 					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Blog</div>
+				{/if}
+			</div>
+
+			{#if data.profile?.role === 'admin'}
+				<div
+					class="nav-tooltip-wrapper"
+					role="none"
+					onmouseenter={() => (navHovered = 'admin')}
+					onmouseleave={() => (navHovered = null)}
+				>
+					<a
+						href="/admin"
+						class="nav-icon"
+						class:entering={isMounted}
+						class:default={isAnimationDone}
+						class:active={isActive('/admin')}
+					>
+						<PostIcon />
+					</a>
+					{#if navHovered === 'admin'}
+						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>관리</div>
+					{/if}
+				</div>
+			{/if}
+
+			<div
+				class="nav-tooltip-wrapper"
+				role="none"
+				onmouseenter={() => (navHovered = 'auth')}
+				onmouseleave={() => (navHovered = null)}
+			>
+				{#if data.user}
+					<a
+						href="/account"
+						class="nav-icon nav-avatar-wrap"
+						class:entering={isMounted}
+						class:default={isAnimationDone}
+						class:active={isActive('/account')}
+						aria-label="계정"
+					>
+						<span class="nav-avatar"
+							>{(data.profile?.username?.[0] ?? data.user.email?.[0] ?? '?').toUpperCase()}</span
+						>
+					</a>
+					{#if navHovered === 'auth'}
+						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>계정</div>
+					{/if}
+				{:else}
+					<a
+						href="/login"
+						class="nav-icon"
+						class:entering={isMounted}
+						class:default={isAnimationDone}
+						class:active={isActive('/login')}
+						aria-label="로그인"
+					>
+						<MailIcon />
+					</a>
+					{#if navHovered === 'auth'}
+						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>로그인</div>
+					{/if}
 				{/if}
 			</div>
 
@@ -516,6 +577,30 @@
 
 	.theme-toggle:hover :global(svg) {
 		opacity: 1;
+	}
+
+	.nav-avatar-wrap :global(svg) {
+		display: none;
+	}
+
+	.nav-avatar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		border: 1px solid var(--border);
+		font-size: 0.72rem;
+		font-weight: 600;
+		color: var(--text-secondary);
+		background: color-mix(in srgb, var(--bg-lighter) 90%, transparent);
+		line-height: 1;
+	}
+
+	.nav-icon.active .nav-avatar {
+		color: var(--text);
+		border-color: var(--text-tertiary);
 	}
 
 	/* 전환(out+in) 시 동시에 두 개의 +page 루트(각각 <main>)가 머문다. 동일 셀에 쌓아야

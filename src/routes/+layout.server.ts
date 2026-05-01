@@ -17,10 +17,22 @@ function parseFilename(filename: string): Pick<Track, 'artist' | 'title' | 'subt
 export const load = async ({ locals }) => {
 	const { session, user } = await locals.safeGetSession();
 
+	let profile: App.Profile | null = null;
+	if (user) {
+		const { data } = await locals.supabase
+			.from('profiles')
+			.select('username, display_name, avatar_url, role')
+			.eq('id', user.id)
+			.single();
+		if (data && (data.role === 'admin' || data.role === 'member')) {
+			profile = data as App.Profile;
+		}
+	}
+
 	const musicsDir = path.join(process.cwd(), 'static', 'musics');
 
 	if (!fs.existsSync(musicsDir)) {
-		return { session, user, tracks: [] as Track[] };
+		return { session, user, profile, tracks: [] as Track[] };
 	}
 
 	const files = fs.readdirSync(musicsDir).filter((f) => AUDIO_EXTENSIONS.test(f));
@@ -32,5 +44,5 @@ export const load = async ({ locals }) => {
 		duration: ''
 	}));
 
-	return { session, user, tracks };
+	return { session, user, profile, tracks };
 };
