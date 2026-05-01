@@ -3,8 +3,12 @@
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {}
-		// interface PageData {}
+		interface Locals {
+			// Phase 4에서 supabase, session, user 추가
+		}
+		interface PageData {
+			session?: import('@supabase/supabase-js').Session | null;
+		}
 		// interface PageState {}
 		// interface Platform {}
 	}
