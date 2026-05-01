@@ -7,6 +7,7 @@
 	import { setupTOC } from '$lib/actions/setupTOC';
 	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
 	import BlogListSection from '$lib/components/BlogListSection.svelte';
+	import Comments from '$lib/components/Comments.svelte';
 	import { TextCountIcon, TistoryIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { formatDate } from '$lib/utils/dateFormatter';
@@ -95,6 +96,11 @@
 							>
 								{@html data.content}
 							</div>
+							<Comments
+								postSlug={data.path}
+								initialComments={data.comments}
+								currentUserId={data.user?.id ?? null}
+							/>
 							<div class="footer"></div>
 						</article>
 					{/key}

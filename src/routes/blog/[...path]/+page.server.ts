@@ -1,6 +1,7 @@
+import { fail } from '@sveltejs/kit';
 import { getAllPosts, getBlogItems, getBlogPost } from '$lib/server/blog';
 import { listPostsDirectChildren, listPostsInSubtree } from '$lib/server/posts';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 type ListPost = {
 	title: string;
@@ -10,6 +11,46 @@ type ListPost = {
 	wordCount: number;
 	tistory?: string;
 };
+
+type CommentRow = {
+	id: number;
+	content: string;
+	author_id: string;
+	parent_id: number | null;
+	created_at: string;
+	profiles: { username: string; avatar_url: string | null } | null;
+};
+
+async function loadCommentsForSlug(postSlug: string, locals: App.Locals): Promise<CommentRow[]> {
+	const { data, error } = await locals.supabase
+		.from('comments')
+		.select('id, content, author_id, parent_id, created_at, profiles(username, avatar_url)')
+		.eq('post_slug', postSlug)
+		.order('created_at', { ascending: true });
+
+	if (error) {
+		console.error('comments load', error);
+		return [];
+	}
+	const rows = data ?? [];
+	return rows.map((row) => {
+		const p = row.profiles;
+		const profiles =
+			p == null
+				? null
+				: Array.isArray(p)
+					? (p[0] as { username: string; avatar_url: string | null } | undefined) ?? null
+					: (p as { username: string; avatar_url: string | null });
+		return {
+			id: row.id,
+			content: row.content,
+			author_id: row.author_id,
+			parent_id: row.parent_id,
+			created_at: row.created_at,
+			profiles
+		};
+	});
+}
 
 function dbRowToCard(row: {
 	slug: string;
@@ -71,6 +112,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			})
 		];
 
+		const comments = await loadCommentsForSlug(path, locals);
+
 		return {
 			path,
 			segments,
@@ -84,7 +127,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			tags: (dbRow.tags as string[]) ?? [],
 			source: 'db' as const,
 			dbPostId: dbRow.id as number,
-			postSlug: dbRow.slug as string
+			postSlug: dbRow.slug as string,
+			comments
 		};
 	}
 
@@ -101,6 +145,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			})
 		];
 
+		const comments = await loadCommentsForSlug(path, locals);
+
 		return {
 			path,
 			segments,
@@ -113,7 +159,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			wordCount: fsPost.wordCount,
 			tags: fsPost.tags,
 			...(fsPost.tistory ? { tistory: fsPost.tistory } : {}),
-			source: 'fs' as const
+			source: 'fs' as const,
+			comments
 		};
 	}
 
@@ -158,6 +205,78 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			date: folder.date
 		})),
 		posts: mergedPosts,
-		allPosts: mergedAll
+		allPosts: mergedAll,
+		comments: [] as CommentRow[]
 	};
+};
+
+export const actions: Actions = {
+	addComment: async ({ request, locals }) => {
+		const form = await request.formData();
+		const post_slug = String(form.get('post_slug') ?? '').trim();
+		const content = String(form.get('content') ?? '').trim();
+		const parentRaw = form.get('parent_id');
+		const parentStr = parentRaw == null ? '' : String(parentRaw).trim();
+		const parent_id = parentStr === '' ? null : Number(parentStr);
+
+		if (!post_slug || !content) return fail(400, { message: '내용을 확인하세요.' });
+		if (parent_id !== null && !Number.isFinite(parent_id)) {
+			return fail(400, { message: '잘못된 답글 대상입니다.' });
+		}
+
+		const {
+			data: { user }
+		} = await locals.supabase.auth.getUser();
+		if (!user) return fail(401, { message: '로그인이 필요합니다.' });
+
+		if (parent_id !== null) {
+			const { data: parentRow } = await locals.supabase
+				.from('comments')
+				.select('id, parent_id, post_slug')
+				.eq('id', parent_id)
+				.maybeSingle();
+
+			if (!parentRow || parentRow.post_slug !== post_slug) {
+				return fail(400, { message: '답글 대상을 찾을 수 없습니다.' });
+			}
+			if (parentRow.parent_id !== null) {
+				return fail(400, { message: '답글에는 또 답글을 달 수 없습니다.' });
+			}
+		}
+
+		const { error } = await locals.supabase.from('comments').insert({
+			post_slug,
+			author_id: user.id,
+			content,
+			parent_id
+		});
+
+		if (error) return fail(400, { message: error.message });
+		return { ok: true };
+	},
+
+	editComment: async ({ request, locals }) => {
+		const form = await request.formData();
+		const id = Number(form.get('comment_id'));
+		const content = String(form.get('content') ?? '').trim();
+		if (!Number.isFinite(id) || !content) return fail(400, { message: '잘못된 요청입니다.' });
+
+		const { error } = await locals.supabase
+			.from('comments')
+			.update({ content, updated_at: new Date().toISOString() })
+			.eq('id', id);
+
+		if (error) return fail(400, { message: error.message });
+		return { ok: true };
+	},
+
+	deleteComment: async ({ request, locals }) => {
+		const form = await request.formData();
+		const id = Number(form.get('comment_id'));
+		if (!Number.isFinite(id)) return fail(400, { message: '잘못된 요청입니다.' });
+
+		const { error } = await locals.supabase.from('comments').delete().eq('id', id);
+		if (error) return fail(400, { message: error.message });
+		return { ok: true };
+	}
 };
