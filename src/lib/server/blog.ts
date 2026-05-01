@@ -1,38 +1,7 @@
 import fs from 'fs';
-import hljs from 'highlight.js';
 import matter from 'gray-matter';
-import { marked } from 'marked';
-import { markedHighlight } from 'marked-highlight';
 import path from 'path';
-
-marked.use(
-	markedHighlight({
-		langPrefix: 'hljs language-',
-		highlight(code, lang) {
-			const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-			return hljs.highlight(code, { language }).value;
-		}
-	})
-);
-
-// 이미지 경로를 절대 경로로 변환
-const renderer = new marked.Renderer();
-const originalImage = renderer.image;
-
-renderer.image = function (token) {
-	let href = token.href;
-	if (!href.startsWith('/') && !href.startsWith('http')) {
-		href = '/' + href;
-	}
-	return originalImage.call(this, { ...token, href });
-};
-
-renderer.table = function (token) {
-	const originalTable = marked.Renderer.prototype.table.call(this, token);
-	return `<div class="table-wrapper">${originalTable}</div>`;
-};
-
-marked.setOptions({ renderer });
+import { renderMarkdownToHtml } from '$lib/server/markdown';
 
 const BLOG_DIR = path.join(process.cwd(), 'src/lib/blog');
 
@@ -231,7 +200,7 @@ function parseMarkdownFile(
 			: path.basename(fileName, '.md');
 
 		// 마크다운을 HTML로 변환
-		const htmlContent = marked(content) as string;
+		const htmlContent = renderMarkdownToHtml(content);
 
 		// 날짜 처리: gray-matter가 Date 객체로 파싱할 수 있으므로 문자열로 변환
 		let dateStr: string;
@@ -263,7 +232,7 @@ function parseMarkdownFile(
 
 /** 프론트매터 없는 마크다운 조각(프로젝트 설명 등)을 HTML로 */
 export function renderMarkdownContent(markdown: string): string {
-	return marked(markdown) as string;
+	return renderMarkdownToHtml(markdown);
 }
 
 // 특정 포스트 가져오기
