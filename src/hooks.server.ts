@@ -1,9 +1,31 @@
+import { createSupabaseServer } from '$lib/server/supabase';
 import type { Handle } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
-	// 나중에 Supabase 세션 주입 자리
-	const response = await resolve(event);
+	event.locals.supabase = createSupabaseServer(event);
+
+	event.locals.safeGetSession = async () => {
+		const {
+			data: { session }
+		} = await event.locals.supabase.auth.getSession();
+		if (!session) return { session: null, user: null };
+
+		const {
+			data: { user },
+			error
+		} = await event.locals.supabase.auth.getUser();
+		if (error) return { session: null, user: null };
+
+		return { session, user };
+	};
+
+	const response = await resolve(event, {
+		filterSerializedResponseHeaders: (name) =>
+			name === 'content-range' || name === 'x-supabase-api-version'
+	});
+
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
 	return response;
 };

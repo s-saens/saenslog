@@ -42,6 +42,7 @@
 	"dependencies": {
 		"@fontsource/ibm-plex-mono": "^5.2.7",
 		"@fontsource/ibm-plex-sans-kr": "^5.2.8",
+		"@supabase/ssr": "^0.10.2",
 		"@supabase/supabase-js": "^2.105.1",
 		"gray-matter": "^4.0.3",
 		"highlight.js": "^11.11.1",

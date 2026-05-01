@@ -14,11 +14,13 @@ function parseFilename(filename: string): Pick<Track, 'artist' | 'title' | 'subt
 	};
 }
 
-export const load = () => {
+export const load = async ({ locals }) => {
+	const { session, user } = await locals.safeGetSession();
+
 	const musicsDir = path.join(process.cwd(), 'static', 'musics');
 
 	if (!fs.existsSync(musicsDir)) {
-		return { tracks: [] as Track[] };
+		return { session, user, tracks: [] as Track[] };
 	}
 
 	const files = fs.readdirSync(musicsDir).filter((f) => AUDIO_EXTENSIONS.test(f));
@@ -30,5 +32,5 @@ export const load = () => {
 		duration: ''
 	}));
 
-	return { tracks };
+	return { session, user, tracks };
 };
