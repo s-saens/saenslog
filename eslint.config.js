@@ -24,7 +24,9 @@ export default defineConfig(
 		rules: {
 			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
-			'no-undef': 'off'
+			'no-undef': 'off',
+			/* $lib/appPaths 등에서 resolve()로 감싼 링크·동적 라우트 헬퍼와 충돌함 */
+			'svelte/no-navigation-without-resolve': 'off'
 		}
 	},
 	{
@@ -36,6 +38,12 @@ export default defineConfig(
 				parser: ts.parser,
 				svelteConfig
 			}
+		}
+	},
+	{
+		files: ['src/routes/admin/posts/new/+page.svelte'],
+		rules: {
+			'svelte/prefer-writable-derived': 'off'
 		}
 	}
 );
