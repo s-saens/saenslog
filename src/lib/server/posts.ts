@@ -1,11 +1,14 @@
 import { renderMarkdownToHtml } from '$lib/markdownCompile';
+import {
+	moveBlogPostAssetFolder,
+	rewriteBlogAssetPathsInMarkdown
+} from '$lib/server/blogPostAssets';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type PostListRow = {
 	id: number;
 	slug: string;
 	title: string;
-	category: string | null;
 	published: boolean;
 	published_at: string | null;
 	updated_at: string;
@@ -13,12 +16,25 @@ export type PostListRow = {
 };
 
 export type PostFullRow = PostListRow & {
-	tags: string[];
 	content_md: string;
 	content_html: string;
 	author_id: string;
 	created_at: string;
 };
+
+/** 목록·메타에 쓰는 상위 경로 (예: `Dev/AI/2` → `Dev/AI`) */
+export function categoryLabelFromSlug(slug: string): string {
+	const i = slug.lastIndexOf('/');
+	if (i <= 0) return '';
+	return slug.slice(0, i);
+}
+
+/** 슬러그 경로 세그먼트 — 마지막 조각(글 식별자) 제외, 태그/분류 칩 표시용 */
+export function pathSegmentsBeforeLeaf(slug: string): string[] {
+	const parts = slug.split('/').filter(Boolean);
+	if (parts.length <= 1) return [];
+	return parts.slice(0, -1);
+}
 
 function countWords(md: string): number {
 	const t = md.trim();
@@ -33,18 +49,10 @@ export function normalizeSlug(raw: string): string {
 	return s;
 }
 
-export function parseTags(raw: string | null | undefined): string[] {
-	if (!raw) return [];
-	return raw
-		.split(/[,，]/)
-		.map((t) => t.trim())
-		.filter(Boolean);
-}
-
 export async function listPostsAdmin(supabase: SupabaseClient): Promise<PostListRow[]> {
 	const { data, error } = await supabase
 		.from('posts')
-		.select('id, slug, title, category, published, published_at, updated_at, word_count')
+		.select('id, slug, title, published, published_at, updated_at, word_count')
 		.order('updated_at', { ascending: false });
 
 	if (error) throw error;
@@ -66,8 +74,6 @@ export async function insertPost(
 	input: {
 		slug: string;
 		title: string;
-		category: string | null;
-		tags: string[];
 		content_md: string;
 		published: boolean;
 	},
@@ -83,8 +89,6 @@ export async function insertPost(
 		.insert({
 			slug,
 			title: input.title.trim(),
-			category: input.category?.trim() || null,
-			tags: input.tags,
 			content_md: input.content_md,
 			content_html,
 			word_count,
@@ -102,52 +106,73 @@ export async function insertPost(
 
 export async function updatePost(
 	supabase: SupabaseClient,
-	slug: string,
+	currentSlug: string,
 	input: {
+		slug?: string;
 		title: string;
-		category: string | null;
-		tags: string[];
 		content_md: string;
 		published: boolean;
 	}
-): Promise<void> {
-	const content_html = renderMarkdownToHtml(input.content_md);
-	const word_count = countWords(input.content_md);
+): Promise<{ slug: string }> {
 	const now = new Date().toISOString();
+	const nextSlug = input.slug !== undefined ? normalizeSlug(input.slug) : currentSlug;
 
-	const { data: existing, error: fetchErr } = await supabase
+	const { data: current, error: fetchErr } = await supabase
 		.from('posts')
-		.select('published, published_at')
-		.eq('slug', slug)
+		.select('id, published, published_at')
+		.eq('slug', currentSlug)
 		.single();
 
 	if (fetchErr) throw fetchErr;
 
-	let published_at: string | null = existing.published_at as string | null;
+	if (nextSlug !== currentSlug) {
+		const { data: taken, error: takenErr } = await supabase
+			.from('posts')
+			.select('id')
+			.eq('slug', nextSlug)
+			.maybeSingle();
+
+		if (takenErr) throw takenErr;
+		if (taken && (taken as { id: number }).id !== (current as { id: number }).id) {
+			throw new Error('이미 같은 슬러그를 쓰는 글이 있습니다.');
+		}
+	}
+
+	let published_at: string | null = current.published_at as string | null;
 	if (input.published) {
-		if (!existing.published) {
+		if (!current.published) {
 			published_at = now;
 		}
 	} else {
 		published_at = null;
 	}
 
-	const { error } = await supabase
-		.from('posts')
-		.update({
-			title: input.title.trim(),
-			category: input.category?.trim() || null,
-			tags: input.tags,
-			content_md: input.content_md,
-			content_html,
-			word_count,
-			published: input.published,
-			published_at,
-			updated_at: now
-		})
-		.eq('slug', slug);
+	let content_md = input.content_md;
+	if (nextSlug !== currentSlug) {
+		await moveBlogPostAssetFolder(currentSlug, nextSlug);
+		content_md = rewriteBlogAssetPathsInMarkdown(content_md, currentSlug, nextSlug);
+	}
+
+	const content_html = renderMarkdownToHtml(content_md);
+	const word_count = countWords(content_md);
+
+	const row: Record<string, unknown> = {
+		title: input.title.trim(),
+		content_md,
+		content_html,
+		word_count,
+		published: input.published,
+		published_at,
+		updated_at: now
+	};
+	if (nextSlug !== currentSlug) {
+		row.slug = nextSlug;
+	}
+
+	const { error } = await supabase.from('posts').update(row).eq('slug', currentSlug);
 
 	if (error) throw error;
+	return { slug: nextSlug };
 }
 
 export async function deletePostBySlug(supabase: SupabaseClient, slug: string): Promise<void> {
@@ -163,12 +188,15 @@ export async function listPostsDirectChildren(
 ): Promise<PostListRow[]> {
 	let q = supabase
 		.from('posts')
-		.select('id, slug, title, category, published, published_at, updated_at, word_count');
+		.select('id, slug, title, published, published_at, updated_at, word_count');
 
 	if (opts.onlyPublished) q = q.eq('published', true);
 
 	const { data, error } = await q;
-	if (error) throw error;
+	if (error) {
+		console.error('listPostsDirectChildren', error);
+		return [];
+	}
 
 	const rows = (data ?? []) as PostListRow[];
 	const prefix = dirPath ? `${dirPath}/` : '';
@@ -193,12 +221,15 @@ export async function listPostsInSubtree(
 ): Promise<PostListRow[]> {
 	let q = supabase
 		.from('posts')
-		.select('id, slug, title, category, published, published_at, updated_at, word_count');
+		.select('id, slug, title, published, published_at, updated_at, word_count');
 
 	if (opts.onlyPublished) q = q.eq('published', true);
 
 	const { data, error } = await q;
-	if (error) throw error;
+	if (error) {
+		console.error('listPostsInSubtree', error);
+		return [];
+	}
 
 	const rows = (data ?? []) as PostListRow[];
 	if (!basePath) {
