@@ -8,6 +8,7 @@ export { default as MailIcon } from './MailIcon.svelte';
 export { default as LogoIcon } from './LogoIcon.svelte';
 export { default as MoonIcon } from './MoonIcon.svelte';
 export { default as MusicIcon } from './MusicIcon.svelte';
+export { default as PlusIcon } from './PlusIcon.svelte';
 export { default as PostIcon } from './PostIcon.svelte';
 export { default as PostMultiIcon } from './PostMultiIcon.svelte';
 export { default as ProjectIcon } from './ProjectIcon.svelte';

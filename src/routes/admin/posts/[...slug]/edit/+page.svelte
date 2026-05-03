@@ -1,22 +1,45 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import AdminBlogPreviewOverlay from '$lib/components/AdminBlogPreviewOverlay.svelte';
+	import AdminMarkdownField from '$lib/components/AdminMarkdownField.svelte';
 	import { renderMarkdownToHtml } from '$lib/markdownCompile';
 
 	let { data, form } = $props();
 
+	let slugVal = $state(data.post.slug);
+	let titleVal = $state(data.post.title);
 	let md = $state(data.post.content_md);
+	let previewOpen = $state(false);
+
 	let html = $derived(renderMarkdownToHtml(md));
+	let wordCount = $derived(md.trim() ? md.trim().split(/\s+/).filter(Boolean).length : 0);
+
+	$effect(() => {
+		slugVal = data.post.slug;
+		titleVal = data.post.title;
+		md = data.post.content_md;
+	});
 </script>
 
 <svelte:head>
 	<title>{data.post.title} · 수정 | SAENS</title>
 </svelte:head>
 
+<AdminBlogPreviewOverlay
+	bind:open={previewOpen}
+	title={titleVal}
+	slug={slugVal}
+	{html}
+	{wordCount}
+/>
+
 <main class="editor-page">
 	<h1>글 수정</h1>
 	<p class="slug-line">
-		슬러그: <code>{data.post.slug}</code>
-		<a class="blog-link" href={'/blog/' + data.post.slug}>블로그에서 보기 →</a>
+		<a class="blog-link" href={'/blog/' + slugVal}>블로그에서 보기 →</a>
+	</p>
+	<p class="hint">
+		슬러그를 바꾸면 URL 경로가 바뀝니다. 저장 후 댓글은 새 경로에 그대로 이어집니다.
 	</p>
 
 	{#if form?.message}
@@ -25,28 +48,13 @@
 
 	<form class="form" method="POST" use:enhance>
 		<div class="grid">
-			<label class="field">
-				<span class="label">제목</span>
-				<input class="input" name="title" required value={data.post.title} />
-			</label>
-			<label class="field">
-				<span class="label">카테고리 (선택)</span>
-				<input
-					class="input"
-					name="category"
-					value={data.post.category ?? ''}
-					placeholder="Dev/AI"
-					autocomplete="off"
-				/>
+			<label class="field full">
+				<span class="label">슬러그 (URL 경로, 예: Dev/AI/3)</span>
+				<input class="input mono" name="slug" required bind:value={slugVal} autocomplete="off" />
 			</label>
 			<label class="field full">
-				<span class="label">태그 (쉼표 구분)</span>
-				<input
-					class="input"
-					name="tags"
-					value={(data.post.tags ?? []).join(', ')}
-					autocomplete="off"
-				/>
+				<span class="label">제목</span>
+				<input class="input" name="title" required bind:value={titleVal} />
 			</label>
 		</div>
 
@@ -55,31 +63,19 @@
 			<span>공개</span>
 		</label>
 
-		<div class="split">
-			<label class="field grow">
-				<span class="label">마크다운</span>
-				<textarea
-					class="textarea"
-					name="content_md"
-					rows="18"
-					required
-					bind:value={md}
-				></textarea>
-			</label>
-			<div class="preview grow">
-				<span class="label">미리보기</span>
-				<div class="preview-inner content">{@html html}</div>
-			</div>
-		</div>
+		<AdminMarkdownField bind:md docSyncKey={data.post.id} getAssetSlug={() => slugVal} />
 
-		<div class="actions">
+		<div class="toolbar">
+			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>
 			<button type="submit" class="btn primary">저장</button>
 			<a class="btn" href="/admin/posts">목록</a>
+			<button type="submit" class="btn danger" form="post-delete-form">삭제</button>
 		</div>
 	</form>
 
 	<form
-		class="danger-zone"
+		id="post-delete-form"
+		class="visually-hidden"
 		method="POST"
 		action="?/delete"
 		use:enhance={({ cancel }) => {
@@ -89,9 +85,7 @@
 				}
 			};
 		}}
-	>
-		<button type="submit" class="btn danger">삭제</button>
-	</form>
+	></form>
 </main>
 
 <style>
@@ -108,6 +102,13 @@
 		color: var(--text);
 	}
 
+	.hint {
+		margin: 0 0 1.25rem;
+		font-size: 0.8rem;
+		line-height: 1.45;
+		color: var(--text-secondary);
+	}
+
 	.slug-line {
 		margin: 0 0 1.25rem;
 		font-size: 0.82rem;
@@ -116,11 +117,6 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.75rem;
-	}
-
-	.slug-line code {
-		font-size: 0.78rem;
-		color: var(--text-secondary);
 	}
 
 	.blog-link {
@@ -166,10 +162,6 @@
 		grid-column: 1 / -1;
 	}
 
-	.field.grow {
-		min-width: 0;
-	}
-
 	.label {
 		font-size: 0.78rem;
 		color: var(--text-secondary);
@@ -185,17 +177,9 @@
 		color: var(--text);
 	}
 
-	.textarea {
-		font: inherit;
+	.input.mono {
+		font-family: var(--font-mono, ui-monospace, monospace);
 		font-size: 0.82rem;
-		line-height: 1.45;
-		padding: 0.6rem 0.7rem;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--bg);
-		color: var(--text);
-		resize: vertical;
-		min-height: 12rem;
 	}
 
 	.check {
@@ -206,39 +190,18 @@
 		color: var(--text-secondary);
 	}
 
-	.split {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 1rem;
-	}
-
-	@media (min-width: 900px) {
-		.split {
-			grid-template-columns: 1fr 1fr;
-			align-items: start;
-		}
-	}
-
-	.preview-inner {
-		min-height: 12rem;
-		padding: 0.75rem 0.85rem;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: color-mix(in srgb, var(--bg-lighter) 85%, transparent);
-		font-size: 0.88rem;
-		line-height: 1.55;
-		overflow: auto;
-		max-height: 70vh;
-	}
-
-	.preview :global(.table-wrapper) {
-		overflow-x: auto;
-	}
-
-	.actions {
+	.toolbar {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 0.5rem;
+		overflow-x: auto;
+		padding-bottom: 0.15rem;
+	}
+
+	.toolbar .btn {
+		flex: 0 0 auto;
+		white-space: nowrap;
 	}
 
 	.btn {
@@ -266,12 +229,6 @@
 		opacity: 0.92;
 	}
 
-	.danger-zone {
-		margin-top: 2rem;
-		padding-top: 1.25rem;
-		border-top: 1px solid var(--border);
-	}
-
 	.btn.danger {
 		border-color: color-mix(in srgb, #f87171 55%, var(--border));
 		color: #f87171;
@@ -279,5 +236,17 @@
 
 	.btn.danger:hover {
 		background: color-mix(in srgb, #f87171 12%, transparent);
+	}
+
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 </style>

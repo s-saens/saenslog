@@ -1,5 +1,5 @@
-import { error, fail, redirect } from '@sveltejs/kit';
-import { deletePostBySlug, getPostBySlug, parseTags, updatePost } from '$lib/server/posts';
+import { error, fail, isRedirect, redirect } from '@sveltejs/kit';
+import { deletePostBySlug, getPostBySlug, normalizeSlug, updatePost } from '$lib/server/posts';
 import type { Actions, PageServerLoad } from './$types';
 
 function slugFromParams(slug: string | string[] | undefined): string {
@@ -27,28 +27,31 @@ export const actions: Actions = {
 		const title = String(form.get('title') ?? '').trim();
 		if (!title) return fail(400, { message: '제목을 입력하세요.' });
 
-		const categoryRaw = String(form.get('category') ?? '').trim();
-		const category = categoryRaw || null;
-		const tags = parseTags(String(form.get('tags') ?? ''));
 		const content_md = String(form.get('content_md') ?? '');
 		if (!content_md.trim()) return fail(400, { message: '본문을 입력하세요.' });
 
 		const published = form.get('published') === 'true';
 
+		let slugField: string;
 		try {
-			await updatePost(locals.supabase, slug, {
+			slugField = normalizeSlug(String(form.get('slug') ?? ''));
+		} catch (e) {
+			return fail(400, { message: e instanceof Error ? e.message : '슬러그 오류' });
+		}
+
+		try {
+			const { slug: savedSlug } = await updatePost(locals.supabase, slug, {
+				slug: slugField,
 				title,
-				category,
-				tags,
 				content_md,
 				published
 			});
+			redirect(303, `/blog/${savedSlug}`);
 		} catch (e) {
+			if (isRedirect(e)) throw e;
 			const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
 			return fail(400, { message: msg });
 		}
-
-		throw redirect(303, `/blog/${slug}`);
 	},
 	delete: async ({ params, locals }) => {
 		const slug = slugFromParams(params.slug);

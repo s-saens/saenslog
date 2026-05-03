@@ -1,16 +1,40 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import AdminBlogPreviewOverlay from '$lib/components/AdminBlogPreviewOverlay.svelte';
+	import AdminMarkdownField from '$lib/components/AdminMarkdownField.svelte';
 	import { renderMarkdownToHtml } from '$lib/markdownCompile';
 
-	let { form } = $props();
+	let { data, form } = $props();
 
+	function slugPrefixFromParent(parent: string | undefined) {
+		const p = parent ?? '';
+		return p ? `${p}/` : '';
+	}
+
+	let slugVal = $state(slugPrefixFromParent(data.parentPrefix));
+	let titleVal = $state('');
 	let md = $state('');
+	let previewOpen = $state(false);
+
+	$effect(() => {
+		slugVal = slugPrefixFromParent(data.parentPrefix);
+	});
+
 	let html = $derived(renderMarkdownToHtml(md));
+	let wordCount = $derived(md.trim() ? md.trim().split(/\s+/).filter(Boolean).length : 0);
 </script>
 
 <svelte:head>
 	<title>새 글 | 관리 | SAENS</title>
 </svelte:head>
+
+<AdminBlogPreviewOverlay
+	bind:open={previewOpen}
+	title={titleVal}
+	slug={slugVal || 'draft/preview'}
+	{html}
+	{wordCount}
+/>
 
 <main class="editor-page">
 	<h1>새 글</h1>
@@ -21,21 +45,20 @@
 
 	<form class="form" method="POST" use:enhance>
 		<div class="grid">
-			<label class="field">
-				<span class="label">슬러그 (URL 경로, 예: Dev/AI/3)</span>
-				<input class="input" name="slug" required placeholder="Category/TitleSlug" autocomplete="off" />
+			<label class="field full">
+				<span class="label">슬러그 (URL 경로, 예: Dev/AI/3 — 분류·경로는 슬러그로만 지정)</span>
+				<input
+					class="input"
+					name="slug"
+					required
+					placeholder="Dev/AI/글슬러그"
+					autocomplete="off"
+					bind:value={slugVal}
+				/>
 			</label>
-			<label class="field">
+			<label class="field full">
 				<span class="label">제목</span>
-				<input class="input" name="title" required />
-			</label>
-			<label class="field">
-				<span class="label">카테고리 (선택)</span>
-				<input class="input" name="category" placeholder="Dev/AI" autocomplete="off" />
-			</label>
-			<label class="field">
-				<span class="label">태그 (쉼표 구분)</span>
-				<input class="input" name="tags" placeholder="svelte, dev" autocomplete="off" />
+				<input class="input" name="title" required bind:value={titleVal} />
 			</label>
 		</div>
 
@@ -44,26 +67,13 @@
 			<span>바로 공개</span>
 		</label>
 
-		<div class="split">
-			<label class="field grow">
-				<span class="label">마크다운</span>
-				<textarea
-					class="textarea"
-					name="content_md"
-					rows="18"
-					required
-					bind:value={md}
-				></textarea>
-			</label>
-			<div class="preview grow">
-				<span class="label">미리보기</span>
-				<div class="preview-inner content">{@html html}</div>
-			</div>
-		</div>
+		<AdminMarkdownField bind:md getAssetSlug={() => slugVal} />
 
-		<div class="actions">
+		<div class="toolbar">
+			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>
 			<button type="submit" class="btn primary">저장</button>
-			<a class="btn" href="/admin/posts">취소</a>
+			<!-- TODO: 임시 저장(초안) — 로컬/서버 초안 스키마 확정 후 연동 -->
+			<button type="button" class="btn" disabled title="준비 중">임시 저장</button>
 		</div>
 	</form>
 </main>
@@ -103,16 +113,16 @@
 		.grid {
 			grid-template-columns: 1fr 1fr;
 		}
+
+		.field.full {
+			grid-column: 1 / -1;
+		}
 	}
 
 	.field {
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
-	}
-
-	.field.grow {
-		min-width: 0;
 	}
 
 	.label {
@@ -130,19 +140,6 @@
 		color: var(--text);
 	}
 
-	.textarea {
-		font: inherit;
-		font-size: 0.82rem;
-		line-height: 1.45;
-		padding: 0.6rem 0.7rem;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: var(--bg);
-		color: var(--text);
-		resize: vertical;
-		min-height: 12rem;
-	}
-
 	.check {
 		display: flex;
 		align-items: center;
@@ -151,39 +148,18 @@
 		color: var(--text-secondary);
 	}
 
-	.split {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 1rem;
-	}
-
-	@media (min-width: 900px) {
-		.split {
-			grid-template-columns: 1fr 1fr;
-			align-items: start;
-		}
-	}
-
-	.preview-inner {
-		min-height: 12rem;
-		padding: 0.75rem 0.85rem;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: color-mix(in srgb, var(--bg-lighter) 85%, transparent);
-		font-size: 0.88rem;
-		line-height: 1.55;
-		overflow: auto;
-		max-height: 70vh;
-	}
-
-	.preview :global(.table-wrapper) {
-		overflow-x: auto;
-	}
-
-	.actions {
+	.toolbar {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 0.5rem;
+		overflow-x: auto;
+		padding-bottom: 0.15rem;
+	}
+
+	.toolbar .btn {
+		flex: 0 0 auto;
+		white-space: nowrap;
 	}
 
 	.btn {
@@ -209,5 +185,10 @@
 
 	.btn.primary:hover {
 		opacity: 0.92;
+	}
+
+	.btn:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 </style>

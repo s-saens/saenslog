@@ -1,6 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { insertPost, normalizeSlug, parseTags } from '$lib/server/posts';
-import type { Actions } from './$types';
+import { insertPost, normalizeSlug } from '$lib/server/posts';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = async ({ url }) => {
+	const raw = (url.searchParams.get('parent') ?? '').trim().replace(/^\/+|\/+$/g, '');
+	return { parentPrefix: raw };
+};
 
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
@@ -21,20 +26,13 @@ export const actions: Actions = {
 		const title = String(form.get('title') ?? '').trim();
 		if (!title) return fail(400, { message: '제목을 입력하세요.' });
 
-		const categoryRaw = String(form.get('category') ?? '').trim();
-		const category = categoryRaw || null;
-		const tags = parseTags(String(form.get('tags') ?? ''));
 		const content_md = String(form.get('content_md') ?? '');
 		if (!content_md.trim()) return fail(400, { message: '본문을 입력하세요.' });
 
 		const published = form.get('published') === 'true';
 
 		try {
-			await insertPost(
-				locals.supabase,
-				{ slug, title, category, tags, content_md, published },
-				user.id
-			);
+			await insertPost(locals.supabase, { slug, title, content_md, published }, user.id);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
 			return fail(400, { message: msg });
