@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
-	import { BlogIcon, LogoIcon, MailIcon, MoonIcon, PostIcon, SunIcon } from '$lib/components/icons';
+	import { BlogIcon, LogoIcon, MailIcon, MoonIcon, SunIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
 	import '@fontsource/ibm-plex-mono/400.css';
@@ -213,28 +213,6 @@
 					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Blog</div>
 				{/if}
 			</div>
-
-			{#if data.profile?.role === 'admin'}
-				<div
-					class="nav-tooltip-wrapper"
-					role="none"
-					onmouseenter={() => (navHovered = 'admin')}
-					onmouseleave={() => (navHovered = null)}
-				>
-					<a
-						href="/admin"
-						class="nav-icon"
-						class:entering={isMounted}
-						class:default={isAnimationDone}
-						class:active={isActive('/admin')}
-					>
-						<PostIcon />
-					</a>
-					{#if navHovered === 'admin'}
-						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>관리</div>
-					{/if}
-				</div>
-			{/if}
 
 			<div
 				class="nav-tooltip-wrapper"

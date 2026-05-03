@@ -11,8 +11,8 @@
 		date: string;
 	}
 
-	let { name, path, folderCount, postCount, totalFolderCount, totalPostCount, date }: Props = $props();
-	
+	let { name, path, totalFolderCount, totalPostCount, date }: Props = $props();
+
 	// 날짜 형식: YYYY-MM-DD hh:mm:ss GMT+9
 	const formatDate = (dateStr: string) => {
 		if (!dateStr) return '';
@@ -127,11 +127,10 @@
 		color: var(--text-tertiary);
 		font-size: 0.7rem;
 	}
-	
+
 	.count-item {
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
 	}
 </style>
-

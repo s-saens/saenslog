@@ -19,13 +19,17 @@ export const load = async ({ locals }) => {
 
 	let profile: App.Profile | null = null;
 	if (user) {
-		const { data } = await locals.supabase
-			.from('profiles')
-			.select('username, display_name, avatar_url, role')
-			.eq('id', user.id)
-			.single();
-		if (data && (data.role === 'admin' || data.role === 'member')) {
-			profile = data as App.Profile;
+		try {
+			const { data, error } = await locals.supabase
+				.from('profiles')
+				.select('username, display_name, avatar_url, role')
+				.eq('id', user.id)
+				.single();
+			if (!error && data && (data.role === 'admin' || data.role === 'member')) {
+				profile = data as App.Profile;
+			}
+		} catch (e) {
+			console.error('layout profile', e);
 		}
 	}
 

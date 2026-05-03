@@ -1,6 +1,9 @@
+import { env as privateEnv } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
+import { gateGuestCommentAttempt, hashCommentClientIp, recordGuestCommentAttempt } from '$lib/server/commentGuestRateLimit';
 import { getAllPosts, getBlogItems, getBlogPost } from '$lib/server/blog';
-import { listPostsDirectChildren, listPostsInSubtree } from '$lib/server/posts';
+import { listPostsDirectChildren, listPostsInSubtree, categoryLabelFromSlug, pathSegmentsBeforeLeaf } from '$lib/server/posts';
+import { tryCreateSupabaseServiceClient } from '$lib/server/supabaseService';
 import type { Actions, PageServerLoad } from './$types';
 
 type ListPost = {
@@ -15,7 +18,8 @@ type ListPost = {
 type CommentRow = {
 	id: number;
 	content: string;
-	author_id: string;
+	author_id: string | null;
+	guest_name: string | null;
 	parent_id: number | null;
 	created_at: string;
 	profiles: { username: string; avatar_url: string | null } | null;
@@ -24,7 +28,7 @@ type CommentRow = {
 async function loadCommentsForSlug(postSlug: string, locals: App.Locals): Promise<CommentRow[]> {
 	const { data, error } = await locals.supabase
 		.from('comments')
-		.select('id, content, author_id, parent_id, created_at, profiles(username, avatar_url)')
+		.select('id, content, author_id, guest_name, parent_id, created_at, profiles(username, avatar_url)')
 		.eq('post_slug', postSlug)
 		.order('created_at', { ascending: true });
 
@@ -44,7 +48,8 @@ async function loadCommentsForSlug(postSlug: string, locals: App.Locals): Promis
 		return {
 			id: row.id,
 			content: row.content,
-			author_id: row.author_id,
+			author_id: row.author_id as string | null,
+			guest_name: (row as { guest_name?: string | null }).guest_name ?? null,
 			parent_id: row.parent_id,
 			created_at: row.created_at,
 			profiles
@@ -55,7 +60,6 @@ async function loadCommentsForSlug(postSlug: string, locals: App.Locals): Promis
 function dbRowToCard(row: {
 	slug: string;
 	title: string;
-	category: string | null;
 	published_at: string | null;
 	updated_at: string;
 	word_count: number;
@@ -63,7 +67,7 @@ function dbRowToCard(row: {
 	return {
 		title: row.title,
 		path: row.slug,
-		category: row.category ?? '',
+		category: categoryLabelFromSlug(row.slug),
 		date: row.published_at ?? row.updated_at,
 		wordCount: row.word_count
 	};
@@ -119,12 +123,13 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			segments,
 			breadcrumb: postBreadcrumb,
 			isPost: true,
+			isAdmin,
 			title: dbRow.title,
 			date: dbRow.published_at ?? dbRow.updated_at,
-			category: dbRow.category ?? '',
+			category: categoryLabelFromSlug(path),
 			content: dbRow.content_html as string,
 			wordCount: dbRow.word_count as number,
-			tags: (dbRow.tags as string[]) ?? [],
+			tags: pathSegmentsBeforeLeaf(path),
 			source: 'db' as const,
 			dbPostId: dbRow.id as number,
 			postSlug: dbRow.slug as string,
@@ -152,6 +157,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			segments,
 			breadcrumb: postBreadcrumb,
 			isPost: true,
+			isAdmin,
 			title: fsPost.title,
 			date: fsPost.date,
 			category: fsPost.category,
@@ -195,6 +201,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		segments,
 		breadcrumb,
 		isPost: false,
+		isAdmin,
 		folders: folders.map((folder) => ({
 			name: folder.name,
 			path: folder.path,
@@ -211,15 +218,17 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 };
 
 export const actions: Actions = {
-	addComment: async ({ request, locals }) => {
+	addComment: async ({ request, locals, getClientAddress }) => {
 		const form = await request.formData();
 		const post_slug = String(form.get('post_slug') ?? '').trim();
 		const content = String(form.get('content') ?? '').trim();
+		const guest_name_raw = String(form.get('guest_name') ?? '').trim();
 		const parentRaw = form.get('parent_id');
 		const parentStr = parentRaw == null ? '' : String(parentRaw).trim();
 		const parent_id = parentStr === '' ? null : Number(parentStr);
 
 		if (!post_slug || !content) return fail(400, { message: '내용을 확인하세요.' });
+		if (content.length > 12_000) return fail(400, { message: '댓글이 너무 깁니다.' });
 		if (parent_id !== null && !Number.isFinite(parent_id)) {
 			return fail(400, { message: '잘못된 답글 대상입니다.' });
 		}
@@ -227,10 +236,65 @@ export const actions: Actions = {
 		const {
 			data: { user }
 		} = await locals.supabase.auth.getUser();
-		if (!user) return fail(401, { message: '로그인이 필요합니다.' });
+
+		if (user) {
+			if (guest_name_raw) return fail(400, { message: '로그인 상태에서는 닉네임 필드를 비워 주세요.' });
+
+			if (parent_id !== null) {
+				const { data: parentRow } = await locals.supabase
+					.from('comments')
+					.select('id, parent_id, post_slug')
+					.eq('id', parent_id)
+					.maybeSingle();
+
+				if (!parentRow || parentRow.post_slug !== post_slug) {
+					return fail(400, { message: '답글 대상을 찾을 수 없습니다.' });
+				}
+				if (parentRow.parent_id !== null) {
+					return fail(400, { message: '답글에는 또 답글을 달 수 없습니다.' });
+				}
+			}
+
+			const { error } = await locals.supabase.from('comments').insert({
+				post_slug,
+				author_id: user.id,
+				guest_name: null,
+				content,
+				parent_id
+			});
+
+			if (error) return fail(400, { message: error.message });
+			return { ok: true };
+		}
+
+		const guest_name = guest_name_raw;
+		if (!guest_name || guest_name.length > 40) {
+			return fail(400, { message: '닉네임은 1~40자로 입력해 주세요.' });
+		}
+
+		const service = tryCreateSupabaseServiceClient();
+		const rateSecret =
+			privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
+		if (!service || !rateSecret) {
+			return fail(503, {
+				message:
+					'비회원 댓글을 처리할 수 없습니다. 서버에 SUPABASE_SECRET_KEY(및 선택적으로 COMMENT_RATE_LIMIT_SECRET)를 설정했는지 확인하세요.'
+			});
+		}
+
+		const ip = getClientAddress() ?? 'unknown';
+		const ipHash = hashCommentClientIp(rateSecret, ip);
+
+		const gate = await gateGuestCommentAttempt(service, ipHash);
+		if (!gate.ok) {
+			return fail(gate.blocked ? 429 : 503, {
+				message: gate.message,
+				...(gate.blocked ? { blocked: true } : {})
+			});
+		}
 
 		if (parent_id !== null) {
-			const { data: parentRow } = await locals.supabase
+			const { data: parentRow } = await service
 				.from('comments')
 				.select('id, parent_id, post_slug')
 				.eq('id', parent_id)
@@ -244,9 +308,13 @@ export const actions: Actions = {
 			}
 		}
 
-		const { error } = await locals.supabase.from('comments').insert({
+		const recorded = await recordGuestCommentAttempt(service, ipHash);
+		if (!recorded.ok) return fail(503, { message: '댓글 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+
+		const { error } = await service.from('comments').insert({
 			post_slug,
-			author_id: user.id,
+			author_id: null,
+			guest_name,
 			content,
 			parent_id
 		});

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -8,7 +9,7 @@
 	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
 	import BlogListSection from '$lib/components/BlogListSection.svelte';
 	import Comments from '$lib/components/Comments.svelte';
-	import { TextCountIcon, TistoryIcon } from '$lib/components/icons';
+	import { PlusIcon, TextCountIcon, TistoryIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { formatDate } from '$lib/utils/dateFormatter';
 	import { fade, fly } from 'svelte/transition';
@@ -39,24 +40,36 @@
 	{#if browser}
 		<div class="container" transition:fade|global={{ duration: 500 }}>
 			<header>
-				<nav class="breadcrumb">
-					{#each data.breadcrumb as crumb, i (crumb.path || crumb.label || i)}
-						{#if i > 0}
-							<span class="separator">‣</span>
-						{/if}
-						{#if data.isPost}
-							<a href={resolve(crumb.path as '/blog' | `/blog/${string}`)} class="crumb"
-								>{crumb.label}</a
-							>
-						{:else if i === data.breadcrumb.length - 1}
-							<span class="crumb current">{crumb.label}</span>
-						{:else}
-							<a href={resolve(crumb.path as '/blog' | `/blog/${string}`)} class="crumb"
-								>{crumb.label}</a
-							>
-						{/if}
-					{/each}
-				</nav>
+				<div class="blog-path-bar">
+					<nav class="breadcrumb">
+						{#each data.breadcrumb as crumb, i (crumb.path || crumb.label || i)}
+							{#if i > 0}
+								<span class="separator">‣</span>
+							{/if}
+							{#if data.isPost}
+								<a href={resolve(crumb.path as '/blog' | `/blog/${string}`)} class="crumb"
+									>{crumb.label}</a
+								>
+							{:else if i === data.breadcrumb.length - 1}
+								<span class="crumb current">{crumb.label}</span>
+							{:else}
+								<a href={resolve(crumb.path as '/blog' | `/blog/${string}`)} class="crumb"
+									>{crumb.label}</a
+								>
+							{/if}
+						{/each}
+					</nav>
+					{#if data.isAdmin && !data.isPost}
+						<a
+							class="breadcrumb-new-post"
+							href="/admin/posts/new?parent={encodeURIComponent(data.path)}"
+							aria-label="이 경로에 새 글 작성"
+							title="이 경로에 새 글"
+						>
+							<PlusIcon width={18} height={18} />
+						</a>
+					{/if}
+				</div>
 			</header>
 
 			<div class="content-wrapper">
@@ -87,6 +100,21 @@
 									<TextCountIcon width={14} height={14} />
 									{data.wordCount}
 								</span>
+								{#if data.isAdmin && data.source === 'db'}
+									<div class="post-admin-actions">
+										<a class="post-admin-link" href="/admin/posts/{data.path}/edit">수정</a>
+										<form
+											class="post-admin-delete"
+											method="POST"
+											action="/admin/posts/{data.path}/edit?/delete"
+											use:enhance={({ cancel }) => {
+												if (!confirm('이 글을 삭제할까요?')) cancel();
+											}}
+										>
+											<button type="submit" class="post-admin-link danger">삭제</button>
+										</form>
+									</div>
+								{/if}
 							</div>
 							<div
 								class="content"
@@ -175,6 +203,13 @@
 		margin-bottom: 0.2rem;
 	}
 
+	.blog-path-bar {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.35rem 0.55rem;
+	}
+
 	.breadcrumb {
 		display: flex;
 		align-items: center;
@@ -194,6 +229,26 @@
 
 	a.crumb:hover {
 		opacity: 0.6;
+	}
+
+	.breadcrumb-new-post {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		padding: 0.15rem;
+		margin-left: 0.1rem;
+		color: var(--text-secondary);
+		border-radius: 6px;
+		transition:
+			color 0.15s ease,
+			background-color 0.15s ease,
+			opacity 0.15s ease;
+	}
+
+	.breadcrumb-new-post:hover {
+		color: var(--text);
+		background-color: color-mix(in srgb, var(--text) 8%, transparent);
 	}
 
 	.crumb.current {
@@ -274,11 +329,45 @@
 	.post-meta {
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 		font-size: 0.8rem;
 		color: var(--text-tertiary);
 		padding-bottom: 1rem;
 		border-bottom: 1px solid var(--border);
+	}
+
+	.post-admin-actions {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
+	}
+
+	.post-admin-link {
+		font: inherit;
+		font-size: 0.78rem;
+		color: var(--text-secondary);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		cursor: pointer;
+		background: none;
+		border: none;
+		padding: 0;
+	}
+
+	.post-admin-link:hover {
+		color: var(--text);
+	}
+
+	.post-admin-link.danger {
+		color: #f87171;
+	}
+
+	.post-admin-delete {
+		margin: 0;
+		padding: 0;
+		display: inline;
 	}
 
 	.post-meta .separator {

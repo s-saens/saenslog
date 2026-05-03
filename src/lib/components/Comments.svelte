@@ -9,7 +9,8 @@
 	export type CommentItem = {
 		id: number;
 		content: string;
-		author_id: string;
+		author_id: string | null;
+		guest_name: string | null;
 		parent_id: number | null;
 		created_at: string;
 		profiles: { username: string; avatar_url: string | null } | null;
@@ -63,55 +64,94 @@
 		return comments.filter((c) => c.parent_id === parentId);
 	}
 
+	function displayName(c: CommentItem): string {
+		const g = c.guest_name?.trim();
+		if (g) return g;
+		return c.profiles?.username ?? '방문자';
+	}
+
 	function formatTime(iso: string) {
 		const d = new Date(iso);
 		return d.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+	}
+
+	function afterCommentSubmit() {
+		return async ({
+			result,
+			update
+		}: {
+			result: { type: string; data?: { blocked?: boolean; message?: string } };
+			update: () => Promise<void>;
+		}) => {
+			replyToId = null;
+			if (result.type === 'failure') {
+				const d = result.data;
+				if (d?.blocked) {
+					alert(d.message ?? '댓글 작성이 제한되었습니다.');
+					await update();
+					return;
+				}
+				if (d?.message) {
+					alert(d.message);
+				}
+			}
+			await update();
+		};
 	}
 </script>
 
 <div class="comments">
 	<h2 class="h">댓글 {comments.length}</h2>
 
-	{#if !currentUserId}
-		<p class="login-hint">
-			<a class="link" href="/login?next={encodeURIComponent($page.url.pathname)}"> 로그인하고 댓글 작성</a>
-		</p>
-	{:else}
-		<form
-			class="compose"
-			method="POST"
-			action="?/addComment"
-			use:enhance={() =>
-				async ({ update }) => {
-					replyToId = null;
-					await update();
-				}}
-		>
-			<input type="hidden" name="post_slug" value={postSlug} />
-			<input type="hidden" name="parent_id" value="" />
-			<label class="sr-only" for="comment-root">댓글</label>
-			<textarea
-				id="comment-root"
-				class="textarea"
-				name="content"
-				rows="3"
-				placeholder="댓글을 입력하세요."
+	<form
+		class="compose"
+		method="POST"
+		action="?/addComment"
+		use:enhance={afterCommentSubmit}
+	>
+		<input type="hidden" name="post_slug" value={postSlug} />
+		<input type="hidden" name="parent_id" value="" />
+		{#if !currentUserId}
+			<p class="guest-note">
+				로그인 없이 댓글을 남길 수 있습니다. 짧은 시간에 여러 번 연속 등록하면 IP가 일시적으로 제한될 수
+				있습니다. <a class="link" href="/login?next={encodeURIComponent($page.url.pathname)}">로그인</a>하면
+				닉네임·수정이 편합니다.
+			</p>
+			<label class="field-label" for="guest-name-root">닉네임</label>
+			<input
+				id="guest-name-root"
+				class="input-text"
+				type="text"
+				name="guest_name"
+				autocomplete="nickname"
+				maxlength="40"
+				placeholder="닉네임 (1~40자)"
 				required
-			></textarea>
-			<button type="submit" class="btn">등록</button>
-		</form>
-	{/if}
+			/>
+		{/if}
+		<label class="sr-only" for="comment-root">댓글</label>
+		<textarea
+			id="comment-root"
+			class="textarea"
+			name="content"
+			rows="3"
+			placeholder="댓글을 입력하세요."
+			required
+			maxlength="12000"
+		></textarea>
+		<button type="submit" class="btn">등록</button>
+	</form>
 
 	<ul class="thread">
 		{#each topLevel() as c (c.id)}
 			<li class="item">
 				<div class="meta">
-					<span class="who">{c.profiles?.username ?? '사용자'}</span>
+					<span class="who">{displayName(c)}</span>
 					<time datetime={c.created_at}>{formatTime(c.created_at)}</time>
 				</div>
 				<div class="body">{c.content}</div>
 
-				{#if currentUserId === c.author_id}
+				{#if currentUserId && c.author_id && currentUserId === c.author_id}
 					<details class="editbox">
 						<summary>수정</summary>
 						<form method="POST" action="?/editComment" use:enhance>
@@ -133,26 +173,36 @@
 					</form>
 				{/if}
 
-				{#if currentUserId && replyToId !== c.id}
+				{#if replyToId !== c.id}
 					<button type="button" class="btn ghost small" onclick={() => (replyToId = replyToId === c.id ? null : c.id)}>
 						답글
 					</button>
 				{/if}
 
-				{#if replyToId === c.id && currentUserId}
+				{#if replyToId === c.id}
 					<form
 						class="reply-form"
 						method="POST"
 						action="?/addComment"
-						use:enhance={() =>
-							async ({ update }) => {
-								replyToId = null;
-								await update();
-							}}
+						use:enhance={afterCommentSubmit}
 					>
 						<input type="hidden" name="post_slug" value={postSlug} />
 						<input type="hidden" name="parent_id" value={c.id} />
-						<textarea class="textarea" name="content" rows="2" placeholder="답글..." required></textarea>
+						{#if !currentUserId}
+							<label class="field-label" for="guest-name-reply-{c.id}">닉네임</label>
+							<input
+								id="guest-name-reply-{c.id}"
+								class="input-text"
+								type="text"
+								name="guest_name"
+								autocomplete="nickname"
+								maxlength="40"
+								placeholder="닉네임 (1~40자)"
+								required
+							/>
+						{/if}
+						<textarea class="textarea" name="content" rows="2" placeholder="답글..." required maxlength="12000"
+						></textarea>
 						<div class="reply-actions">
 							<button type="submit" class="btn small">답글 등록</button>
 							<button type="button" class="btn ghost small" onclick={() => (replyToId = null)}>취소</button>
@@ -165,11 +215,11 @@
 						{#each repliesFor(c.id) as r (r.id)}
 							<li class="item reply">
 								<div class="meta">
-									<span class="who">{r.profiles?.username ?? '사용자'}</span>
+									<span class="who">{displayName(r)}</span>
 									<time datetime={r.created_at}>{formatTime(r.created_at)}</time>
 								</div>
 								<div class="body">{r.content}</div>
-								{#if currentUserId === r.author_id}
+								{#if currentUserId && r.author_id && currentUserId === r.author_id}
 									<details class="editbox">
 										<summary>수정</summary>
 										<form method="POST" action="?/editComment" use:enhance>
@@ -213,10 +263,33 @@
 		color: var(--text);
 	}
 
-	.login-hint {
-		margin: 0 0 1rem;
-		font-size: 0.88rem;
+	.guest-note {
+		margin: 0 0 0.75rem;
+		font-size: 0.82rem;
+		line-height: 1.45;
 		color: var(--text-secondary);
+	}
+
+	.field-label {
+		display: block;
+		margin-bottom: 0.3rem;
+		font-size: 0.8rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+	}
+
+	.input-text {
+		font: inherit;
+		font-size: 0.88rem;
+		padding: 0.5rem 0.65rem;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: var(--bg);
+		color: var(--text);
+		width: 100%;
+		max-width: 20rem;
+		box-sizing: border-box;
+		margin-bottom: 0.5rem;
 	}
 
 	.link {
