@@ -1,9 +1,10 @@
 <script lang="ts">
+	import type { BlogPostListItem } from '$lib/types/blogDisplay';
 	import { fly } from 'svelte/transition';
 	import BlogItemPost from './BlogItemPost.svelte';
 
 	interface Props {
-		allPosts: any[];
+		allPosts: BlogPostListItem[];
 		folderCount: number;
 		postCount: number;
 		transitionDelay: number;
@@ -13,12 +14,15 @@
 
 	const TRANSITION_DURATION = 400;
 	const TRANSITION_X = 100;
-	const baseDelay = (folderCount + postCount + 1) * transitionDelay;
+	const baseDelay = $derived((folderCount + postCount + 1) * transitionDelay);
 </script>
 
 {#if allPosts.length > 0}
 	<section class="all-posts">
-		<div class="all-posts-header" in:fly|global={{ duration: TRANSITION_DURATION, x: TRANSITION_X, delay: baseDelay }}>
+		<div
+			class="all-posts-header"
+			in:fly|global={{ duration: TRANSITION_DURATION, x: TRANSITION_X, delay: baseDelay }}
+		>
 			<h2>All Posts</h2>
 			<div class="all-posts-count">
 				<span>({allPosts.length})</span>
@@ -26,7 +30,13 @@
 		</div>
 		<div class="posts-list">
 			{#each allPosts as post, i (post.path)}
-				<div in:fly|global={{ duration: TRANSITION_DURATION, x: TRANSITION_X, delay: baseDelay + (1 + i) * transitionDelay }}>
+				<div
+					in:fly|global={{
+						duration: TRANSITION_DURATION,
+						x: TRANSITION_X,
+						delay: baseDelay + (1 + i) * transitionDelay
+					}}
+				>
 					<BlogItemPost {...post} />
 				</div>
 			{/each}

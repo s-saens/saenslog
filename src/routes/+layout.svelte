@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { afterNavigate, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
+	import { pathWithBase, hrefBlogPathname, hrefProjectsPathname } from '$lib/appPaths';
 	import { BlogIcon, LogoIcon, MailIcon, MoonIcon, SunIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
@@ -44,7 +46,6 @@
 
 	// 마지막 방문 경로 저장을 위한 상태
 	let lastBlogPath = $state('/blog');
-	let lastProjectPath = $state('/projects');
 
 	const themes = {
 		dark: {
@@ -97,9 +98,13 @@
 
 		// 현재 같은 섹션에 있으면 루트로, 아니면 마지막 방문 경로로
 		if (currentPath.startsWith(rootPath)) {
-			goto(rootPath);
+			goto(resolve(rootPath as '/blog' | '/projects'));
+		} else if (lastPath.startsWith('/blog')) {
+			goto(hrefBlogPathname(lastPath));
+		} else if (lastPath.startsWith('/projects')) {
+			goto(hrefProjectsPathname(lastPath));
 		} else {
-			goto(lastPath);
+			goto(pathWithBase(lastPath));
 		}
 	}
 
@@ -116,7 +121,6 @@
 
 		if (currentPath.startsWith('/projects')) {
 			sessionStorage.setItem('lastProjectPath', currentPath);
-			lastProjectPath = currentPath;
 		}
 	});
 
@@ -134,13 +138,9 @@
 		applyTheme(isDark);
 
 		const savedBlogPath = sessionStorage.getItem('lastBlogPath');
-		const savedProjectPath = sessionStorage.getItem('lastProjectPath');
 
 		if (savedBlogPath) {
 			lastBlogPath = savedBlogPath;
-		}
-		if (savedProjectPath) {
-			lastProjectPath = savedProjectPath;
 		}
 
 		// 시스템 테마 변경 감지 (저장된 테마가 없을 때만)
@@ -180,7 +180,7 @@
 				onmouseleave={() => (navHovered = null)}
 			>
 				<a
-					href="/"
+					href={resolve('/')}
 					class="nav-icon"
 					class:entering={isMounted}
 					class:default={isAnimationDone}
@@ -200,7 +200,7 @@
 				onmouseleave={() => (navHovered = null)}
 			>
 				<a
-					href={lastBlogPath}
+					href={hrefBlogPathname(lastBlogPath)}
 					class="nav-icon"
 					class:entering={isMounted}
 					class:default={isAnimationDone}
@@ -222,7 +222,7 @@
 			>
 				{#if data.user}
 					<a
-						href="/account"
+						href={resolve('/account')}
 						class="nav-icon nav-avatar-wrap"
 						class:entering={isMounted}
 						class:default={isAnimationDone}
@@ -238,7 +238,7 @@
 					{/if}
 				{:else}
 					<a
-						href="/login"
+						href={resolve('/login')}
 						class="nav-icon"
 						class:entering={isMounted}
 						class:default={isAnimationDone}
@@ -253,26 +253,9 @@
 				{/if}
 			</div>
 
-			<!-- TODO : 프로젝트 페이지 제대로 구현 후 주석 해제
-			<div
-				class="nav-tooltip-wrapper"
-				role="none"
-				onmouseenter={() => (navHovered = 'projects')}
-				onmouseleave={() => (navHovered = null)}
-			>
-				<a
-					href={lastProjectPath}
-					class="nav-icon"
-					class:entering={isMounted}
-					class:default={isAnimationDone}
-					class:active={isActive('/projects')}
-					onclick={(e) => handleNavigation(e, '/projects', lastProjectPath)}
-				>
-					<ProjectIcon />
-				</a>
-				{#if navHovered === 'projects'}
-					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Projects</div>
-				{/if}
+			<!-- TODO: 프로젝트 내비 — 구현 후 아래 주석 해제 (ProjectIcon import 추가)
+			<div class="nav-tooltip-wrapper" role="none" ...>
+				<a href={resolve('/projects')} ...><ProjectIcon /></a>
 			</div>
 			-->
 
@@ -321,8 +304,11 @@
 		--border: #505050;
 		--accent: #ffffff;
 		--font-default:
-			'IBM Plex Sans KR', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-		--font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+			'IBM Plex Sans KR', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui,
+			sans-serif;
+		--font-mono:
+			'IBM Plex Mono', ui-monospace, 'Cascadia Code', 'Segoe UI Mono', 'SFMono-Regular', Menlo,
+			Monaco, Consolas, monospace;
 		--img-filter: invert(1);
 		--code-bg: #1e2228;
 	}
@@ -383,7 +369,7 @@
 	:global(body) {
 		margin: 0;
 		padding: 0;
-		font-family: var(--font-mono);
+		font-family: var(--font-default);
 		color: var(--text);
 		background-color: var(--bg);
 		user-select: none;
@@ -404,7 +390,7 @@
 		-ms-overflow-style: none;
 	}
 
-	:global(body *) {
+	:global(pre, code, kbd, samp) {
 		font-family: var(--font-mono);
 	}
 

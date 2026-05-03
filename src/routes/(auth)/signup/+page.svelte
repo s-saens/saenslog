@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 
 	let { data, form } = $props();
 </script>
@@ -55,7 +56,7 @@
 {/if}
 
 <p class="footer">
-	<a class="link" href="/login">이미 계정이 있으면 로그인</a>
+	<a class="link" href={resolve('/login')}>이미 계정이 있으면 로그인</a>
 </p>
 
 <style>

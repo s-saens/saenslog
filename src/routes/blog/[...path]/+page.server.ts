@@ -1,8 +1,17 @@
 import { env as privateEnv } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
-import { gateGuestCommentAttempt, hashCommentClientIp, recordGuestCommentAttempt } from '$lib/server/commentGuestRateLimit';
+import {
+	gateGuestCommentAttempt,
+	hashCommentClientIp,
+	recordGuestCommentAttempt
+} from '$lib/server/commentGuestRateLimit';
 import { getAllPosts, getBlogItems, getBlogPost } from '$lib/server/blog';
-import { listPostsDirectChildren, listPostsInSubtree, categoryLabelFromSlug, pathSegmentsBeforeLeaf } from '$lib/server/posts';
+import {
+	listPostsDirectChildren,
+	listPostsInSubtree,
+	categoryLabelFromSlug,
+	pathSegmentsBeforeLeaf
+} from '$lib/server/posts';
 import { tryCreateSupabaseServiceClient } from '$lib/server/supabaseService';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -28,7 +37,9 @@ type CommentRow = {
 async function loadCommentsForSlug(postSlug: string, locals: App.Locals): Promise<CommentRow[]> {
 	const { data, error } = await locals.supabase
 		.from('comments')
-		.select('id, content, author_id, guest_name, parent_id, created_at, profiles(username, avatar_url)')
+		.select(
+			'id, content, author_id, guest_name, parent_id, created_at, profiles(username, avatar_url)'
+		)
 		.eq('post_slug', postSlug)
 		.order('created_at', { ascending: true });
 
@@ -43,7 +54,7 @@ async function loadCommentsForSlug(postSlug: string, locals: App.Locals): Promis
 			p == null
 				? null
 				: Array.isArray(p)
-					? (p[0] as { username: string; avatar_url: string | null } | undefined) ?? null
+					? ((p[0] as { username: string; avatar_url: string | null } | undefined) ?? null)
 					: (p as { username: string; avatar_url: string | null });
 		return {
 			id: row.id,
@@ -84,6 +95,28 @@ function mergeByPath(fsItems: ListPost[], dbItems: ListPost[]): ListPost[] {
 	return [...map.values()].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
+/** /blog 루트의 «All Posts» 섹션용 — FS 전체 순회·DB 전체 조회는 여기서만 수행 */
+async function buildAllPostsMerged(
+	supabase: App.Locals['supabase'],
+	basePath: string,
+	opts: { onlyPublished: boolean }
+): Promise<ListPost[]> {
+	const fsAll = getAllPosts(basePath);
+	const dbSubtree = await listPostsInSubtree(supabase, basePath, {
+		onlyPublished: opts.onlyPublished
+	});
+	const dbAllCards = dbSubtree.map(dbRowToCard);
+	const fsAllCards: ListPost[] = fsAll.map((p) => ({
+		title: p.title,
+		path: p.path,
+		category: p.category,
+		date: p.date,
+		wordCount: p.wordCount,
+		...(p.tistory ? { tistory: p.tistory } : {})
+	}));
+	return mergeByPath(fsAllCards, dbAllCards);
+}
+
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { profile } = await parent();
 	const isAdmin = profile?.role === 'admin';
@@ -102,7 +135,11 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		})
 	];
 
-	const { data: dbRow } = await locals.supabase.from('posts').select('*').eq('slug', path).maybeSingle();
+	const { data: dbRow } = await locals.supabase
+		.from('posts')
+		.select('*')
+		.eq('slug', path)
+		.maybeSingle();
 
 	if (dbRow) {
 		const postBreadcrumb = [
@@ -183,18 +220,11 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	}));
 	const mergedPosts = mergeByPath(fsCards, dbCards);
 
-	const fsAll = getAllPosts(path);
-	const dbSubtree = await listPostsInSubtree(locals.supabase, path, { onlyPublished: onlyPub });
-	const dbAllCards = dbSubtree.map(dbRowToCard);
-	const fsAllCards: ListPost[] = fsAll.map((p) => ({
-		title: p.title,
-		path: p.path,
-		category: p.category,
-		date: p.date,
-		wordCount: p.wordCount,
-		...(p.tistory ? { tistory: p.tistory } : {})
-	}));
-	const mergedAll = mergeByPath(fsAllCards, dbAllCards);
+	const isBlogRoot = path === '';
+	/* 루트에서만 «All Posts» 데이터가 필요함. Promise로 반환해 스트리밍 시 목록·폴더부터 먼저 그린다. */
+	const allPosts = isBlogRoot
+		? buildAllPostsMerged(locals.supabase, path, { onlyPublished: onlyPub })
+		: Promise.resolve([] as ListPost[]);
 
 	return {
 		path,
@@ -212,7 +242,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			date: folder.date
 		})),
 		posts: mergedPosts,
-		allPosts: mergedAll,
+		allPosts,
 		comments: [] as CommentRow[]
 	};
 };
@@ -238,7 +268,8 @@ export const actions: Actions = {
 		} = await locals.supabase.auth.getUser();
 
 		if (user) {
-			if (guest_name_raw) return fail(400, { message: '로그인 상태에서는 닉네임 필드를 비워 주세요.' });
+			if (guest_name_raw)
+				return fail(400, { message: '로그인 상태에서는 닉네임 필드를 비워 주세요.' });
 
 			if (parent_id !== null) {
 				const { data: parentRow } = await locals.supabase
@@ -273,8 +304,7 @@ export const actions: Actions = {
 		}
 
 		const service = tryCreateSupabaseServiceClient();
-		const rateSecret =
-			privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
+		const rateSecret = privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
 		if (!service || !rateSecret) {
 			return fail(503, {
 				message:
@@ -309,7 +339,8 @@ export const actions: Actions = {
 		}
 
 		const recorded = await recordGuestCommentAttempt(service, ipHash);
-		if (!recorded.ok) return fail(503, { message: '댓글 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+		if (!recorded.ok)
+			return fail(503, { message: '댓글 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
 
 		const { error } = await service.from('comments').insert({
 			post_slug,

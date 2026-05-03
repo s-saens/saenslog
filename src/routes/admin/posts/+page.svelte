@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { hrefAdminPostEdit } from '$lib/appPaths';
+
 	let { data } = $props();
 </script>
 
@@ -9,16 +12,18 @@
 <main class="posts-admin">
 	<header class="head">
 		<h1>블로그 글</h1>
-		<a class="btn primary" href="/admin/posts/new">새 글</a>
+		<a class="btn primary" href={resolve('/admin/posts/new')}>새 글</a>
 	</header>
 
 	{#if data.posts.length === 0}
-		<p class="empty">아직 DB에 글이 없습니다. 새 글을 작성하거나 마크다운 파일만 사용 중일 수 있습니다.</p>
+		<p class="empty">
+			아직 DB에 글이 없습니다. 새 글을 작성하거나 마크다운 파일만 사용 중일 수 있습니다.
+		</p>
 	{:else}
 		<ul class="list">
 			{#each data.posts as p (p.id)}
 				<li class="row">
-					<a class="title" href="/admin/posts/{p.slug}/edit">{p.title}</a>
+					<a class="title" href={hrefAdminPostEdit(p.slug)}>{p.title}</a>
 					<span class="meta">
 						<span class="slug">{p.slug}</span>
 						<span class="pill" class:pub={p.published} class:draft={!p.published}>
@@ -32,7 +37,7 @@
 	{/if}
 
 	<p class="back">
-		<a href="/admin">← 관리 홈</a>
+		<a href={resolve('/admin')}>← 관리 홈</a>
 	</p>
 </main>
 

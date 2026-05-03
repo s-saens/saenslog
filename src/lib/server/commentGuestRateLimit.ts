@@ -9,9 +9,7 @@ export function hashCommentClientIp(secret: string, ip: string): string {
 	return createHmac('sha256', secret).update(ip, 'utf8').digest('hex');
 }
 
-export type GuestRateResult =
-	| { ok: true }
-	| { ok: false; blocked: boolean; message: string };
+export type GuestRateResult = { ok: true } | { ok: false; blocked: boolean; message: string };
 
 export async function gateGuestCommentAttempt(
 	service: SupabaseClient,
@@ -63,8 +61,7 @@ export async function gateGuestCommentAttempt(
 		return {
 			ok: false,
 			blocked: true,
-			message:
-				'짧은 시간에 댓글을 너무 많이 시도했습니다. 이 IP는 5일간 댓글 작성이 제한됩니다.'
+			message: '짧은 시간에 댓글을 너무 많이 시도했습니다. 이 IP는 5일간 댓글 작성이 제한됩니다.'
 		};
 	}
 

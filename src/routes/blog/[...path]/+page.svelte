@@ -6,6 +6,7 @@
 	import { setupCodeBlocks } from '$lib/actions/setupCodeBlocks';
 	import { setupTables } from '$lib/actions/setupTables';
 	import { setupTOC } from '$lib/actions/setupTOC';
+	import { hrefAdminPostEdit, hrefBlogPathname } from '$lib/appPaths';
 	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
 	import BlogListSection from '$lib/components/BlogListSection.svelte';
 	import Comments from '$lib/components/Comments.svelte';
@@ -23,6 +24,10 @@
 	const TRANSITION_DELAY = 70;
 
 	let postContentEl: HTMLDivElement | undefined = $state();
+
+	const adminNewPostHref = $derived(
+		`${resolve('/admin/posts/new')}?parent=${encodeURIComponent(data.path)}`
+	);
 
 	$effect(() => {
 		if (!browser || !data.isPost || !postContentEl) return;
@@ -47,22 +52,18 @@
 								<span class="separator">‣</span>
 							{/if}
 							{#if data.isPost}
-								<a href={resolve(crumb.path as '/blog' | `/blog/${string}`)} class="crumb"
-									>{crumb.label}</a
-								>
+								<a href={hrefBlogPathname(crumb.path)} class="crumb">{crumb.label}</a>
 							{:else if i === data.breadcrumb.length - 1}
 								<span class="crumb current">{crumb.label}</span>
 							{:else}
-								<a href={resolve(crumb.path as '/blog' | `/blog/${string}`)} class="crumb"
-									>{crumb.label}</a
-								>
+								<a href={hrefBlogPathname(crumb.path)} class="crumb">{crumb.label}</a>
 							{/if}
 						{/each}
 					</nav>
 					{#if data.isAdmin && !data.isPost}
 						<a
 							class="breadcrumb-new-post"
-							href="/admin/posts/new?parent={encodeURIComponent(data.path)}"
+							href={adminNewPostHref}
 							aria-label="이 경로에 새 글 작성"
 							title="이 경로에 새 글"
 						>
@@ -102,7 +103,7 @@
 								</span>
 								{#if data.isAdmin && data.source === 'db'}
 									<div class="post-admin-actions">
-										<a class="post-admin-link" href="/admin/posts/{data.path}/edit">수정</a>
+										<a class="post-admin-link" href={hrefAdminPostEdit(data.path)}>수정</a>
 										<form
 											class="post-admin-delete"
 											method="POST"
@@ -122,6 +123,7 @@
 								bind:this={postContentEl}
 								transition:fly|global={{ duration: 600, y: 100, delay: 200 }}
 							>
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -- 마크다운 렌더 결과(저장소·관리자만 편집) -->
 								{@html data.content}
 							</div>
 							<Comments
@@ -141,13 +143,24 @@
 								posts={data.posts}
 								transitionDelay={TRANSITION_DELAY}
 							/>
-							{#if $page.url.pathname === '/blog' || $page.url.pathname === '/blog/'}
-								<BlogAllPostsSection
-									allPosts={data.allPosts || []}
-									folderCount={data.folders?.length || 0}
-									postCount={data.posts?.length || 0}
-									transitionDelay={TRANSITION_DELAY}
-								/>
+							{#if data.path === ''}
+								{#await data.allPosts}
+									<section
+										class="all-posts-pending"
+										aria-busy="true"
+										aria-label="전체 글 목록 로드 중"
+									>
+										<div class="all-posts-pending-line"></div>
+										<span class="all-posts-pending-text">All Posts 불러오는 중…</span>
+									</section>
+								{:then allPosts}
+									<BlogAllPostsSection
+										allPosts={allPosts ?? []}
+										folderCount={data.folders?.length || 0}
+										postCount={data.posts?.length || 0}
+										transitionDelay={TRANSITION_DELAY}
+									/>
+								{/await}
 							{/if}
 						</div>
 					{/key}
@@ -196,6 +209,42 @@
 		flex-direction: column;
 		gap: 1rem;
 		padding-bottom: 5rem;
+	}
+
+	.all-posts-pending {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.65rem;
+		padding-top: 2rem;
+		margin-top: 0.5rem;
+		border-top: 1px solid var(--border);
+		color: var(--text-tertiary);
+	}
+
+	.all-posts-pending-line {
+		height: 3px;
+		border-radius: 999px;
+		background: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--text) 18%, transparent),
+			color-mix(in srgb, var(--text) 8%, transparent)
+		);
+		background-size: 200% 100%;
+		animation: all-posts-shimmer 1.1s ease-in-out infinite;
+	}
+
+	.all-posts-pending-text {
+		font-size: 0.8rem;
+	}
+
+	@keyframes all-posts-shimmer {
+		0% {
+			background-position: 100% 0;
+		}
+		100% {
+			background-position: -100% 0;
+		}
 	}
 
 	header {

@@ -1,3 +1,7 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+</script>
+
 <svelte:head>
 	<title>관리 | SAENS</title>
 </svelte:head>
@@ -6,11 +10,11 @@
 	<h1 class="title">관리</h1>
 	<p class="lead">글 작성·수정은 다음 단계에서 여기에 연결됩니다.</p>
 	<p class="hint">
-		<a class="link" href="/admin/posts">블로그 글 관리</a>
+		<a class="link" href={resolve('/admin/posts')}>블로그 글 관리</a>
 		·
-		<a class="link" href="/account">계정</a>
+		<a class="link" href={resolve('/account')}>계정</a>
 		·
-		<a class="link" href="/">홈</a>
+		<a class="link" href={resolve('/')}>홈</a>
 	</p>
 </main>
 

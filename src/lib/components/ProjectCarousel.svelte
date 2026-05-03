@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 
 	interface Project {
@@ -22,12 +23,12 @@
 	let { projects, selectedIndex = $bindable(), onSelect, onClick }: Props = $props();
 
 	/** 로고 URL 순차 preload 완료된 프로젝트 인덱스 */
-	let loadedLogo = $state<Set<number>>(new Set());
+	let loadedLogo = new SvelteSet<number>();
 
 	$effect(() => {
 		if (!browser) return;
 		const list = projects;
-		loadedLogo = new Set();
+		loadedLogo.clear();
 		let i = 0;
 		let cancelled = false;
 
@@ -36,7 +37,7 @@
 			const el = new Image();
 			el.onload = () => {
 				if (cancelled) return;
-				loadedLogo = new Set(loadedLogo).add(i);
+				loadedLogo.add(i);
 				i += 1;
 				loadNext();
 			};

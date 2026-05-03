@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import ProjectCarousel from '$lib/components/ProjectCarousel.svelte';
 	import { fade } from 'svelte/transition';
 
@@ -28,7 +29,7 @@
 	function handleClick(index: number) {
 		if (index === selectedIndex) {
 			// 현재 선택된 프로젝트를 클릭하면 상세 페이지로 이동
-			goto(`/projects/${data.projects[index].title}`);
+			goto(resolve('/projects/[title]', { title: data.projects[index].title }));
 		} else {
 			// 다른 프로젝트를 클릭하면 해당 프로젝트를 선택
 			selectedIndex = index;

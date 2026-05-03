@@ -52,7 +52,9 @@
 	<div class="overlay-root" role="dialog" aria-modal="true" aria-label="블로그 미리보기">
 		<div class="overlay-bar">
 			<button type="button" class="close-btn" onclick={() => (open = false)}>닫기</button>
-			<span class="bar-hint">실제 글 페이지 레이아웃과 동일하게 보입니다. 저장 전까지 블로그에는 반영되지 않습니다.</span>
+			<span class="bar-hint"
+				>실제 글 페이지 레이아웃과 동일하게 보입니다. 저장 전까지 블로그에는 반영되지 않습니다.</span
+			>
 		</div>
 		<div class="overlay-scroll">
 			<div class="inner">
@@ -63,7 +65,9 @@
 							<span class="sep">‣</span>
 							{@const path = crumbSegments.slice(0, i + 1).join('/')}
 							{#if i < crumbSegments.length - 1}
-								<a href={resolve(`/blog/${path}` as '/blog' | `/blog/${string}`)} class="crumb">{seg}</a>
+								<a href={resolve(`/blog/${path}` as '/blog' | `/blog/${string}`)} class="crumb"
+									>{seg}</a
+								>
 							{:else}
 								<span class="crumb current">{seg}</span>
 							{/if}
@@ -83,6 +87,7 @@
 							{wordCount}
 						</span>
 					</div>
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -- 미리보기용 마크다운 HTML -->
 					<div class="content" lang="en" bind:this={contentEl}>{@html html}</div>
 				</article>
 			</div>

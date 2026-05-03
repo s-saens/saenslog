@@ -6,9 +6,7 @@ const fallbackPublishableKey = 'sb_publishable_ci_build_placeholder_not_valid';
 
 function resolvePublicSupabaseKey(): string {
 	return (
-		env.PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-		env.PUBLIC_SUPABASE_ANON_KEY ??
-		fallbackPublishableKey
+		env.PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? env.PUBLIC_SUPABASE_ANON_KEY ?? fallbackPublishableKey
 	);
 }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { hrefBlogPath } from '$lib/appPaths';
 	import { PostIcon, TextCountIcon, TistoryIcon } from '$lib/components/icons';
 
 	interface Props {
@@ -41,7 +42,7 @@
 
 <!-- 카드 전체는 .card-link 오버레이, 티스토리는 z-index로 분리 (중첩 <a> 방지) -->
 <div class="blog-item post" class:overflowing={isOverflowing} data-title={title}>
-	<a href="/blog/{path}" class="card-link" aria-label="블로그 글: {title}"></a>
+	<a href={hrefBlogPath(path)} class="card-link" aria-label="블로그 글: {title}"></a>
 	<div class="icon">
 		<PostIcon />
 	</div>
@@ -87,7 +88,10 @@
 		color: var(--text);
 		transition: opacity 0.2s;
 		font-size: 0.85rem;
-		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
+		transition:
+			margin 0.15s ease-in-out,
+			padding 0.15s ease-in-out,
+			background-color 0.2s ease-in-out;
 		border-radius: 0.6rem;
 	}
 
@@ -113,7 +117,10 @@
 		margin: 0;
 		padding: 0.8rem 1rem;
 		background-color: var(--bg-lighter);
-		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
+		transition:
+			margin 0.15s ease-in-out,
+			padding 0.15s ease-in-out,
+			background-color 0.2s ease-in-out;
 	}
 
 	.icon {
@@ -163,7 +170,9 @@
 		border-radius: 6px;
 		pointer-events: none;
 		opacity: 0;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
 		white-space: normal;
 		max-width: 320px;
 		z-index: 20;
@@ -180,7 +189,9 @@
 		align-items: center;
 		flex-shrink: 0;
 		color: var(--text-tertiary);
-		transition: color 0.2s, opacity 0.2s;
+		transition:
+			color 0.2s,
+			opacity 0.2s;
 	}
 
 	.tistory-link::after {
@@ -199,7 +210,9 @@
 		border-radius: 6px;
 		pointer-events: none;
 		opacity: 0;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
 		z-index: 10;
 	}
 
@@ -236,7 +249,9 @@
 		border-radius: 5px;
 		pointer-events: none;
 		opacity: 0;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
 		white-space: nowrap;
 		z-index: 10;
 	}

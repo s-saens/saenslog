@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { setupCodeBlocks } from '$lib/actions/setupCodeBlocks';
 	import { setupTables } from '$lib/actions/setupTables';
+	import { resolve } from '$app/paths';
 	import BlogItemPost from '$lib/components/BlogItemPost.svelte';
 	import ProjectDetailDeck from '$lib/components/project/ProjectDetailDeck.svelte';
 	import ScreenshotCarousel from '$lib/components/ScreenshotCarousel.svelte';
@@ -32,7 +33,6 @@
 	interface Props {
 		data: {
 			project: {
-				id: string;
 				title: string;
 				tags: string[];
 				startDate: string;
@@ -96,7 +96,7 @@
 <main class="project-detail">
 	{#if browser}
 		<div class="project-detail__inner" transition:fade|global={{ duration: 420 }}>
-			<a href="/projects" class="project-detail__back">
+			<a href={resolve('/projects')} class="project-detail__back">
 				<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
 					<path
 						d="M12.5 15L7.5 10L12.5 5"

@@ -1,17 +1,9 @@
 <script lang="ts">
+	import type { BlogFolderListItem } from '$lib/types/blogDisplay';
+	import { hrefBlogPath } from '$lib/appPaths';
 	import { FolderIcon, FolderMultiIcon, PostMultiIcon } from '$lib/components/icons';
 
-	interface Props {
-		name: string;
-		path: string;
-		folderCount: number;
-		postCount: number;
-		totalFolderCount: number;
-		totalPostCount: number;
-		date: string;
-	}
-
-	let { name, path, totalFolderCount, totalPostCount, date }: Props = $props();
+	let row: BlogFolderListItem = $props();
 
 	// 날짜 형식: YYYY-MM-DD hh:mm:ss GMT+9
 	const formatDate = (dateStr: string) => {
@@ -30,22 +22,22 @@
 	};
 </script>
 
-<a href="/blog/{path}" class="blog-item folder">
+<a href={hrefBlogPath(row.path)} class="blog-item folder">
 	<div class="icon">
 		<FolderIcon />
 	</div>
-	<div class="title">{name}</div>
-	<div class="date">{formatDate(date)}</div>
+	<div class="title">{row.name}</div>
+	<div class="date">{formatDate(row.date)}</div>
 	<div class="info-row1">
 		<span class="count-item">
 			<FolderMultiIcon width={10} height={10} class="count-icon" />
-			{totalFolderCount}
+			{row.totalFolderCount}
 		</span>
 	</div>
 	<div class="info-row2">
 		<span class="count-item">
 			<PostMultiIcon width={10} height={10} class="count-icon" />
-			{totalPostCount}
+			{row.totalPostCount}
 		</span>
 	</div>
 </a>
@@ -65,7 +57,10 @@
 		color: var(--text);
 		transition: opacity 0.2s;
 		font-size: 0.85rem;
-		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
+		transition:
+			margin 0.15s ease-in-out,
+			padding 0.15s ease-in-out,
+			background-color 0.2s ease-in-out;
 		border-radius: 0.6rem;
 	}
 
@@ -73,7 +68,10 @@
 		margin: 0;
 		padding: 0.8rem 1rem;
 		background-color: var(--bg-lighter);
-		transition: margin 0.15s ease-in-out, padding 0.15s ease-in-out, background-color 0.2s ease-in-out;
+		transition:
+			margin 0.15s ease-in-out,
+			padding 0.15s ease-in-out,
+			background-color 0.2s ease-in-out;
 	}
 
 	.icon {

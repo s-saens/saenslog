@@ -1,20 +1,22 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
+	import { hrefBlogPath } from '$lib/appPaths';
 	import AdminBlogPreviewOverlay from '$lib/components/AdminBlogPreviewOverlay.svelte';
 	import AdminMarkdownField from '$lib/components/AdminMarkdownField.svelte';
 	import { renderMarkdownToHtml } from '$lib/markdownCompile';
 
 	let { data, form } = $props();
 
-	let slugVal = $state(data.post.slug);
-	let titleVal = $state(data.post.title);
-	let md = $state(data.post.content_md);
+	let slugVal = $state('');
+	let titleVal = $state('');
+	let md = $state('');
 	let previewOpen = $state(false);
 
 	let html = $derived(renderMarkdownToHtml(md));
 	let wordCount = $derived(md.trim() ? md.trim().split(/\s+/).filter(Boolean).length : 0);
 
-	$effect(() => {
+	$effect.pre(() => {
 		slugVal = data.post.slug;
 		titleVal = data.post.title;
 		md = data.post.content_md;
@@ -36,7 +38,7 @@
 <main class="editor-page">
 	<h1>글 수정</h1>
 	<p class="slug-line">
-		<a class="blog-link" href={'/blog/' + slugVal}>블로그에서 보기 →</a>
+		<a class="blog-link" href={hrefBlogPath(slugVal)}>블로그에서 보기 →</a>
 	</p>
 	<p class="hint">
 		슬러그를 바꾸면 URL 경로가 바뀝니다. 저장 후 댓글은 새 경로에 그대로 이어집니다.
@@ -68,7 +70,7 @@
 		<div class="toolbar">
 			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>
 			<button type="submit" class="btn primary">저장</button>
-			<a class="btn" href="/admin/posts">목록</a>
+			<a class="btn" href={resolve('/admin/posts')}>목록</a>
 			<button type="submit" class="btn danger" form="post-delete-form">삭제</button>
 		</div>
 	</form>

@@ -187,7 +187,6 @@
 </script>
 
 <!-- Hidden audio element -->
-<!-- svelte-ignore a11y_media_has_caption -->
 <audio bind:this={audioEl} onended={onAudioEnded} onloadedmetadata={onAudioMetadata}></audio>
 
 {#if mounted}

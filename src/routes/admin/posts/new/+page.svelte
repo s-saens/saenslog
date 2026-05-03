@@ -11,12 +11,12 @@
 		return p ? `${p}/` : '';
 	}
 
-	let slugVal = $state(slugPrefixFromParent(data.parentPrefix));
+	let slugVal = $state('');
 	let titleVal = $state('');
 	let md = $state('');
 	let previewOpen = $state(false);
 
-	$effect(() => {
+	$effect.pre(() => {
 		slugVal = slugPrefixFromParent(data.parentPrefix);
 	});
 

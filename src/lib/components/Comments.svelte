@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { supabase } from '$lib/supabase';
@@ -26,29 +27,21 @@
 		currentUserId: string | null;
 	} = $props();
 
-	let comments = $state<CommentItem[]>([...initialComments]);
+	const comments = $derived(initialComments);
 	let replyToId = $state<number | null>(null);
-
-	$effect(() => {
-		comments = [...initialComments];
-	});
 
 	onMount(() => {
 		if (!browser) return;
 
 		const channel = supabase
 			.channel(`comments:${postSlug}`)
-			.on(
-				'postgres_changes',
-				{ event: '*', schema: 'public', table: 'comments' },
-				(payload) => {
-					const row = (payload.new as { post_slug?: string } | null)?.post_slug;
-					const oldRow = (payload.old as { post_slug?: string } | null)?.post_slug;
-					if (row === postSlug || oldRow === postSlug) {
-						void invalidateAll();
-					}
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, (payload) => {
+				const row = (payload.new as { post_slug?: string } | null)?.post_slug;
+				const oldRow = (payload.old as { post_slug?: string } | null)?.post_slug;
+				if (row === postSlug || oldRow === postSlug) {
+					void invalidateAll();
 				}
-			)
+			})
 			.subscribe();
 
 		return () => {
@@ -103,19 +96,16 @@
 <div class="comments">
 	<h2 class="h">댓글 {comments.length}</h2>
 
-	<form
-		class="compose"
-		method="POST"
-		action="?/addComment"
-		use:enhance={afterCommentSubmit}
-	>
+	<form class="compose" method="POST" action="?/addComment" use:enhance={afterCommentSubmit}>
 		<input type="hidden" name="post_slug" value={postSlug} />
 		<input type="hidden" name="parent_id" value="" />
 		{#if !currentUserId}
 			<p class="guest-note">
-				로그인 없이 댓글을 남길 수 있습니다. 짧은 시간에 여러 번 연속 등록하면 IP가 일시적으로 제한될 수
-				있습니다. <a class="link" href="/login?next={encodeURIComponent($page.url.pathname)}">로그인</a>하면
-				닉네임·수정이 편합니다.
+				로그인 없이 댓글을 남길 수 있습니다. 짧은 시간에 여러 번 연속 등록하면 IP가 일시적으로
+				제한될 수 있습니다. <a
+					class="link"
+					href={`${resolve('/login')}?next=${encodeURIComponent($page.url.pathname)}`}>로그인</a
+				>하면 닉네임·수정이 편합니다.
 			</p>
 			<label class="field-label" for="guest-name-root">닉네임</label>
 			<input
@@ -174,7 +164,11 @@
 				{/if}
 
 				{#if replyToId !== c.id}
-					<button type="button" class="btn ghost small" onclick={() => (replyToId = replyToId === c.id ? null : c.id)}>
+					<button
+						type="button"
+						class="btn ghost small"
+						onclick={() => (replyToId = replyToId === c.id ? null : c.id)}
+					>
 						답글
 					</button>
 				{/if}
@@ -201,11 +195,19 @@
 								required
 							/>
 						{/if}
-						<textarea class="textarea" name="content" rows="2" placeholder="답글..." required maxlength="12000"
+						<textarea
+							class="textarea"
+							name="content"
+							rows="2"
+							placeholder="답글..."
+							required
+							maxlength="12000"
 						></textarea>
 						<div class="reply-actions">
 							<button type="submit" class="btn small">답글 등록</button>
-							<button type="button" class="btn ghost small" onclick={() => (replyToId = null)}>취소</button>
+							<button type="button" class="btn ghost small" onclick={() => (replyToId = null)}
+								>취소</button
+							>
 						</div>
 					</form>
 				{/if}
@@ -224,7 +226,9 @@
 										<summary>수정</summary>
 										<form method="POST" action="?/editComment" use:enhance>
 											<input type="hidden" name="comment_id" value={r.id} />
-											<textarea class="textarea" name="content" rows="2" required>{r.content}</textarea>
+											<textarea class="textarea" name="content" rows="2" required
+												>{r.content}</textarea
+											>
 											<button type="submit" class="btn small">저장</button>
 										</form>
 									</details>

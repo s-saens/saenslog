@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 
 	let { data, form } = $props();
 </script>
@@ -42,7 +43,7 @@
 </form>
 
 <p class="footer">
-	<a class="link" href="/signup">계정이 없으면 회원가입</a>
+	<a class="link" href={resolve('/signup')}>계정이 없으면 회원가입</a>
 </p>
 
 <style>

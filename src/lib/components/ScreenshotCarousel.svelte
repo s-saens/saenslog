@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		screenshots: string[];
@@ -10,12 +11,12 @@
 	let { screenshots, selectedIndex = $bindable(0) }: Props = $props();
 
 	/** 순차 preload 완료된 인덱스 (0 → 1 → … 로 확장) */
-	let loadedScreenshot = $state<Set<number>>(new Set());
+	let loadedScreenshot = new SvelteSet<number>();
 
 	$effect(() => {
 		if (!browser) return;
 		const paths = screenshots;
-		loadedScreenshot = new Set();
+		loadedScreenshot.clear();
 		let i = 0;
 		let cancelled = false;
 
@@ -24,7 +25,7 @@
 			const el = new Image();
 			el.onload = () => {
 				if (cancelled) return;
-				loadedScreenshot = new Set(loadedScreenshot).add(i);
+				loadedScreenshot.add(i);
 				i += 1;
 				loadNext();
 			};
@@ -47,8 +48,6 @@
 	let startX = $state(0);
 	let startY = $state(0);
 	let scrollLeft = $state(0);
-	let hasDragged = $state(false);
-	let currentScrollLeft = $state(0);
 	let velocity = $state(0);
 	let lastX = $state(0);
 	let lastTime = $state(0);
@@ -65,11 +64,10 @@
 				const itemLeft = item.offsetLeft;
 				const itemWidth = item.offsetWidth;
 				const carouselWidth = carousel.offsetWidth;
-				const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
+				const scrollPosition = itemLeft - carouselWidth / 2 + itemWidth / 2;
 				carousel.scrollTo({ left: scrollPosition, behavior: 'smooth' });
-				
+
 				const updateScroll = () => {
-					currentScrollLeft = carousel.scrollLeft;
 					if (Math.abs(carousel.scrollLeft - scrollPosition) > 1) {
 						requestAnimationFrame(updateScroll);
 					}
@@ -82,7 +80,7 @@
 	// 가장 가까운 아이템으로 스냅
 	function snapToNearestItem() {
 		if (!carouselRef) return;
-		
+
 		const carousel = carouselRef;
 		const items = carousel.querySelectorAll('.carousel-item');
 		const carouselCenter = carousel.scrollLeft + carousel.offsetWidth / 2;
@@ -107,14 +105,14 @@
 			const itemLeft = item.offsetLeft;
 			const itemWidth = item.offsetWidth;
 			const carouselWidth = carousel.offsetWidth;
-			const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
-			
+			const scrollPosition = itemLeft - carouselWidth / 2 + itemWidth / 2;
+
 			// 스크롤 범위 제한 (첫/마지막 아이템)
 			const maxScroll = carousel.scrollWidth - carousel.offsetWidth;
 			const clampedPosition = Math.max(0, Math.min(scrollPosition, maxScroll));
-			
+
 			carousel.scrollTo({ left: clampedPosition, behavior: 'smooth' });
-			
+
 			if (selectedIndex !== closestIndex) {
 				selectedIndex = closestIndex;
 			}
@@ -124,27 +122,26 @@
 	// 관성 스크롤 애니메이션
 	function applyMomentum() {
 		if (!carouselRef) return;
-		
+
 		if (Math.abs(velocity) < 0.5) {
 			velocity = 0;
 			snapToNearestItem();
 			return;
 		}
-		
+
 		const newScrollLeft = carouselRef.scrollLeft + velocity;
 		const maxScroll = carouselRef.scrollWidth - carouselRef.offsetWidth;
-		
+
 		// 경계 체크
 		if (newScrollLeft < 0 || newScrollLeft > maxScroll) {
 			velocity = 0;
 			snapToNearestItem();
 			return;
 		}
-		
+
 		carouselRef.scrollLeft = newScrollLeft;
-		currentScrollLeft = carouselRef.scrollLeft;
 		velocity *= 0.93;
-		
+
 		updateSelectedIndexFromScroll();
 		animationFrame = requestAnimationFrame(applyMomentum);
 	}
@@ -152,10 +149,9 @@
 	function handleMouseDown(e: MouseEvent) {
 		if (!carouselRef) return;
 		isDragging = true;
-		hasDragged = false;
 		velocity = 0;
 		if (animationFrame) cancelAnimationFrame(animationFrame);
-		
+
 		startX = e.pageX - carouselRef.offsetLeft;
 		scrollLeft = carouselRef.scrollLeft;
 		lastX = e.pageX;
@@ -166,27 +162,21 @@
 	function handleMouseMove(e: MouseEvent) {
 		if (!isDragging || !carouselRef) return;
 		e.preventDefault();
-		
+
 		const x = e.pageX - carouselRef.offsetLeft;
 		const walk = (x - startX) * 1.5;
-		const distance = Math.abs(walk);
-		
-		if (distance > 5) {
-			hasDragged = true;
-		}
-		
+
 		const currentTime = Date.now();
 		const timeDelta = currentTime - lastTime;
 		if (timeDelta > 0) {
 			const xDelta = e.pageX - lastX;
 			velocity = -(xDelta / timeDelta) * 16;
 		}
-		
+
 		lastX = e.pageX;
 		lastTime = currentTime;
-		
+
 		carouselRef.scrollLeft = scrollLeft - walk;
-		currentScrollLeft = carouselRef.scrollLeft;
 		updateSelectedIndexFromScroll();
 	}
 
@@ -194,27 +184,21 @@
 		if (!carouselRef) return;
 		isDragging = false;
 		carouselRef.style.cursor = 'grab';
-		currentScrollLeft = carouselRef.scrollLeft;
 		updateSelectedIndexFromScroll();
-		
+
 		if (Math.abs(velocity) > 1) {
 			applyMomentum();
 		} else {
 			snapToNearestItem();
 		}
-		
-		setTimeout(() => {
-			hasDragged = false;
-		}, 100);
 	}
 
 	function handleTouchStart(e: TouchEvent) {
 		if (!carouselRef) return;
 		isDragging = true;
-		hasDragged = false;
 		velocity = 0;
 		if (animationFrame) cancelAnimationFrame(animationFrame);
-		
+
 		const touch = e.touches[0];
 		startX = touch.pageX - carouselRef.offsetLeft;
 		startY = touch.pageY;
@@ -225,56 +209,43 @@
 
 	function handleTouchMove(e: TouchEvent) {
 		if (!isDragging || !carouselRef) return;
-		
+
 		const touch = e.touches[0];
 		const x = touch.pageX - carouselRef.offsetLeft;
 		const y = touch.pageY;
-		
+
 		const xDiff = Math.abs(x - startX);
 		const yDiff = Math.abs(y - startY);
-		
+
 		if (xDiff > yDiff && xDiff > 10) {
 			e.preventDefault();
 		}
-		
+
 		const walk = (x - startX) * 1.2;
-		const distance = Math.abs(walk);
-		
-		if (distance > 5) {
-			hasDragged = true;
-		}
-		
+
 		const currentTime = Date.now();
 		const timeDelta = currentTime - lastTime;
 		if (timeDelta > 0) {
 			const xDelta = touch.pageX - lastX;
 			velocity = -(xDelta / timeDelta) * 16;
 		}
-		
+
 		lastX = touch.pageX;
 		lastTime = currentTime;
-		
+
 		carouselRef.scrollLeft = scrollLeft - walk;
-		currentScrollLeft = carouselRef.scrollLeft;
 		updateSelectedIndexFromScroll();
 	}
 
 	function handleTouchEnd() {
-		if (carouselRef) {
-			currentScrollLeft = carouselRef.scrollLeft;
-		}
 		isDragging = false;
 		updateSelectedIndexFromScroll();
-		
+
 		if (Math.abs(velocity) > 1) {
 			applyMomentum();
 		} else {
 			snapToNearestItem();
 		}
-		
-		setTimeout(() => {
-			hasDragged = false;
-		}, 100);
 	}
 
 	function handleWheel(e: WheelEvent) {
@@ -282,9 +253,8 @@
 		if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
 			e.preventDefault();
 			carouselRef.scrollLeft += e.deltaX || e.deltaY;
-			currentScrollLeft = carouselRef.scrollLeft;
 			updateSelectedIndexFromScroll();
-			
+
 			if (wheelTimeout) clearTimeout(wheelTimeout);
 			wheelTimeout = setTimeout(() => {
 				snapToNearestItem();
@@ -329,9 +299,8 @@
 							const itemLeft = item.offsetLeft;
 							const itemWidth = item.offsetWidth;
 							const carouselWidth = carousel.offsetWidth;
-							const scrollPosition = itemLeft - (carouselWidth / 2) + (itemWidth / 2);
+							const scrollPosition = itemLeft - carouselWidth / 2 + itemWidth / 2;
 							carousel.scrollLeft = scrollPosition;
-							currentScrollLeft = scrollPosition;
 						}
 					}
 				});
@@ -368,10 +337,7 @@
 >
 	<div class="carousel-track">
 		{#each screenshots as screenshot, index (screenshot)}
-			<div
-				class="carousel-item"
-				class:selected={index === selectedIndex}
-			>
+			<div class="carousel-item" class:selected={index === selectedIndex}>
 				<div class="screenshot-image">
 					{#if loadedScreenshot.has(index)}
 						<img
@@ -499,4 +465,3 @@
 		}
 	}
 </style>
-
