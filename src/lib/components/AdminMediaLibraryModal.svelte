@@ -81,26 +81,24 @@
 				>×</button
 			>
 		</div>
-		<p class="sub">
-			항목을 누르면 커서 위치에 삽입됩니다. (이미지·오디오)
-		</p>
+		<p class="sub">항목을 누르면 커서 위치에 삽입됩니다. (이미지·오디오)</p>
 		<div class="filters">
-			<button type="button" class:active={filter === 'all'} onclick={() => (filter = 'all')}>전체</button>
-			<button
-				type="button"
-				class:active={filter === 'image'}
-				onclick={() => (filter = 'image')}>이미지</button
+			<button type="button" class:active={filter === 'all'} onclick={() => (filter = 'all')}
+				>전체</button
 			>
-			<button
-				type="button"
-				class:active={filter === 'audio'}
-				onclick={() => (filter = 'audio')}>오디오</button
+			<button type="button" class:active={filter === 'image'} onclick={() => (filter = 'image')}
+				>이미지</button
+			>
+			<button type="button" class:active={filter === 'audio'} onclick={() => (filter = 'audio')}
+				>오디오</button
 			>
 		</div>
 		{#if loading}
 			<p class="loading">불러오는 중…</p>
 		{:else if items.length === 0}
-			<p class="empty">항목이 없습니다. <code>static/</code> 아래에 미디어를 두거나 붙여넣기로 업로드하세요.</p>
+			<p class="empty">
+				항목이 없습니다. <code>static/</code> 아래에 미디어를 두거나 붙여넣기로 업로드하세요.
+			</p>
 		{:else}
 			<ul class="grid">
 				{#each items as row (row.path)}

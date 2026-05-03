@@ -46,7 +46,9 @@ export function collectMarkdownFiles(): SeedRow[] {
 			}
 			if (!item.name.endsWith('.md')) continue;
 
-			const slug = rel ? `${rel}/${path.basename(item.name, '.md')}` : path.basename(item.name, '.md');
+			const slug = rel
+				? `${rel}/${path.basename(item.name, '.md')}`
+				: path.basename(item.name, '.md');
 			const raw = fs.readFileSync(abs, 'utf8');
 			const { data, content } = matter(raw);
 			const dm = data as Record<string, unknown>;

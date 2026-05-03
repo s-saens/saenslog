@@ -17,9 +17,7 @@
 	const maxIndex = $derived(Math.max(0, slideCount - 1));
 
 	const slideH = 'calc(100dvh - var(--site-header-height))';
-	const trackHeight = $derived(
-		`calc(${slideCount} * (100dvh - var(--site-header-height)))`
-	);
+	const trackHeight = $derived(`calc(${slideCount} * (100dvh - var(--site-header-height)))`);
 	const translateY = $derived(
 		`translateY(calc(-${slideIndex} * (100dvh - var(--site-header-height))))`
 	);

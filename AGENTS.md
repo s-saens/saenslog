@@ -19,8 +19,8 @@ npm run check
 
 ## 기타 스크립트
 
-| 명령 | 용도 |
-|------|------|
-| `npm run lint` | Prettier + ESLint |
-| `npm run test` | 단위 테스트 |
-| `npm run build` | 프로덕션 빌드 |
+| 명령            | 용도              |
+| --------------- | ----------------- |
+| `npm run lint`  | Prettier + ESLint |
+| `npm run test`  | 단위 테스트       |
+| `npm run build` | 프로덕션 빌드     |

@@ -16,4 +16,3 @@ export { default as SoundcloudIcon } from './SoundcloudIcon.svelte';
 export { default as SunIcon } from './SunIcon.svelte';
 export { default as TextCountIcon } from './TextCountIcon.svelte';
 export { default as TistoryIcon } from './TistoryIcon.svelte';
-

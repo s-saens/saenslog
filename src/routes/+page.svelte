@@ -1,5 +1,12 @@
 <script lang="ts">
-	import { CopyIcon, GithubIcon, LogoIcon, MailIcon, SoundcloudIcon, TistoryIcon } from '$lib/components/icons';
+	import {
+		CopyIcon,
+		GithubIcon,
+		LogoIcon,
+		MailIcon,
+		SoundcloudIcon,
+		TistoryIcon
+	} from '$lib/components/icons';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
@@ -22,64 +29,97 @@
 
 <main>
 	{#if mounted}
-	<div class="hero" transition:fly={{ duration: 500, x: -100 }}>
-		<div class="logo enter-1">
-			<LogoIcon width={88} height={88} />
+		<div class="hero" transition:fly={{ duration: 500, x: -100 }}>
+			<div class="logo enter-1">
+				<LogoIcon width={88} height={88} />
+			</div>
+
+			<div class="social enter-7">
+				<div
+					class="icon-wrapper"
+					role="none"
+					onmouseenter={() => (hovered = 'github')}
+					onmouseleave={() => (hovered = null)}
+					transition:fly={{ duration: 150, y: 20, delay: 500 }}
+				>
+					<a
+						href="https://github.com/s-saens"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="social-icon"
+					>
+						<GithubIcon />
+					</a>
+					{#if hovered === 'github'}
+						<div class="tooltip" transition:fade={{ duration: 150 }}>GitHub</div>
+					{/if}
+				</div>
+
+				<div
+					class="icon-wrapper"
+					role="none"
+					onmouseenter={() => (hovered = 'tistory')}
+					onmouseleave={() => (hovered = null)}
+					transition:fly={{ duration: 150, y: 20, delay: 600 }}
+				>
+					<a
+						href="https://saens.tistory.com"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="social-icon"
+					>
+						<TistoryIcon />
+					</a>
+					{#if hovered === 'tistory'}
+						<div class="tooltip" transition:fade={{ duration: 150 }}>Tistory</div>
+					{/if}
+				</div>
+
+				<div
+					class="icon-wrapper"
+					role="none"
+					onmouseenter={() => (hovered = 'soundcloud')}
+					onmouseleave={() => (hovered = null)}
+					transition:fly={{ duration: 150, y: 20, delay: 700 }}
+				>
+					<a
+						href="https://soundcloud.com/s-saens"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="social-icon"
+					>
+						<SoundcloudIcon />
+					</a>
+					{#if hovered === 'soundcloud'}
+						<div class="tooltip" transition:fade={{ duration: 150 }}>SoundCloud</div>
+					{/if}
+				</div>
+
+				<div
+					class="icon-wrapper icon-wrapper--email"
+					role="none"
+					onmouseenter={() => (hovered = 'email')}
+					onmouseleave={() => (hovered = null)}
+					transition:fly={{ duration: 150, y: 20, delay: 800 }}
+				>
+					<a href="mailto:{EMAIL}" class="social-icon">
+						<MailIcon />
+					</a>
+					{#if hovered === 'email'}
+						<div class="tooltip" transition:fade={{ duration: 150 }}>
+							<span>{EMAIL}</span>
+							<button class="copy-btn" onclick={copyEmail} title="이메일 복사">
+								{#if copied}
+									<span class="copied-text">복사됨</span>
+								{:else}
+									<CopyIcon width={14} height={14} />
+								{/if}
+							</button>
+						</div>
+					{/if}
+				</div>
+			</div>
 		</div>
-
-		<div class="social enter-7">
-			<div class="icon-wrapper" role="none" onmouseenter={() => (hovered = 'github')} onmouseleave={() => (hovered = null)} transition:fly={{ duration: 150, y: 20, delay: 500 }}>
-				<a href="https://github.com/s-saens" target="_blank" rel="noopener noreferrer" class="social-icon">
-					<GithubIcon />
-				</a>
-				{#if hovered === 'github'}
-					<div class="tooltip" transition:fade={{ duration: 150 }}>GitHub</div>
-				{/if}
-			</div>
-
-			<div class="icon-wrapper" role="none" onmouseenter={() => (hovered = 'tistory')} onmouseleave={() => (hovered = null)} transition:fly={{ duration: 150, y: 20, delay: 600 }}>
-				<a href="https://saens.tistory.com" target="_blank" rel="noopener noreferrer" class="social-icon">
-					<TistoryIcon />
-				</a>
-				{#if hovered === 'tistory'}
-					<div class="tooltip" transition:fade={{ duration: 150 }}>Tistory</div>
-				{/if}
-			</div>
-
-			<div class="icon-wrapper" role="none" onmouseenter={() => (hovered = 'soundcloud')} onmouseleave={() => (hovered = null)} transition:fly={{ duration: 150, y: 20, delay: 700 }}>
-				<a href="https://soundcloud.com/s-saens" target="_blank" rel="noopener noreferrer" class="social-icon">
-					<SoundcloudIcon />
-				</a>
-				{#if hovered === 'soundcloud'}
-					<div class="tooltip" transition:fade={{ duration: 150 }}>SoundCloud</div>
-				{/if}
-			</div>
-
-			<div
-				class="icon-wrapper icon-wrapper--email"
-				role="none"
-				onmouseenter={() => (hovered = 'email')}
-				onmouseleave={() => (hovered = null)}
-				transition:fly={{ duration: 150, y: 20, delay: 800 }}
-			>
-				<a href="mailto:{EMAIL}" class="social-icon">
-					<MailIcon />
-				</a>
-				{#if hovered === 'email'}
-					<div class="tooltip" transition:fade={{ duration: 150 }}>
-						<span>{EMAIL}</span>
-						<button class="copy-btn" onclick={copyEmail} title="이메일 복사">
-							{#if copied}
-								<span class="copied-text">복사됨</span>
-							{:else}
-								<CopyIcon width={14} height={14} />
-							{/if}
-						</button>
-					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
 	{/if}
 </main>
 
@@ -133,7 +173,7 @@
 		align-items: center;
 		text-align: justify;
 		gap: 1.2rem;
-        width: 12.5rem;
+		width: 12.5rem;
 	}
 
 	.logo {
@@ -151,7 +191,8 @@
 	}
 
 	@keyframes logo-dance {
-		0%, 100% {
+		0%,
+		100% {
 			transform: rotateY(0deg) rotateX(0deg);
 		}
 		12.5% {

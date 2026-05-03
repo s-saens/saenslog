@@ -21,10 +21,5 @@
 	class={className}
 	aria-hidden="true"
 >
-	<path
-		d="M7 2.5v9M2.5 7h9"
-		stroke={color}
-		stroke-width="1.3"
-		stroke-linecap="round"
-	/>
+	<path d="M7 2.5v9M2.5 7h9" stroke={color} stroke-width="1.3" stroke-linecap="round" />
 </svg>
