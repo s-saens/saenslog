@@ -17,18 +17,22 @@
 		profiles: { username: string; avatar_url: string | null } | null;
 	};
 
-	let {
-		postSlug,
-		initialComments,
-		currentUserId
-	}: {
-		postSlug: string;
-		initialComments: CommentItem[];
-		currentUserId: string | null;
-	} = $props();
+let {
+	postSlug,
+	initialComments,
+	currentUserId
+}: {
+	postSlug: string;
+	initialComments: CommentItem[];
+	currentUserId: string | null;
+} = $props();
 
-	const comments = $derived(initialComments);
+let comments = $state<CommentItem[]>([]);
 	let replyToId = $state<number | null>(null);
+
+$effect(() => {
+	comments = [...initialComments];
+});
 
 	onMount(() => {
 		if (!browser) return;
@@ -144,7 +148,10 @@
 				{#if currentUserId && c.author_id && currentUserId === c.author_id}
 					<details class="editbox">
 						<summary>수정</summary>
-						<form method="POST" action="?/editComment" use:enhance>
+						<form method="POST" action="?/editComment" use:enhance={() =>
+							async ({ update }) => {
+								await update();
+							}}>
 							<input type="hidden" name="comment_id" value={c.id} />
 							<textarea class="textarea" name="content" rows="3" required>{c.content}</textarea>
 							<button type="submit" class="btn small">저장</button>
@@ -153,9 +160,13 @@
 					<form
 						method="POST"
 						action="?/deleteComment"
-						use:enhance={({ cancel }) =>
-							async () => {
-								if (!confirm('이 댓글을 삭제할까요?')) cancel();
+						use:enhance={() =>
+							async ({ update }) => {
+								if (!confirm('이 댓글을 삭제할까요?')) {
+									return;
+								}
+								comments = comments.filter((item) => item.id !== c.id);
+								await update();
 							}}
 					>
 						<input type="hidden" name="comment_id" value={c.id} />
@@ -224,7 +235,10 @@
 								{#if currentUserId && r.author_id && currentUserId === r.author_id}
 									<details class="editbox">
 										<summary>수정</summary>
-										<form method="POST" action="?/editComment" use:enhance>
+										<form method="POST" action="?/editComment" use:enhance={() =>
+											async ({ update }) => {
+												await update();
+											}}>
 											<input type="hidden" name="comment_id" value={r.id} />
 											<textarea class="textarea" name="content" rows="2" required
 												>{r.content}</textarea
@@ -235,9 +249,13 @@
 									<form
 										method="POST"
 										action="?/deleteComment"
-										use:enhance={({ cancel }) =>
-											async () => {
-												if (!confirm('이 댓글을 삭제할까요?')) cancel();
+										use:enhance={() =>
+											async ({ update }) => {
+												if (!confirm('이 댓글을 삭제할까요?')) {
+													return;
+												}
+												comments = comments.filter((item) => item.id !== r.id);
+												await update();
 											}}
 									>
 										<input type="hidden" name="comment_id" value={r.id} />
@@ -254,11 +272,9 @@
 </div>
 
 <style>
-	.comments {
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid var(--border);
-	}
+.comments {
+	margin-top: 2rem;
+}
 
 	.h {
 		margin: 0 0 1rem;

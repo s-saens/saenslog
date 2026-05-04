@@ -1,5 +1,23 @@
+import { readFile } from 'node:fs/promises';
 import { createSupabaseServer } from '$lib/server/supabase';
 import type { Handle } from '@sveltejs/kit';
+import path from 'node:path';
+
+const MEDIA_MIME_TYPES: Record<string, string> = {
+	'.png': 'image/png',
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.gif': 'image/gif',
+	'.webp': 'image/webp',
+	'.svg': 'image/svg+xml',
+	'.avif': 'image/avif',
+	'.mp3': 'audio/mpeg',
+	'.ogg': 'audio/ogg',
+	'.wav': 'audio/wav',
+	'.m4a': 'audio/mp4',
+	'.aac': 'audio/aac',
+	'.flac': 'audio/flac'
+};
 
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = createSupabaseServer(event);
@@ -7,15 +25,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.safeGetSession = async () => {
 		try {
 			const {
-				data: { session }
-			} = await event.locals.supabase.auth.getSession();
-			if (!session) return { session: null, user: null };
-
-			const {
 				data: { user },
 				error
 			} = await event.locals.supabase.auth.getUser();
-			if (error) return { session: null, user: null };
+			if (error || !user) return { session: null, user: null };
+
+			const {
+				data: { session }
+			} = await event.locals.supabase.auth.getSession();
 
 			return { session, user };
 		} catch (e) {
@@ -23,6 +40,38 @@ export const handle: Handle = async ({ event, resolve }) => {
 			return { session: null, user: null };
 		}
 	};
+
+	// /blog/<slug>/ 파일 경로는 런타임에 생성된 미디어 파일 서빙
+	const url = new URL(event.request.url);
+	const pathname = url.pathname;
+
+	if (pathname.startsWith('/blog/') && pathname.length > 6) {
+		const segments = pathname.slice(6).split('/');
+		const lastSegment = segments[segments.length - 1] || '';
+		const hasExtension = /\.[a-z0-9]+$/i.test(lastSegment);
+
+		if (hasExtension) {
+			const sanitizedPath = decodeURIComponent(pathname).replace(/\.\./g, '');
+			if (!sanitizedPath.includes('..')) {
+				const filePath = path.join(process.cwd(), 'static', sanitizedPath);
+				const ext = path.extname(filePath).toLowerCase();
+
+				if (MEDIA_MIME_TYPES[ext]) {
+					try {
+						const buffer = await readFile(filePath);
+						return new Response(buffer, {
+							headers: {
+								'Content-Type': MEDIA_MIME_TYPES[ext],
+								'Cache-Control': 'public, max-age=31536000'
+							}
+						});
+					} catch {
+						// 파일이 없으면 일반 resolve 진행
+					}
+				}
+			}
+		}
+	}
 
 	const response = await resolve(event, {
 		filterSerializedResponseHeaders: (name) =>

@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
+	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
 	import { pathWithBase, hrefBlogPathname, hrefProjectsPathname } from '$lib/appPaths';
 	import { BlogIcon, LogoIcon, MailIcon, MoonIcon, SunIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
+	import { navigating } from '$lib/stores/navigating.svelte';
 	import '@fontsource/ibm-plex-mono/400.css';
 	import '@fontsource/ibm-plex-mono/500.css';
 	import '@fontsource/ibm-plex-mono/600.css';
@@ -41,6 +44,23 @@
 	let isMounted = $state(false);
 	let isAnimationDone = $state(false);
 	let navHovered = $state<string | null>(null);
+	let showAuthPanel = $state(false);
+
+	// 외부 클릭 시 auth 패널 닫기
+	$effect(() => {
+		if (!browser) return;
+		
+		function handleClickOutside(event: MouseEvent) {
+			const target = event.target as Element;
+			// auth 패널이나 버튼 내부를 클릭한 경우 무시
+			if (showAuthPanel && !target.closest('.auth-panel') && !target.closest('.nav-account-btn')) {
+				showAuthPanel = false;
+			}
+		}
+		
+		document.addEventListener('click', handleClickOutside);
+		return () => document.removeEventListener('click', handleClickOutside);
+	});
 
 	let isDark = $state(true);
 
@@ -156,7 +176,13 @@
 		return () => mediaQuery.removeEventListener('change', handleChange);
 	});
 
+	// 라우트 전환 시작/완료 감지
+	beforeNavigate(() => {
+		navigating.navigating = true;
+	});
+
 	afterNavigate(() => {
+		navigating.navigating = false;
 		if (browser && mainScrollEl) {
 			mainScrollEl.scrollTop = 0;
 		}
@@ -164,119 +190,133 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href="/favicon.ico" />
+	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+	<link rel="icon" href="/favicon.ico" sizes="32x32" />
 	<title>SAENS</title>
 </svelte:head>
 
 <div class="app">
 	<CustomScrollbar />
+	<LoadingOverlay />
 
 	<header class="site-header">
 		<nav class="nav-container">
-			<div
-				class="nav-tooltip-wrapper"
-				role="none"
-				onmouseenter={() => (navHovered = 'home')}
-				onmouseleave={() => (navHovered = null)}
-			>
-				<a
-					href={resolve('/')}
-					class="nav-icon"
-					class:entering={isMounted}
-					class:default={isAnimationDone}
-					class:active={isActive('/')}
+			<div class="nav-left"> </div>
+			<div class="nav-center">
+				<div
+					class="nav-tooltip-wrapper"
+					role="none"
+					onmouseenter={() => (navHovered = 'home')}
+					onmouseleave={() => (navHovered = null)}
 				>
-					<LogoIcon width={24} height={24} />
-				</a>
-				{#if navHovered === 'home'}
-					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Home</div>
-				{/if}
-			</div>
-
-			<div
-				class="nav-tooltip-wrapper"
-				role="none"
-				onmouseenter={() => (navHovered = 'blog')}
-				onmouseleave={() => (navHovered = null)}
-			>
-				<a
-					href={hrefBlogPathname(lastBlogPath)}
-					class="nav-icon"
-					class:entering={isMounted}
-					class:default={isAnimationDone}
-					class:active={isActive('/blog')}
-					onclick={(e) => handleNavigation(e, '/blog', lastBlogPath)}
-				>
-					<BlogIcon />
-				</a>
-				{#if navHovered === 'blog'}
-					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Blog</div>
-				{/if}
-			</div>
-
-			<div
-				class="nav-tooltip-wrapper"
-				role="none"
-				onmouseenter={() => (navHovered = 'auth')}
-				onmouseleave={() => (navHovered = null)}
-			>
-				{#if data.user}
 					<a
-						href={resolve('/account')}
-						class="nav-icon nav-avatar-wrap"
-						class:entering={isMounted}
-						class:default={isAnimationDone}
-						class:active={isActive('/account')}
-						aria-label="계정"
-					>
-						<span class="nav-avatar"
-							>{(data.profile?.username?.[0] ?? data.user.email?.[0] ?? '?').toUpperCase()}</span
-						>
-					</a>
-					{#if navHovered === 'auth'}
-						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>계정</div>
-					{/if}
-				{:else}
-					<a
-						href={resolve('/login')}
+						href={resolve('/')}
 						class="nav-icon"
 						class:entering={isMounted}
 						class:default={isAnimationDone}
-						class:active={isActive('/login')}
-						aria-label="로그인"
+						class:active={isActive('/')}
 					>
-						<MailIcon />
+						<LogoIcon width={24} height={24} />
 					</a>
-					{#if navHovered === 'auth'}
-						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>로그인</div>
+					{#if navHovered === 'home'}
+						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Home</div>
 					{/if}
-				{/if}
+				</div>
+
+				<div
+					class="nav-tooltip-wrapper"
+					role="none"
+					onmouseenter={() => (navHovered = 'blog')}
+					onmouseleave={() => (navHovered = null)}
+				>
+					<a
+						href={hrefBlogPathname(lastBlogPath)}
+						class="nav-icon"
+						class:entering={isMounted}
+						class:default={isAnimationDone}
+						class:active={isActive('/blog')}
+						onclick={(e) => handleNavigation(e, '/blog', lastBlogPath)}
+					>
+						<BlogIcon />
+					</a>
+					{#if navHovered === 'blog'}
+						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>Blog</div>
+					{/if}
+				</div>
+
+				<!-- TODO: 프로젝트 내비 — 구현 후 아래 주석 해제 (ProjectIcon import 추가)
+				<div class="nav-tooltip-wrapper" role="none" ...>
+					<a href={resolve('/projects')} ...><ProjectIcon /></a>
+				</div>
+				-->
+
+				<div
+					class="nav-tooltip-wrapper"
+					role="none"
+					onmouseenter={() => (navHovered = 'theme')}
+					onmouseleave={() => (navHovered = null)}
+				>
+					<button class="theme-toggle nav-icon" class:entering={isMounted} onclick={toggleTheme}>
+						{#if isDark}
+							<SunIcon />
+						{:else}
+							<MoonIcon />
+						{/if}
+					</button>
+					{#if navHovered === 'theme'}
+						<div class="nav-tooltip" transition:fade={{ duration: 150 }}>
+							{isDark ? 'Turn to light mode' : 'Turn to dark mode'}
+						</div>
+					{/if}
+				</div>
 			</div>
 
-			<!-- TODO: 프로젝트 내비 — 구현 후 아래 주석 해제 (ProjectIcon import 추가)
-			<div class="nav-tooltip-wrapper" role="none" ...>
-				<a href={resolve('/projects')} ...><ProjectIcon /></a>
-			</div>
-			-->
-
-			<div
-				class="nav-tooltip-wrapper"
-				role="none"
-				onmouseenter={() => (navHovered = 'theme')}
-				onmouseleave={() => (navHovered = null)}
-			>
-				<button class="theme-toggle nav-icon" class:entering={isMounted} onclick={toggleTheme}>
-					{#if isDark}
-						<SunIcon />
+			<div class="nav-auth-outer">
+				<div
+					class="nav-tooltip-wrapper"
+					role="none"
+					onmouseenter={() => (navHovered = 'auth')}
+					onmouseleave={() => (navHovered = null)}
+				>
+					{#if data.user}
+						<button
+							type="button"
+							class="nav-account-btn"
+							class:entering={isMounted}
+							class:default={isAnimationDone}
+							class:active={showAuthPanel}
+							aria-label="계정 메뉴"
+							onclick={(e) => {
+								e.stopPropagation();
+								showAuthPanel = !showAuthPanel;
+							}}
+						>
+							<span class="account-initial"
+								>{(data.profile?.username?.[0] ?? data.user.email?.[0] ?? '?').toUpperCase()}</span
+							>
+						</button>
+						{#if showAuthPanel}
+							<div class="auth-panel" transition:fade={{ duration: 150 }}>
+								<div class="auth-email">{data.profile?.username ?? data.user.email}</div>
+								<a href={resolve('/admin')} class="auth-admin-btn">관리</a>
+								<form method="POST" action="/logout">
+									<button type="submit" class="auth-logout-btn">로그아웃</button>
+								</form>
+							</div>
+						{/if}
 					{:else}
-						<MoonIcon />
+						<a
+							href={resolve('/login')}
+							class="nav-account-btn"
+							class:entering={isMounted}
+							class:default={isAnimationDone}
+							class:active={isActive('/login')}
+							aria-label="로그인"
+						>
+							<span class="account-text">로그인</span>
+						</a>
 					{/if}
-				</button>
-				{#if navHovered === 'theme'}
-					<div class="nav-tooltip" transition:fade={{ duration: 150 }}>
-						{isDark ? 'Turn to light mode' : 'Turn to dark mode'}
-					</div>
-				{/if}
+				</div>
 			</div>
 		</nav>
 	</header>
@@ -445,8 +485,20 @@
 		display: flex;
 		gap: 2rem;
 		align-items: center;
-		justify-content: center;
+		justify-content: space-between;
 		margin: 0 auto;
+	}
+
+	.nav-center {
+		display: flex;
+		gap: 2rem;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.nav-auth-outer {
+		display: flex;
+		align-items: center;
 	}
 
 	.nav-tooltip-wrapper {
@@ -543,28 +595,140 @@
 		opacity: 1;
 	}
 
-	.nav-avatar-wrap :global(svg) {
-		display: none;
-	}
-
-	.nav-avatar {
+	.nav-account-btn {
+		opacity: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		border: 1px solid var(--border);
-		font-size: 0.72rem;
-		font-weight: 600;
+		gap: 0.35rem;
+		padding: 0.35rem 0.65rem;
+		border-radius: 9999px;
+		border: none;
+		background: transparent;
 		color: var(--text-secondary);
-		background: color-mix(in srgb, var(--bg-lighter) 90%, transparent);
-		line-height: 1;
+		font-size: 0.82rem;
+		font-weight: 500;
+		cursor: pointer;
+		animation: nav-icon-enter 1s ease forwards;
+		transition: all 0.2s ease;
 	}
 
-	.nav-icon.active .nav-avatar {
+	/* Center nav icons animation delays */
+	.nav-center > .nav-tooltip-wrapper:nth-child(1) .nav-icon,
+	.nav-center > .nav-tooltip-wrapper:nth-child(1) .theme-toggle {
+		animation-delay: 0s;
+	}
+	.nav-center > .nav-tooltip-wrapper:nth-child(2) .nav-icon {
+		animation-delay: 0.1s;
+	}
+	.nav-center > .nav-tooltip-wrapper:nth-child(3) .theme-toggle {
+		animation-delay: 0.2s;
+	}
+
+	/* Auth button animation */
+	.nav-auth-outer .nav-account-btn {
+		animation-delay: 0.3s;
+	}
+
+	.nav-account-btn:hover {
 		color: var(--text);
-		border-color: var(--text-tertiary);
+	}
+
+	.account-initial {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: color-mix(in srgb, var(--border) 35%, transparent);
+		font-size: 0.7rem;
+		font-weight: 600;
+		flex-shrink: 0;
+	}
+
+	.account-text {
+		padding-left: 0.15rem;
+	}
+
+	.auth-panel {
+		position: absolute;
+		top: calc(100% + 10px);
+		right: 0;
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 8px 12px;
+		min-width: 180px;
+		z-index: 200;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	}
+
+	.auth-panel::before {
+		content: '';
+		position: absolute;
+		bottom: 100%;
+		right: 16px;
+		border: 6px solid transparent;
+		border-bottom-color: var(--border);
+	}
+
+	.auth-email {
+		font-size: 0.82rem;
+		color: var(--text-secondary);
+		padding: 4px 0 8px;
+		border-bottom: 1px solid var(--border);
+		margin-bottom: 8px;
+		word-break: break-all;
+	}
+
+	.auth-logout-btn {
+		width: 100%;
+		font: inherit;
+		font-size: 0.82rem;
+		padding: 6px 0;
+		border: none;
+		background: transparent;
+		color: var(--text);
+		cursor: pointer;
+		text-align: left;
+		border-radius: 4px;
+	}
+
+	.auth-admin-btn {
+		width: 100%;
+		font: inherit;
+		font-size: 0.82rem;
+		padding: 6px 0;
+		border: none;
+		background: transparent;
+		color: var(--text);
+		cursor: pointer;
+		text-align: left;
+		border-radius: 4px;
+		text-decoration: none;
+		display: block;
+	}
+
+	.auth-admin-btn:hover {
+		background: var(--bg-lighter);
+	}
+
+	.auth-logout-btn {
+		width: 100%;
+		font: inherit;
+		font-size: 0.82rem;
+		padding: 6px 0;
+		border: none;
+		background: transparent;
+		color: var(--text);
+		cursor: pointer;
+		text-align: left;
+		border-radius: 4px;
+	}
+
+	.auth-logout-btn:hover {
+		background: var(--bg-lighter);
 	}
 
 	/* 전환(out+in) 시 동시에 두 개의 +page 루트(각각 <main>)가 머문다. 동일 셀에 쌓아야
