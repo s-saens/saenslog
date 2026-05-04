@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { hrefBlogPath } from '$lib/appPaths';
+	import { browser } from '$app/environment';
 	import AdminBlogPreviewOverlay from '$lib/components/AdminBlogPreviewOverlay.svelte';
 	import AdminMarkdownField from '$lib/components/AdminMarkdownField.svelte';
 	import { renderMarkdownToHtml } from '$lib/markdownCompile';
@@ -11,7 +12,60 @@
 	let slugVal = $state('');
 	let titleVal = $state('');
 	let md = $state('');
+	let published = $state(false);
 	let previewOpen = $state(false);
+	let saving = $state(false);
+	let autosaveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+	// 자동 저장 타이머
+	let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// 자동 저장 함수
+	async function autosave() {
+		if (!browser) return;
+		autosaveStatus = 'saving';
+		try {
+			const fd = new FormData();
+			fd.set('slug', slugVal);
+			fd.set('title', titleVal);
+			fd.set('content_md', md);
+			fd.set('published', published ? 'true' : 'false');
+			const res = await fetch('?/autosave', {
+				method: 'POST',
+				body: fd
+			});
+			if (res.ok) {
+				autosaveStatus = 'saved';
+				setTimeout(() => {
+					if (autosaveStatus === 'saved') autosaveStatus = 'idle';
+				}, 2000);
+			} else {
+				autosaveStatus = 'error';
+			}
+		} catch {
+			autosaveStatus = 'error';
+		}
+	}
+
+	// 10초마다 자동 저장
+	$effect(() => {
+		if (!browser) return;
+		autosaveTimer = setInterval(autosave, 10000);
+		return () => clearInterval(autosaveTimer);
+	});
+
+	// Ctrl/Cmd+S 단축키 처리
+	$effect(() => {
+		if (!browser) return;
+		function handleKeydown(e: KeyboardEvent) {
+			if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+				e.preventDefault();
+				void autosave();
+			}
+		}
+		window.addEventListener('keydown', handleKeydown);
+		return () => window.removeEventListener('keydown', handleKeydown);
+	});
 
 	let html = $derived(renderMarkdownToHtml(md));
 	let wordCount = $derived(md.trim() ? md.trim().split(/\s+/).filter(Boolean).length : 0);
@@ -19,7 +73,8 @@
 	$effect.pre(() => {
 		slugVal = data.post.slug;
 		titleVal = data.post.title;
-		md = data.post.content_md;
+		md = data.post.content_md || '';
+		published = data.post.published;
 	});
 </script>
 
@@ -47,8 +102,22 @@
 	{#if form?.message}
 		<p class="err" role="alert">{form.message}</p>
 	{/if}
+	{#if form?.success}
+		<p class="success" role="status">저장되었습니다.</p>
+	{/if}
 
-	<form class="form" method="POST" use:enhance>
+	<form
+		class="form"
+		method="POST"
+		action="?/save"
+		use:enhance={() => {
+			saving = true;
+			return async ({ update }) => {
+				await update();
+				saving = false;
+			};
+		}}
+	>
 		<div class="grid">
 			<label class="field full">
 				<span class="label">슬러그 (URL 경로, 예: Dev/AI/3)</span>
@@ -61,15 +130,28 @@
 		</div>
 
 		<label class="check">
-			<input type="checkbox" name="published" value="true" checked={data.post.published} />
+			<input type="checkbox" name="published" value="true" bind:checked={published} />
 			<span>공개</span>
 		</label>
 
-		<AdminMarkdownField bind:md docSyncKey={data.post.id} getAssetSlug={() => slugVal} />
+		<AdminMarkdownField bind:md docSyncKey={`fs-${slugVal}`} getAssetSlug={() => slugVal} />
 
 		<div class="toolbar">
+			<span class="autosave-status">
+				{#if autosaveStatus === 'saving'}
+					저장 중...
+				{:else if autosaveStatus === 'saved'}
+					저장됨
+				{:else if autosaveStatus === 'error'}
+					저장 실패
+				{:else}
+					자동 저장 활성화
+				{/if}
+			</span>
 			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>
-			<button type="submit" class="btn primary">저장</button>
+			<button type="submit" class="btn primary" disabled={saving}>
+				{saving ? '저장 중...' : '저장'}
+			</button>
 			<a class="btn" href={resolve('/admin/posts')}>목록</a>
 			<button type="submit" class="btn danger" form="post-delete-form">삭제</button>
 		</div>
@@ -80,12 +162,11 @@
 		class="visually-hidden"
 		method="POST"
 		action="?/delete"
-		use:enhance={({ cancel }) => {
-			return async () => {
-				if (!confirm('이 글을 삭제할까요?')) {
-					cancel();
-				}
-			};
+		use:enhance
+		onsubmit={(e) => {
+			if (!confirm('이 글을 삭제할까요?')) {
+				e.preventDefault();
+			}
 		}}
 	></form>
 </main>
@@ -133,6 +214,12 @@
 
 	.err {
 		color: #f87171;
+		font-size: 0.88rem;
+		margin: 0 0 1rem;
+	}
+
+	.success {
+		color: #4ade80;
 		font-size: 0.88rem;
 		margin: 0 0 1rem;
 	}
@@ -190,6 +277,12 @@
 		gap: 0.5rem;
 		font-size: 0.88rem;
 		color: var(--text-secondary);
+	}
+
+	.autosave-status {
+		font-size: 0.78rem;
+		color: var(--text-tertiary);
+		padding: 0 0.25rem;
 	}
 
 	.toolbar {

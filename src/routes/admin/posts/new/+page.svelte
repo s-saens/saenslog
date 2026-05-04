@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { browser } from '$app/environment';
 	import AdminBlogPreviewOverlay from '$lib/components/AdminBlogPreviewOverlay.svelte';
 	import AdminMarkdownField from '$lib/components/AdminMarkdownField.svelte';
 	import { renderMarkdownToHtml } from '$lib/markdownCompile';
@@ -15,6 +16,56 @@
 	let titleVal = $state('');
 	let md = $state('');
 	let previewOpen = $state(false);
+	let autosaveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+	// 자동 저장 타이머
+	let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// 자동 저장 함수
+	async function autosave() {
+		if (!browser) return;
+		autosaveStatus = 'saving';
+		try {
+			const fd = new FormData();
+			fd.set('slug', slugVal);
+			fd.set('title', titleVal);
+			fd.set('content_md', md);
+			const res = await fetch('?/autosave', {
+				method: 'POST',
+				body: fd
+			});
+			if (res.ok) {
+				autosaveStatus = 'saved';
+				setTimeout(() => {
+					if (autosaveStatus === 'saved') autosaveStatus = 'idle';
+				}, 2000);
+			} else {
+				autosaveStatus = 'error';
+			}
+		} catch {
+			autosaveStatus = 'error';
+		}
+	}
+
+	// 10초마다 자동 저장
+	$effect(() => {
+		if (!browser) return;
+		autosaveTimer = setInterval(autosave, 10000);
+		return () => clearInterval(autosaveTimer);
+	});
+
+	// Ctrl/Cmd+S 단축키 처리
+	$effect(() => {
+		if (!browser) return;
+		function handleKeydown(e: KeyboardEvent) {
+			if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+				e.preventDefault();
+				void autosave();
+			}
+		}
+		window.addEventListener('keydown', handleKeydown);
+		return () => window.removeEventListener('keydown', handleKeydown);
+	});
 
 	$effect.pre(() => {
 		slugVal = slugPrefixFromParent(data.parentPrefix);
@@ -43,7 +94,7 @@
 		<p class="err" role="alert">{form.message}</p>
 	{/if}
 
-	<form class="form" method="POST" use:enhance>
+	<form class="form" method="POST" action="?/save" use:enhance>
 		<div class="grid">
 			<label class="field full">
 				<span class="label">슬러그 (URL 경로, 예: Dev/AI/3 — 분류·경로는 슬러그로만 지정)</span>
@@ -70,10 +121,20 @@
 		<AdminMarkdownField bind:md getAssetSlug={() => slugVal} />
 
 		<div class="toolbar">
+			<span class="autosave-status">
+				{#if autosaveStatus === 'saving'}
+					저장 중...
+				{:else if autosaveStatus === 'saved'}
+					저장됨
+				{:else if autosaveStatus === 'error'}
+					저장 실패
+				{:else}
+					자동 저장 활성화
+				{/if}
+			</span>
 			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>
-			<button type="submit" class="btn primary">저장</button>
-			<!-- TODO: 임시 저장(초안) — 로컬/서버 초안 스키마 확정 후 연동 -->
-			<button type="button" class="btn" disabled title="준비 중">임시 저장</button>
+			<button type="submit" class="btn primary">발행</button>
+			<button type="button" class="btn" onclick={autosave} disabled={autosaveStatus === 'saving'}>초안 저장</button>
 		</div>
 	</form>
 </main>
@@ -146,6 +207,12 @@
 		gap: 0.5rem;
 		font-size: 0.88rem;
 		color: var(--text-secondary);
+	}
+
+	.autosave-status {
+		font-size: 0.78rem;
+		color: var(--text-tertiary);
+		padding: 0 0.25rem;
 	}
 
 	.toolbar {

@@ -1,7 +1,7 @@
-import { listPostsAdmin } from '$lib/server/posts';
+import { getAllPosts } from '$lib/server/blog';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	const posts = await listPostsAdmin(locals.supabase);
+export const load: PageServerLoad = async () => {
+	const posts = getAllPosts();
 	return { posts };
 };
