@@ -85,7 +85,7 @@ npm run build       # adapter 교체 후에는 build 가 성공해야 함
 - **REST / Auth / Realtime API 베이스**: `https://<ref>.supabase.co`
 - **Settings → General** 에서 **Reference ID** 또는 **Project ID** 로 표시되는 경우가 많다. (대시보드 버전에 따라 라벨이 다를 수 있음. **URL 의 `/project/` 뒤 세그먼트**가 가장 확실하다.)
 
-예: ref 가 `vsxvwdvvavoruocqvrgl` 이면 API 는 `https://vsxvwdvvavoruocqvrgl.supabase.co` 이다.
+예: ref 가 `xxxxxxxxxxxxx` 이면 API 는 `https://xxxxxxxxxxxxx.supabase.co` 이다.
 
 > **UUID 와 헷갈리지 말 것**: 같은 화면에 **내부용 UUID**(예: `xxxxxxxx-xxxx-...`) 가 따로 있을 수 있다. **코드·환경변수·클라이언트에 넣는 “짧은 ref”** 는 보통 위 형태의 **20자 내외 영숫자 문자열**이다.
 
@@ -177,7 +177,7 @@ export default config;
 # --- Server ---
 PORT=3000
 HOST=0.0.0.0
-ORIGIN=https://saens.example.com
+ORIGIN=https://your-domain.com
 BODY_SIZE_LIMIT=5mb
 
 # --- Supabase (Phase 4 에서 채움) ---
@@ -261,7 +261,7 @@ export {};
 ## 5. Phase 3 — Supabase 연결 (DB + Auth 토대)
 
 > **사전 준비 (사용자 액션 필요)**: Supabase 프로젝트 생성 → URL/Anon Key/Service Role Key 확보 → `.env` 에 기입.
-> 또는 Supabase MCP 를 사용해 에이전트가 직접 프로젝트 생성/조회. 이때 **반드시** `/Users/sanghunsong/.cursor/plugins/cache/cursor-public/supabase/release_v0.1.4/skills/supabase/SKILL.md` 스킬을 먼저 읽고 따른다.
+> 또는 Supabase MCP 를 사용해 에이전트가 직접 프로젝트 생성/조회. 이때 **반드시** `<cursor-cache-path>/.cursor/plugins/cache/cursor-public/supabase/release_v0.1.4/skills/supabase/SKILL.md` 스킬을 먼저 읽고 따른다.
 
 ### 5.1 패키지 설치
 
@@ -643,7 +643,7 @@ pm2-startup install   # Windows 부팅 시 자동 시작
    cloudflared.exe service install <token>
    ```
 
-3. Public Hostname 추가: `saens.example.com` → `http://localhost:3000`
+3. Public Hostname 추가: `your-domain.com` → `http://localhost:3000`
 4. `.env.production` 의 `ORIGIN` 을 해당 도메인으로 업데이트 → `pm2 restart saenslog`.
 
 ### 10.6 대안: Caddy for Windows + 도메인 A 레코드
@@ -653,7 +653,7 @@ pm2-startup install   # Windows 부팅 시 자동 시작
 `Caddyfile`:
 
 ```
-saens.example.com {
+your-domain.com {
  reverse_proxy 127.0.0.1:3000
 }
 ```
@@ -724,7 +724,7 @@ jobs:
 > - `src/routes/blog/[...path]/+page.svelte` 에 **글·목록별 `title` / `description` / `canonical` / OG / Twitter 카드** 가 거의 없음 → 검색·SNS 미리보기 최적화 여지 큼  
 >   Phase 5(하이브리드 블로그: 파일 + DB) 이후 **사이트맵 URL 목록** 에 DB 글 slug 도 포함해야 한다. Phase 10 은 **배포 직전~직후**에 수행해도 되고, 블로그 라우트가 안정화된 뒤 한 번에 묶어도 된다.
 
-**canonical 베이스 URL**: §14 최종 선택에 적은 도메인(예: `https://saens.kr`)과 일치해야 한다. 코드에서는 `ORIGIN` 또는 `PUBLIC_SITE_URL` 같은 **단일 환경 변수**로 통일하고, trailing slash 정책(권장: **끝에 슬래시 없음**)을 전역과 사이트맵·canonical 에 동일하게 적용한다.
+**canonical 베이스 URL**: §14 최종 선택에 적은 도메인(예: `https://your-domain.com`)과 일치해야 한다. 코드에서는 `ORIGIN` 또는 `PUBLIC_SITE_URL` 같은 **단일 환경 변수**로 통일하고, trailing slash 정책(권장: **끝에 슬래시 없음**)을 전역과 사이트맵·canonical 에 동일하게 적용한다.
 
 ### 12.1 코드에서 먼저 할 SEO (에이전트 구현 체크리스트)
 
@@ -734,7 +734,7 @@ jobs:
 - **구현 옵션** (택일 또는 병행, 프로젝트 상태에 맞게 선택):
   1. **동적 라우트 (SSR/adapter-node 권장)**: `src/routes/sitemap.xml/+server.ts` 에서 `GET` 으로 `application/xml` 응답. 서버에서 `getBlogItems` 재귀 + `getAllPosts` (또는 DB `posts` 조회)로 URL 목록 생성. **항상 최신**이므로 신규 글 반영에 유리.
   2. **빌드 시 정적 파일**: prerender 가 남아 있으면 hooks 로 빌드 시 생성해 `static/sitemap.xml` 에 쓰기 — DB 글은 **배포 후 갱신이 안 될 수 있어** SSR 에서는 1)을 우선.
-- `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` 표준 준수, `<loc>` 는 절대 URL (`https://saens.kr/...`).
+- `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` 표준 준수, `<loc>` 는 절대 URL (`https://your-domain.com/...`).
 - `lastmod` 는 글 `updated_at` 또는 frontmatter `date` 가 있으면 ISO8601 로 넣는 것을 권장.
 
 #### B. `robots.txt` 보강
@@ -742,7 +742,7 @@ jobs:
 - 현재: 주석 + `User-agent: *` + `Disallow:` 만 존재.
 - **추가 권장**:
   - `Allow: /` (명시)
-  - `Sitemap: https://saens.kr/sitemap.xml` (실제 도메인으로 교체)
+  - `Sitemap: https://your-domain.com/sitemap.xml` (실제 도메인으로 교체)
 - **배치**:
   - 정적 파일 `static/robots.txt` 를 수정하거나,
   - 사이트맵과 같이 `src/routes/robots.txt/+server.ts` 로 동적 생성해 **환경별 도메인**에 맞추기 (스테이징/프로덕션 분리 시 유리).
@@ -776,13 +776,13 @@ jobs:
 ### 12.2 플랫폼별 등록 (사용자 작업, 에이전트는 안내)
 
 1. **Google**
-   - [Google Search Console](https://search.google.com/search-console) 에 `https://saens.kr` 등록 및 소유권 인증
+   - [Google Search Console](https://search.google.com/search-console) 에 `https://your-domain.com` 등록 및 소유권 인증
    - `sitemap.xml` 제출
    - 신규 글: URL 검사 → 색인 생성 요청
 
 2. **네이버**
    - [네이버 서치어드바이저](https://searchadvisor.naver.com/) 사이트 등록·소유권 인증
-   - 사이트맵 제출: `https://saens.kr/sitemap.xml`
+   - 사이트맵 제출: `https://your-domain.com/sitemap.xml`
    - 필요 시 **웹페이지 수집 요청**으로 신규 URL 제출
 
 3. **다음(Daum)**
@@ -791,16 +791,16 @@ jobs:
 
 ### 12.3 배포 후 즉시 확인 (체크리스트)
 
-- [ ] `https://saens.kr/robots.txt` — 열리고 `Sitemap:` 행이 기대 URL 인지 확인
-- [ ] `https://saens.kr/sitemap.xml` — HTTP 200, XML 유효, 블로그·카테고리 URL 포함
+- [ ] `https://your-domain.com/robots.txt` — 열리고 `Sitemap:` 행이 기대 URL 인지 확인
+- [ ] `https://your-domain.com/sitemap.xml` — HTTP 200, XML 유효, 블로그·카테고리 URL 포함
 - [ ] 글 상세 **페이지 소스**(또는 요소 검사 아닌 “보기 소스”)에서 `title`, `description`, `canonical`, `og:*` 존재 확인
-- [ ] 주기적으로 `site:saens.kr` 등으로 색인 상태 확인
+- [ ] 주기적으로 `site:your-domain.com` 등으로 색인 상태 확인
 
 ### 12.4 검증·커밋
 
 ```bash
 npm run check
-curl -sI https://saens.kr/sitemap.xml   # 배포 환경에서
+curl -sI https://your-domain.com/sitemap.xml   # 배포 환경에서
 ```
 
 커밋 예: `feat(seo): sitemap, robots, 블로그 메타/OG/JSON-LD`
@@ -831,8 +831,8 @@ DB 롤백: Supabase 대시보드 → Migrations → Revert, 또는 백업 snapsh
 - [x] 댓글: `Supabase + Realtime`
 - [x] 프록시: `Cloudflare Tunnel`
 - [x] 서비스화: `pm2 + pm2-windows-startup`
-- [x] 도메인: `saens.kr`
-- [x] Supabase 프로젝트 ref: `vsxvwdvvavoruocqvrgl`
+- [x] 도메인: `your-domain.com`
+- [x] Supabase 프로젝트 ref: `<your-project-ref>` (예시: `xxxxxxxxxxxxx`)
 
 ---
 
