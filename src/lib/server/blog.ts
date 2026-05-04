@@ -3,11 +3,14 @@ import matter from 'gray-matter';
 import path from 'path';
 import { renderMarkdownToHtml } from '$lib/server/markdown';
 
-const BLOG_DIR = path.join(process.cwd(), 'src/lib/blog');
+const BLOG_DIR = path.join(process.cwd(), 'static', 'blog');
 
 export interface BlogPost {
 	title: string;
 	date: string;
+	created?: string;
+	updated?: string;
+	publish: boolean;
 	category: string;
 	tags: string[];
 	content: string;
@@ -26,7 +29,7 @@ export interface FolderInfo {
 	date: string;
 }
 
-// 특정 경로의 파일 시스템 읽기
+// 특정 경로의 파일 시스템 읽기 (새 구조: slug/post.md)
 export function getBlogItems(relativePath: string = '') {
 	const fullPath = path.join(BLOG_DIR, relativePath);
 
@@ -41,28 +44,32 @@ export function getBlogItems(relativePath: string = '') {
 
 	for (const item of items) {
 		if (item.isDirectory()) {
-			// 폴더인 경우
-			const folderPath = path.join(fullPath, item.name);
-			const { folderCount, postCount } = countDirectChildren(folderPath);
-			const totalFolderCount = countAllFolders(folderPath);
-			const totalPostCount = countAllPosts(folderPath);
-			const lastModified = getLatestPostDate(folderPath);
+			// 폴더인 경우: post.md가 있는지 확인
+			const itemPath = path.join(fullPath, item.name);
+			const postMdPath = path.join(itemPath, 'post.md');
+			
+			if (fs.existsSync(postMdPath)) {
+				// post.md가 있으면 이 폴더는 포스트
+				const post = parseMarkdownFileFromPostMd(postMdPath, relativePath, item.name);
+				if (post) {
+					posts.push(post);
+				}
+			} else {
+				// post.md가 없으면 진짜 폴더
+				const { folderCount, postCount } = countDirectChildren(itemPath);
+				const totalFolderCount = countAllFolders(itemPath);
+				const totalPostCount = countAllPosts(itemPath);
+				const lastModified = getLatestPostDate(itemPath);
 
-			folders.push({
-				name: item.name,
-				path: relativePath ? `${relativePath}/${item.name}` : item.name,
-				folderCount,
-				postCount,
-				totalFolderCount,
-				totalPostCount,
-				date: lastModified
-			});
-		} else if (item.name.endsWith('.md')) {
-			// 마크다운 파일인 경우
-			const filePath = path.join(fullPath, item.name);
-			const post = parseMarkdownFile(filePath, relativePath, item.name);
-			if (post) {
-				posts.push(post);
+				folders.push({
+					name: item.name,
+					path: relativePath ? `${relativePath}/${item.name}` : item.name,
+					folderCount,
+					postCount,
+					totalFolderCount,
+					totalPostCount,
+					date: lastModified
+				});
 			}
 		}
 	}
@@ -70,15 +77,77 @@ export function getBlogItems(relativePath: string = '') {
 	// 정렬: 폴더는 이름순, 포스트는 번호순
 	folders.sort((a, b) => a.name.localeCompare(b.name));
 	posts.sort((a, b) => {
-		const aNum = parseInt(path.basename(a.path, '.md'));
-		const bNum = parseInt(path.basename(b.path, '.md'));
+		const aNum = parseSlugNumber(a.path);
+		const bNum = parseSlugNumber(b.path);
 		return aNum - bNum;
 	});
 
-	return { folders, posts };
+	// publish가 false인 글은 리스트에 포함하지 않음
+	const visiblePosts = posts.filter(p => p.publish !== false);
+
+	return { folders, posts: visiblePosts };
 }
 
-// 바로 하위의 폴더 수와 포스트 수 세기
+// slug에서 번호 추출 (t9 -> 9, 20260417 -> 20260417)
+function parseSlugNumber(slug: string): number {
+	const match = slug.match(/[^\/]+$/);
+	if (!match) return 0;
+	const name = match[0];
+	const numMatch = name.match(/\d+/);
+	return numMatch ? parseInt(numMatch[0], 10) : 0;
+}
+
+// post.md 파일 파싱 (새 구조용)
+function parseMarkdownFileFromPostMd(
+	filePath: string,
+	relativePath: string,
+	slug: string
+): BlogPost | null {
+	try {
+		const fileContents = fs.readFileSync(filePath, 'utf8');
+		const { data, content } = matter(fileContents);
+
+		const wordCount = content.split(/\s+/).length;
+		const postPath = relativePath ? `${relativePath}/${slug}` : slug;
+
+		// 날짜 파싱 헬퍼
+		const parseDate = (val: unknown): string => {
+			if (!val) return new Date().toISOString();
+			if (val instanceof Date) return val.toISOString();
+			return String(val);
+		};
+
+		// created, updated, date 처리
+		const created = parseDate(data.created || data.date);
+		const updated = parseDate(data.updated || data.date);
+		const dateStr = parseDate(data.date);
+
+		// publish 기본값은 true
+		const publish = data.publish !== false;
+
+		// 마크다운을 HTML로 변환
+		const htmlContent = renderMarkdownToHtml(content);
+
+		return {
+			title: data.title || 'Untitled',
+			date: dateStr,
+			created,
+			updated,
+			publish,
+			category: data.category || relativePath || '/',
+			tags: data.tags || [],
+			content: htmlContent,
+			wordCount,
+			path: postPath,
+			...(data.tistory ? { tistory: String(data.tistory) } : {})
+		};
+	} catch (error) {
+		console.error(`Error parsing ${filePath}:`, error);
+		return null;
+	}
+}
+
+// 바로 하위의 폴더 수와 포스트 수 세기 (새 구조)
 function countDirectChildren(folderPath: string): { folderCount: number; postCount: number } {
 	if (!fs.existsSync(folderPath)) {
 		return { folderCount: 0, postCount: 0 };
@@ -90,16 +159,19 @@ function countDirectChildren(folderPath: string): { folderCount: number; postCou
 
 	for (const item of items) {
 		if (item.isDirectory()) {
-			folderCount++;
-		} else if (item.name.endsWith('.md')) {
-			postCount++;
+			const postMdPath = path.join(folderPath, item.name, 'post.md');
+			if (fs.existsSync(postMdPath)) {
+				postCount++;
+			} else {
+				folderCount++;
+			}
 		}
 	}
 
 	return { folderCount, postCount };
 }
 
-// 모든 하위 폴더를 포함한 전체 폴더 수 세기 (재귀)
+// 모든 하위 폴더를 포함한 전체 폴더 수 세기 (재귀) - 새 구조
 function countAllFolders(folderPath: string): number {
 	let count = 0;
 
@@ -111,15 +183,19 @@ function countAllFolders(folderPath: string): number {
 
 	for (const item of items) {
 		if (item.isDirectory()) {
-			count++;
-			count += countAllFolders(path.join(folderPath, item.name));
+			const postMdPath = path.join(folderPath, item.name, 'post.md');
+			// post.md가 없는 폴더만 카운트
+			if (!fs.existsSync(postMdPath)) {
+				count++;
+				count += countAllFolders(path.join(folderPath, item.name));
+			}
 		}
 	}
 
 	return count;
 }
 
-// 모든 하위 폴더를 포함한 전체 포스트 수 세기 (재귀)
+// 모든 하위 폴더를 포함한 전체 포스트 수 세기 (재귀) - 새 구조
 function countAllPosts(folderPath: string): number {
 	let count = 0;
 
@@ -131,16 +207,19 @@ function countAllPosts(folderPath: string): number {
 
 	for (const item of items) {
 		if (item.isDirectory()) {
-			count += countAllPosts(path.join(folderPath, item.name));
-		} else if (item.name.endsWith('.md')) {
-			count++;
+			const postMdPath = path.join(folderPath, item.name, 'post.md');
+			if (fs.existsSync(postMdPath)) {
+				count++;
+			} else {
+				count += countAllPosts(path.join(folderPath, item.name));
+			}
 		}
 	}
 
 	return count;
 }
 
-// 폴더 내 모든 글들 중 가장 최신 날짜 가져오기
+// 폴더 내 모든 글들 중 가장 최신 날짜 가져오기 (새 구조)
 function getLatestPostDate(folderPath: string): string {
 	if (!fs.existsSync(folderPath)) {
 		return '1999-01-01T00:00:00';
@@ -155,20 +234,26 @@ function getLatestPostDate(folderPath: string): string {
 			const fullPath = path.join(dir, item.name);
 
 			if (item.isDirectory()) {
-				traverseForDates(fullPath);
-			} else if (item.name.endsWith('.md')) {
-				try {
-					const fileContents = fs.readFileSync(fullPath, 'utf8');
-					const { data } = matter(fileContents);
+				const postMdPath = path.join(fullPath, 'post.md');
+				if (fs.existsSync(postMdPath)) {
+					// post.md 파일에서 날짜 읽기
+					try {
+						const fileContents = fs.readFileSync(postMdPath, 'utf8');
+						const { data } = matter(fileContents);
 
-					if (data.date) {
-						const postDate = data.date instanceof Date ? data.date : new Date(data.date);
-						if (!isNaN(postDate.getTime())) {
-							dates.push(postDate);
+						// date, created, updated 순서로 확인
+						const dateValue = data.date ?? data.created ?? data.updated;
+						if (dateValue) {
+							const postDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+							if (!isNaN(postDate.getTime())) {
+								dates.push(postDate);
+							}
 						}
+					} catch {
+						// 파일 읽기 오류 무시
 					}
-				} catch {
-					// 파일 읽기 오류 무시
+				} else {
+					traverseForDates(fullPath);
 				}
 			}
 		}
@@ -214,9 +299,15 @@ function parseMarkdownFile(
 			dateStr = new Date().toISOString();
 		}
 
+		// publish 기본값은 true
+		const publish = data.publish !== false;
+
 		return {
 			title: data.title || 'Untitled',
 			date: dateStr,
+			created: dateStr,
+			updated: dateStr,
+			publish,
 			category: data.category || relativePath || '/',
 			tags: data.tags || [],
 			content: htmlContent,
@@ -235,18 +326,18 @@ export function renderMarkdownContent(markdown: string): string {
 	return renderMarkdownToHtml(markdown);
 }
 
-// 특정 포스트 가져오기
+// 특정 포스트 가져오기 (새 구조: slug/post.md)
 export function getBlogPost(postPath: string): BlogPost | null {
-	const fullPath = path.join(BLOG_DIR, `${postPath}.md`);
+	const fullPath = path.join(BLOG_DIR, postPath, 'post.md');
 
 	if (!fs.existsSync(fullPath)) {
 		return null;
 	}
 
+	const slug = path.basename(postPath);
 	const dir = path.dirname(postPath);
-	const fileName = path.basename(postPath);
 
-	return parseMarkdownFile(fullPath, dir, `${fileName}.md`);
+	return parseMarkdownFileFromPostMd(fullPath, dir, slug);
 }
 
 // 특정 경로 하위의 모든 포스트 가져오기 (최근 글용)
@@ -266,11 +357,16 @@ export function getAllPosts(basePath: string = '', limit?: number): BlogPost[] {
 			const newRelativePath = relativePath ? `${relativePath}/${item.name}` : item.name;
 
 			if (item.isDirectory()) {
-				traverseDirectory(fullPath, newRelativePath);
-			} else if (item.name.endsWith('.md')) {
-				const post = parseMarkdownFile(fullPath, relativePath, item.name);
-				if (post) {
-					posts.push(post);
+				const postMdPath = path.join(fullPath, 'post.md');
+				if (fs.existsSync(postMdPath)) {
+					// post.md가 있으면 포스트
+					const post = parseMarkdownFileFromPostMd(postMdPath, relativePath, item.name);
+					if (post) {
+						posts.push(post);
+					}
+				} else {
+					// 하위 디렉터리 재귀
+					traverseDirectory(fullPath, newRelativePath);
 				}
 			}
 		}
@@ -278,8 +374,11 @@ export function getAllPosts(basePath: string = '', limit?: number): BlogPost[] {
 
 	traverseDirectory(startDir, basePath);
 
-	// 날짜순으로 정렬 (최신순)
-	posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+	// publish가 false인 글은 리스트에 포함하지 않음
+	const visiblePosts = posts.filter(p => p.publish !== false);
 
-	return limit ? posts.slice(0, limit) : posts;
+	// 날짜순으로 정렬 (최신순)
+	visiblePosts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+	return limit ? visiblePosts.slice(0, limit) : visiblePosts;
 }

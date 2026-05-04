@@ -4,11 +4,12 @@ const CHEVRON_LEFT = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height=
 const CHEVRON_RIGHT = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>`;
 
 export function setupTables(node: Element) {
+	const cleanupFns: (() => void)[] = [];
+
 	node.querySelectorAll<HTMLElement>('.table-wrapper').forEach((wrapper) => {
 		if (wrapper.parentElement?.classList.contains('table-container')) return;
-		if (wrapper.querySelector('img')) return; // 이미지 표는 스크롤 불필요
+		if (wrapper.querySelector('img')) return;
 
-		// 스크롤 컨테이너로 감싸기
 		const container = document.createElement('div');
 		container.className = 'table-container';
 		wrapper.parentNode!.insertBefore(container, wrapper);
@@ -50,5 +51,14 @@ export function setupTables(node: Element) {
 		ro.observe(wrapper);
 
 		requestAnimationFrame(update);
+
+		cleanupFns.push(() => {
+			wrapper.removeEventListener('scroll', update);
+			ro.disconnect();
+		});
 	});
+
+	return () => {
+		cleanupFns.forEach((fn) => fn());
+	};
 }

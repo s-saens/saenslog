@@ -8,5 +8,13 @@ export function formatDate(dateStr: string): string {
 	const dayName = DAYS[d.getDay()];
 	const hours = String(d.getHours()).padStart(2, '0');
 	const minutes = String(d.getMinutes()).padStart(2, '0');
-	return `${year}.${month}.${day}.${dayName}. ${hours}:${minutes} GMT+9`;
+	return `${year}.${month}.${day}.${dayName}.${hours}:${minutes}`;
+}
+
+export function formatDateWithCreated(updated: string | undefined, created: string | undefined): string {
+	if (!updated && !created) return '';
+	if (!updated) return formatDate(created!);
+	if (!created) return formatDate(updated);
+	if (updated === created) return formatDate(updated);
+	return `${formatDate(created)} | ${formatDate(updated)}`;
 }

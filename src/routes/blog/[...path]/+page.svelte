@@ -33,11 +33,14 @@
 		if (!browser || !data.isPost || !postContentEl) return;
 		void data.content; // reactive dependency
 		setupCodeBlocks(postContentEl);
-		setupTables(postContentEl);
+		const cleanupTables = setupTables(postContentEl);
 		const cleanupTOC = setupTOC(postContentEl, {
 			getScrollRoot: () => mainScroll?.scrollRoot ?? null
 		});
-		return cleanupTOC;
+		return () => {
+			cleanupTables?.();
+			cleanupTOC?.();
+		};
 	});
 </script>
 
@@ -95,23 +98,28 @@
 								</div>
 							</div>
 							<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 150 }}>
-								<span class="date">{formatDate(data.date ?? '')}</span>
+								{#if data.created && data.updated && data.created !== data.updated}
+									<span class="date created">{formatDate(data.created)}</span>
+									<span class="separator">|</span>
+								{/if}
+								<span class="date">{formatDate(data.updated || data.created)}</span>
 								<span class="separator">•</span>
 								<span class="word-count">
 									<TextCountIcon width={14} height={14} />
 									{data.wordCount}
 								</span>
-								{#if data.isAdmin && data.source === 'db'}
+								{#if data.isAdmin}
 									<div class="post-admin-actions">
 										<a class="post-admin-link" href={hrefAdminPostEdit(data.path)}>수정</a>
 										<form
 											class="post-admin-delete"
 											method="POST"
-											action="/admin/posts/{data.path}/edit?/delete"
+											action="?/deletePost"
 											use:enhance={({ cancel }) => {
 												if (!confirm('이 글을 삭제할까요?')) cancel();
 											}}
 										>
+											<input type="hidden" name="post_path" value={data.path} />
 											<button type="submit" class="post-admin-link danger">삭제</button>
 										</form>
 									</div>
@@ -134,37 +142,41 @@
 							<div class="footer"></div>
 						</article>
 					{/key}
-				{:else}
-					{#key $page.url.pathname}
-						<!-- 카테고리 페이지 -->
-						<div class="list-wrapper">
-							<BlogListSection
-								folders={data.folders}
-								posts={data.posts}
-								transitionDelay={TRANSITION_DELAY}
-							/>
-							{#if data.path === ''}
-								{#await data.allPosts}
-									<section
-										class="all-posts-pending"
-										aria-busy="true"
-										aria-label="전체 글 목록 로드 중"
-									>
-										<div class="all-posts-pending-line"></div>
-										<span class="all-posts-pending-text">All Posts 불러오는 중…</span>
-									</section>
-								{:then allPosts}
-									<BlogAllPostsSection
-										allPosts={allPosts ?? []}
-										folderCount={data.folders?.length || 0}
-										postCount={data.posts?.length || 0}
-										transitionDelay={TRANSITION_DELAY}
-									/>
-								{/await}
-							{/if}
-						</div>
-					{/key}
-				{/if}
+{:else}
+				{#key $page.url.pathname}
+					<!-- 카테고리 페이지 -->
+					<div class="list-wrapper">
+						<BlogListSection
+							folders={data.folders}
+							posts={data.posts}
+							transitionDelay={TRANSITION_DELAY}
+						/>
+						{#if data.path === ''}
+							{#await data.allPosts}
+								<section
+									class="all-posts-pending"
+									aria-busy="true"
+									aria-label="전체 글 목록 로드 중"
+								>
+									<div class="all-posts-spinner"></div>
+									<span class="all-posts-pending-text">All Posts 로딩 중…</span>
+								</section>
+							{:then allPosts}
+								<BlogAllPostsSection
+									allPosts={allPosts ?? []}
+									folderCount={data.folders?.length || 0}
+									postCount={data.posts?.length || 0}
+									transitionDelay={TRANSITION_DELAY}
+								/>
+							{:catch}
+								<section class="all-posts-error">
+									<span>목록을 불러오지 못했습니다.</span>
+								</section>
+							{/await}
+						{/if}
+					</div>
+				{/key}
+			{/if}
 			</div>
 		</div>
 	{/if}
@@ -214,37 +226,28 @@
 	.all-posts-pending {
 		display: flex;
 		flex-direction: column;
-		align-items: stretch;
-		gap: 0.65rem;
-		padding-top: 2rem;
-		margin-top: 0.5rem;
-		border-top: 1px solid var(--border);
+		align-items: center;
+		justify-content: center;
+		padding: 2.5rem 0;
+		gap: 0.75rem;
 		color: var(--text-tertiary);
 	}
 
-	.all-posts-pending-line {
-		height: 3px;
-		border-radius: 999px;
-		background: linear-gradient(
-			90deg,
-			color-mix(in srgb, var(--text) 18%, transparent),
-			color-mix(in srgb, var(--text) 8%, transparent)
-		);
-		background-size: 200% 100%;
-		animation: all-posts-shimmer 1.1s ease-in-out infinite;
+	.all-posts-spinner {
+		width: 26px;
+		height: 26px;
+		border: 2px solid color-mix(in srgb, var(--text) 20%, transparent);
+		border-top-color: var(--text);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 
 	.all-posts-pending-text {
-		font-size: 0.8rem;
-	}
-
-	@keyframes all-posts-shimmer {
-		0% {
-			background-position: 100% 0;
-		}
-		100% {
-			background-position: -100% 0;
-		}
+		font-size: 0.85rem;
 	}
 
 	header {
@@ -377,13 +380,20 @@
 
 	.post-meta {
 		display: flex;
-		align-items: center;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: 0.25rem 0.5rem;
 		font-size: 0.8rem;
 		color: var(--text-tertiary);
 		padding-bottom: 1rem;
 		border-bottom: 1px solid var(--border);
+	}
+
+	.date.created {
+		opacity: 0.8;
+	}
+
+	.date:not(.created) {
+		font-weight: 500;
 	}
 
 	.post-admin-actions {

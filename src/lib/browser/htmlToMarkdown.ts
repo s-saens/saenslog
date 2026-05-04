@@ -11,9 +11,8 @@ function getTurndown(): TurndownService {
 			bulletListMarker: '-',
 			emDelimiter: '*'
 		});
-		t.use(gfm);
-		t.keep((node) => node.nodeName === 'IMG' || node.nodeName === 'AUDIO');
-		turndown = t;
+t.use(gfm);
+	turndown = t;
 	}
 	return turndown;
 }

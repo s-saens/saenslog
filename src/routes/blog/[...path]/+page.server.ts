@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { env as privateEnv } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
 import {
@@ -122,7 +124,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const isAdmin = profile?.role === 'admin';
 	const path = params.path || '';
 	const segments = path.split('/').filter(Boolean);
-	const onlyPub = !isAdmin;
+	const onlyPub = true;
 
 	const breadcrumb = [
 		{ label: 'Blog', path: '/blog' },
@@ -141,7 +143,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		.eq('slug', path)
 		.maybeSingle();
 
-	if (dbRow) {
+	// published가 false인 글은 모든 사용자에게 숨김
+	if (dbRow && dbRow.published !== false) {
 		const postBreadcrumb = [
 			{ label: 'Blog', path: '/blog' },
 			...segments.slice(0, -1).map((segment, index) => {
@@ -163,6 +166,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			isAdmin,
 			title: dbRow.title,
 			date: dbRow.published_at ?? dbRow.updated_at,
+			created: dbRow.created_at,
+			updated: dbRow.updated_at,
 			category: categoryLabelFromSlug(path),
 			content: dbRow.content_html as string,
 			wordCount: dbRow.word_count as number,
@@ -175,7 +180,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	}
 
 	const fsPost = getBlogPost(path);
-	if (fsPost) {
+	// publish가 false인 글은 모든 사용자에게 숨김
+	if (fsPost && fsPost.publish !== false) {
 		const postBreadcrumb = [
 			{ label: 'Blog', path: '/blog' },
 			...segments.slice(0, -1).map((segment, index) => {
@@ -197,6 +203,8 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			isAdmin,
 			title: fsPost.title,
 			date: fsPost.date,
+			created: fsPost.created,
+			updated: fsPost.updated,
 			category: fsPost.category,
 			content: fsPost.content,
 			wordCount: fsPost.wordCount,
@@ -369,13 +377,25 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	deleteComment: async ({ request, locals }) => {
+	deletePost: async ({ request }) => {
 		const form = await request.formData();
-		const id = Number(form.get('comment_id'));
-		if (!Number.isFinite(id)) return fail(400, { message: '잘못된 요청입니다.' });
-
-		const { error } = await locals.supabase.from('comments').delete().eq('id', id);
-		if (error) return fail(400, { message: error.message });
-		return { ok: true };
+		const postPath = String(form.get('post_path') ?? '').trim();
+		
+		if (!postPath) return fail(400, { message: '삭제할 글 경로가 없습니다.' });
+		
+		const BLOG_DIR = path.join(process.cwd(), 'static', 'blog');
+		const postDir = path.join(BLOG_DIR, postPath);
+		
+		if (!fs.existsSync(postDir)) {
+			return fail(404, { message: '삭제할 글을 찾을 수 없습니다.' });
+		}
+		
+		try {
+			fs.rmSync(postDir, { recursive: true, force: true });
+			return { ok: true };
+		} catch (err) {
+			console.error('Failed to delete post:', err);
+			return fail(500, { message: '글 삭제에 실패했습니다.' });
+		}
 	}
 };

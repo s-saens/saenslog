@@ -18,6 +18,24 @@ function ensureShell(pre: HTMLPreElement): HTMLElement {
 	return shell;
 }
 
+function hasCollapseWrapper(pre: HTMLPreElement): boolean {
+	return pre.parentElement?.classList.contains('code-pre-wrap') ?? false;
+}
+
+function hasExistingCollapseStructure(pre: HTMLPreElement): boolean {
+	return pre.closest('.code-collapse-wrapper') !== null;
+}
+
+const DATA_PROCESSED = 'data-codeblock-setup';
+
+function isProcessed(el: Element): boolean {
+	return el.getAttribute(DATA_PROCESSED) === 'true';
+}
+
+function markProcessed(el: Element): void {
+	el.setAttribute(DATA_PROCESSED, 'true');
+}
+
 function addCopyTrack(shell: HTMLElement) {
 	if (shell.querySelector('.code-copy-track')) return;
 
@@ -76,9 +94,14 @@ export function setupCodeBlocks(node: Element) {
 	const pres = node.querySelectorAll('pre');
 
 	pres.forEach((pre) => {
+		if (isProcessed(pre)) return;
+		markProcessed(pre);
+
 		const shell = ensureShell(pre as HTMLPreElement);
 		const p = pre as HTMLPreElement;
 
+		if (hasCollapseWrapper(p)) return;
+		if (hasExistingCollapseStructure(p)) return;
 		if (!p.parentElement?.classList.contains('code-collapse-wrapper')) {
 			const lineCount = (p.textContent ?? '').split('\n').length;
 			if (lineCount > 13) {
@@ -127,4 +150,10 @@ export function setupCodeBlocks(node: Element) {
 
 		addCopyTrack(shell);
 	});
+
+	return () => {
+		pres.forEach((pre) => {
+			pre.removeAttribute(DATA_PROCESSED);
+		});
+	};
 }
