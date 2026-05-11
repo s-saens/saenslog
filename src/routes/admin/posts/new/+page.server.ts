@@ -28,8 +28,15 @@ export const actions: Actions = {
 		const published = form.get('published') === 'true';
 		const folderRaw = String(form.get('folder_id') ?? '').trim();
 		const folderId = folderRaw ? Number(folderRaw) : NaN;
+		const slug = String(form.get('slug') ?? '');
 
-		const { id } = await insertPost(locals.supabase, { title, content_md, published }, user.id);
+		let id: number;
+		try {
+			({ id } = await insertPost(locals.supabase, { title, content_md, published, slug }, user.id));
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
+			return fail(400, { message: msg });
+		}
 
 		if (Number.isFinite(folderId) && folderId > 0) {
 			await appendPostToFolder(locals.supabase, folderId, id);

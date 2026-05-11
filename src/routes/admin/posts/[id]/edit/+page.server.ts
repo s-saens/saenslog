@@ -23,16 +23,23 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const title = String(form.get('title') ?? '').trim();
 		const content_md = String(form.get('content_md') ?? '');
+		const slug = String(form.get('slug') ?? '');
 		const published = form.get('published') === 'true';
 
 		const post = await getPostById(locals.supabase, postId);
 		if (!post) return fail(404, { message: '글을 찾을 수 없습니다.' });
 
-		await updatePostById(locals.supabase, postId, {
-			title: title || post.title,
-			content_md: content_md || post.content_md,
-			published
-		});
+		try {
+			await updatePostById(locals.supabase, postId, {
+				title: title || post.title,
+				content_md: content_md || post.content_md,
+				published,
+				slug
+			});
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
+			return fail(400, { message: msg });
+		}
 
 		return { success: true };
 	},
@@ -49,9 +56,14 @@ export const actions: Actions = {
 		if (!content_md.trim()) return fail(400, { message: '본문을 입력하세요.' });
 
 		const published = form.get('published') === 'true';
+		const slug = String(form.get('slug') ?? '');
 
-		await updatePostById(locals.supabase, postId, { title, content_md, published });
-		return { success: true };
+		try {
+			await updatePostById(locals.supabase, postId, { title, content_md, published, slug });
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
+			return fail(400, { message: msg });
+		}
 	},
 	delete: async ({ locals, params }) => {
 		const postId = Number(params.id);

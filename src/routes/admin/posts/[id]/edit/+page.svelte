@@ -19,12 +19,15 @@
 
 	let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 
+	let slugVal = $state('');
+
 	async function autosave() {
 		if (!browser) return;
 		autosaveStatus = 'saving';
 		try {
 			const fd = new FormData();
 			fd.set('title', titleVal);
+			fd.set('slug', slugVal);
 			fd.set('content_md', md);
 			fd.set('published', published ? 'true' : 'false');
 			const res = await fetch('?/autosave', {
@@ -68,6 +71,7 @@
 	$effect.pre(() => {
 		assetKey = String(data.post.id);
 		titleVal = data.post.title;
+		slugVal = data.post.slug ?? '';
 		md = data.post.content_md || '';
 		published = data.post.published;
 	});
@@ -93,7 +97,8 @@
 		<a class="blog-link" href={hrefBlogPost(assetKey)}>블로그에서 보기 →</a>
 	</p>
 	<p class="hint">
-		공개 주소는 <code class="inline">/blog/{assetKey}</code> 입니다. 본문에 넣는 이미지는
+		공개 주소는 <code class="inline">/blog/{assetKey}</code> 입니다. 목록 카드 보조 줄에는 아래
+		표시용 슬러그가 있으면 슬러그가, 없으면 폴더 이름이 나옵니다. 본문 미디어는
 		<code class="inline">static/blog/{assetKey}/</code>에 저장됩니다.
 	</p>
 
@@ -120,6 +125,10 @@
 			<label class="field full">
 				<span class="label">제목</span>
 				<input class="input" name="title" required bind:value={titleVal} />
+			</label>
+			<label class="field full">
+				<span class="label">표시용 슬러그 (선택, 예: Dev/AI/my-note)</span>
+				<input class="input mono" name="slug" bind:value={slugVal} autocomplete="off" />
 			</label>
 		</div>
 

@@ -23,6 +23,8 @@ export type BlogFolderListItem = {
 export type BlogPostListItem = {
 	title: string;
 	path: string;
+	/** 목록 보조줄: 비어 있으면 category(폴더명)로 대체 표시 */
+	slug: string;
 	category: string;
 	date: string;
 	wordCount: number;

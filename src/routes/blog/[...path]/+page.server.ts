@@ -28,6 +28,7 @@ import type { Actions, PageServerLoad } from './$types';
 type ListPost = {
 	title: string;
 	path: string;
+	slug: string;
 	category: string;
 	date: string;
 	wordCount: number;
@@ -86,17 +87,19 @@ async function loadCommentsForPost(postId: number, locals: App.Locals): Promise<
 function postRowToCard(
 	row: {
 		title: string;
+		slug: string | null;
 		published_at: string | null;
 		updated_at: string;
 		word_count: number;
 		id: number;
 	},
-	category: string
+	folderLabel: string
 ): ListPost {
 	return {
 		title: row.title,
 		path: String(row.id),
-		category,
+		slug: (row.slug ?? '').trim(),
+		category: folderLabel,
 		date: row.published_at ?? row.updated_at,
 		wordCount: row.word_count
 	};
