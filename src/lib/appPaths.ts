@@ -1,13 +1,27 @@
 import { base, resolve } from '$app/paths';
 
-/** FS/목록용 블로그 세그먼트(예: `Dev/Unity/t5`) → 절대 경로 */
-export function hrefBlogPath(fsPath: string): string {
-	const p = fsPath.replace(/^\/+/, '').replace(/\/$/, '');
+/** 글 id → `/blog/123` */
+export function hrefBlogPost(postId: number | string): string {
+	const id = String(postId).replace(/^\/+/, '');
+	return resolve('/blog/[...path]', { path: id });
+}
+
+/** 폴더 id → `/blog/f/123` */
+export function hrefBlogFolder(folderId: number | string): string {
+	const id = String(folderId).replace(/^\/+/, '');
+	return resolve('/blog/[...path]', { path: `f/${id}` });
+}
+
+/**
+ * 목록 카드용 — `path`는 글 id 문자열(`"42"`) 또는 폴더 경로(`"f/5"`).
+ */
+export function hrefBlogPath(pathSegment: string): string {
+	const p = pathSegment.replace(/^\/+/, '').replace(/\/$/, '');
 	if (!p) return resolve('/blog');
 	return resolve('/blog/[...path]', { path: p });
 }
 
-/** breadcrumb 등 전체 pathname (`/blog`, `/blog/Dev/…`) */
+/** breadcrumb 등 전체 pathname (`/blog`, `/blog/f/3`, `/blog/9`) */
 export function hrefBlogPathname(pathname: string): string {
 	if (pathname === '/blog' || pathname === '') return resolve('/blog');
 	const rest = pathname.replace(/^\/blog\/?/, '');
@@ -27,7 +41,7 @@ export function pathWithBase(pathname: string): string {
 	return `${base}${pathname}`;
 }
 
-/** admin 편집 URL — slug는 `Dev/AI/1` 형태 */
-export function hrefAdminPostEdit(slug: string): string {
-	return resolve('/admin/posts/[...slug]/edit', { slug });
+/** 관리자 편집 — `/admin/posts/123/edit` */
+export function hrefAdminPostEdit(postId: number | string): string {
+	return resolve('/admin/posts/[id]/edit', { id: String(postId) });
 }

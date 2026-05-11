@@ -53,7 +53,7 @@ export async function uploadMediaFile(
 	const uploadUrl = options.uploadUrl ?? DEFAULT_UPLOAD;
 	const slug = options.slug?.trim() ?? '';
 	if (!slug) {
-		alert('미디어를 넣기 전에 슬러그를 입력해 주세요.');
+		alert('미디어를 넣기 전에 글을 저장해 숫자 id가 생기도록 해 주세요.');
 		return null;
 	}
 

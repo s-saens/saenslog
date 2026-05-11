@@ -10,7 +10,7 @@
 	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
 	import BlogListSection from '$lib/components/BlogListSection.svelte';
 	import Comments from '$lib/components/Comments.svelte';
-	import { PlusIcon, TextCountIcon, TistoryIcon } from '$lib/components/icons';
+	import { PlusIcon, TextCountIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { formatDate } from '$lib/utils/dateFormatter';
 	import { fade, fly } from 'svelte/transition';
@@ -26,7 +26,9 @@
 	let postContentEl: HTMLDivElement | undefined = $state();
 
 	const adminNewPostHref = $derived(
-		`${resolve('/admin/posts/new')}?parent=${encodeURIComponent(data.path)}`
+		data.currentFolderId != null
+			? `${resolve('/admin/posts/new')}?folder=${data.currentFolderId}`
+			: resolve('/admin/posts/new')
 	);
 
 	$effect(() => {
@@ -84,17 +86,6 @@
 							<div transition:fly|global={{ duration: 500, delay: 100 }}>
 								<div class="title-row">
 									<h1>{data.title || '제목 없음'}</h1>
-									{#if data.tistory}
-										<a
-											href={data.tistory}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="tistory-link"
-											aria-label="티스토리에서 보기"
-										>
-											<TistoryIcon width={24} height={24} />
-										</a>
-									{/if}
 								</div>
 							</div>
 							<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 150 }}>
@@ -102,15 +93,15 @@
 									<span class="date created">{formatDate(data.created)}</span>
 									<span class="separator">|</span>
 								{/if}
-								<span class="date">{formatDate(data.updated || data.created)}</span>
+								<span class="date">{formatDate(data.updated ?? data.created ?? '')}</span>
 								<span class="separator">•</span>
 								<span class="word-count">
 									<TextCountIcon width={14} height={14} />
 									{data.wordCount}
 								</span>
-								{#if data.isAdmin}
+								{#if data.isAdmin && data.postId != null}
 									<div class="post-admin-actions">
-										<a class="post-admin-link" href={hrefAdminPostEdit(data.path)}>수정</a>
+										<a class="post-admin-link" href={hrefAdminPostEdit(data.postId)}>수정</a>
 										<form
 											class="post-admin-delete"
 											method="POST"
@@ -119,7 +110,7 @@
 												if (!confirm('이 글을 삭제할까요?')) cancel();
 											}}
 										>
-											<input type="hidden" name="post_path" value={data.path} />
+											<input type="hidden" name="post_id" value={String(data.postId)} />
 											<button type="submit" class="post-admin-link danger">삭제</button>
 										</form>
 									</div>
@@ -134,11 +125,13 @@
 								<!-- eslint-disable-next-line svelte/no-at-html-tags -- 마크다운 렌더 결과(저장소·관리자만 편집) -->
 								{@html data.content}
 							</div>
-							<Comments
-								postSlug={data.path}
-								initialComments={data.comments}
-								currentUserId={data.user?.id ?? null}
-							/>
+							{#if data.postId != null}
+								<Comments
+									postSlug={String(data.postId)}
+									initialComments={data.comments}
+									currentUserId={data.user?.id ?? null}
+								/>
+							{/if}
 							<div class="footer"></div>
 						</article>
 					{/key}
@@ -333,49 +326,6 @@
 		font-weight: 600;
 		margin: 0;
 		margin-bottom: -0.5rem;
-	}
-
-	.tistory-link {
-		position: relative;
-		display: flex;
-		align-items: center;
-		flex-shrink: 0;
-		margin-bottom: -0.5rem;
-		color: var(--text-tertiary);
-		transition:
-			color 0.2s,
-			opacity 0.2s;
-	}
-
-	.tistory-link::after {
-		content: 'Tistory에서 보기';
-		position: absolute;
-		bottom: calc(100% + 8px);
-		left: 50%;
-		transform: translateX(-50%) translateY(4px);
-		background: color-mix(in srgb, var(--text) 90%, transparent);
-		color: var(--bg);
-		font-size: 0.72rem;
-		font-weight: 500;
-		letter-spacing: 0.01em;
-		white-space: nowrap;
-		padding: 0.3rem 0.6rem;
-		border-radius: 6px;
-		pointer-events: none;
-		opacity: 0;
-		transition:
-			opacity 0.15s ease,
-			transform 0.15s ease;
-	}
-
-	.tistory-link:hover::after {
-		opacity: 1;
-		transform: translateX(-50%) translateY(0);
-	}
-
-	.tistory-link:hover {
-		color: var(--text);
-		opacity: 0.7;
 	}
 
 	.post-meta {

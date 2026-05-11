@@ -1,18 +1,26 @@
-import fs from 'fs';
+import { error, fail } from '@sveltejs/kit';
 import path from 'path';
 import { env as privateEnv } from '$env/dynamic/private';
-import { fail } from '@sveltejs/kit';
 import {
 	gateGuestCommentAttempt,
 	hashCommentClientIp,
 	recordGuestCommentAttempt
 } from '$lib/server/commentGuestRateLimit';
-import { getAllPosts, getBlogItems, getBlogPost } from '$lib/server/blog';
 import {
-	listPostsDirectChildren,
-	listPostsInSubtree,
-	categoryLabelFromSlug,
-	pathSegmentsBeforeLeaf
+	ancestorFolderChain,
+	fetchAllFolders,
+	findFolderContainingPost,
+	foldersById,
+	removePostFromAllFolders,
+	rootFolderIds,
+	toFolderInfo
+} from '$lib/server/folders';
+import {
+	deletePostById,
+	getPostById,
+	listOrphanPosts,
+	listPostsByIds,
+	listPublishedPosts
 } from '$lib/server/posts';
 import { tryCreateSupabaseServiceClient } from '$lib/server/supabaseService';
 import type { Actions, PageServerLoad } from './$types';
@@ -36,17 +44,22 @@ type CommentRow = {
 	profiles: { username: string; avatar_url: string | null } | null;
 };
 
-async function loadCommentsForSlug(postSlug: string, locals: App.Locals): Promise<CommentRow[]> {
-	const { data, error } = await locals.supabase
+function commentPostRef(postId: number): string {
+	return String(postId);
+}
+
+async function loadCommentsForPost(postId: number, locals: App.Locals): Promise<CommentRow[]> {
+	const ref = commentPostRef(postId);
+	const { data, error: qErr } = await locals.supabase
 		.from('comments')
 		.select(
 			'id, content, author_id, guest_name, parent_id, created_at, profiles(username, avatar_url)'
 		)
-		.eq('post_slug', postSlug)
+		.eq('post_slug', ref)
 		.order('created_at', { ascending: true });
 
-	if (error) {
-		console.error('comments load', error);
+	if (qErr) {
+		console.error('comments load', qErr);
 		return [];
 	}
 	const rows = data ?? [];
@@ -70,189 +83,173 @@ async function loadCommentsForSlug(postSlug: string, locals: App.Locals): Promis
 	});
 }
 
-function dbRowToCard(row: {
-	slug: string;
-	title: string;
-	published_at: string | null;
-	updated_at: string;
-	word_count: number;
-}): ListPost {
+function postRowToCard(
+	row: {
+		title: string;
+		published_at: string | null;
+		updated_at: string;
+		word_count: number;
+		id: number;
+	},
+	category: string
+): ListPost {
 	return {
 		title: row.title,
-		path: row.slug,
-		category: categoryLabelFromSlug(row.slug),
+		path: String(row.id),
+		category,
 		date: row.published_at ?? row.updated_at,
 		wordCount: row.word_count
 	};
 }
 
-function mergeByPath(fsItems: ListPost[], dbItems: ListPost[]): ListPost[] {
-	const map = new Map<string, ListPost>();
-	for (const p of fsItems) {
-		map.set(p.path, p);
-	}
-	for (const p of dbItems) {
-		map.set(p.path, p);
-	}
-	return [...map.values()].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-}
-
-/** /blog 루트의 «All Posts» 섹션용 — FS 전체 순회·DB 전체 조회는 여기서만 수행 */
-async function buildAllPostsMerged(
-	supabase: App.Locals['supabase'],
-	basePath: string,
-	opts: { onlyPublished: boolean }
-): Promise<ListPost[]> {
-	const fsAll = getAllPosts(basePath);
-	const dbSubtree = await listPostsInSubtree(supabase, basePath, {
-		onlyPublished: opts.onlyPublished
-	});
-	const dbAllCards = dbSubtree.map(dbRowToCard);
-	const fsAllCards: ListPost[] = fsAll.map((p) => ({
-		title: p.title,
-		path: p.path,
-		category: p.category,
-		date: p.date,
-		wordCount: p.wordCount,
-		...(p.tistory ? { tistory: p.tistory } : {})
-	}));
-	return mergeByPath(fsAllCards, dbAllCards);
-}
-
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
 	const { profile } = await parent();
 	const isAdmin = profile?.role === 'admin';
-	const path = params.path || '';
-	const segments = path.split('/').filter(Boolean);
-	const onlyPub = true;
+	const pathParam = params.path || '';
+	const segments = pathParam.split('/').filter(Boolean);
+	const onlyPub = !isAdmin;
 
-	const breadcrumb = [
-		{ label: 'Blog', path: '/blog' },
-		...segments.map((segment, index) => {
-			const segmentPath = segments.slice(0, index + 1).join('/');
-			return {
-				label: segment,
-				path: `/blog/${segmentPath}`
-			};
-		})
-	];
+	const allFolders = await fetchAllFolders(locals.supabase);
+	const byId = foldersById(allFolders);
 
-	const { data: dbRow } = await locals.supabase
-		.from('posts')
-		.select('*')
-		.eq('slug', path)
-		.maybeSingle();
+	/** 단일 세그먼트 숫자 → 글 */
+	if (segments.length === 1 && /^\d+$/.test(segments[0])) {
+		const postId = Number(segments[0]);
+		const dbRow = await getPostById(locals.supabase, postId);
+		if (!dbRow || (onlyPub && !dbRow.published)) {
+			error(404, '글을 찾을 수 없습니다.');
+		}
 
-	// published가 false인 글은 모든 사용자에게 숨김
-	if (dbRow && dbRow.published !== false) {
+		const hostFolder = findFolderContainingPost(postId, allFolders);
+		const chain = hostFolder ? ancestorFolderChain(hostFolder.id, allFolders) : [];
 		const postBreadcrumb = [
 			{ label: 'Blog', path: '/blog' },
-			...segments.slice(0, -1).map((segment, index) => {
-				const segmentPath = segments.slice(0, index + 1).join('/');
-				return {
-					label: segment,
-					path: `/blog/${segmentPath}`
-				};
-			})
+			...chain.map((f) => ({
+				label: f.name,
+				path: `/blog/f/${f.id}`
+			}))
 		];
 
-		const comments = await loadCommentsForSlug(path, locals);
+		const tags = chain.map((f) => f.name);
+		const category =
+			chain.length > 1 ? chain.map((f) => f.name).slice(0, -1).join('/') : '';
+
+		const comments = await loadCommentsForPost(postId, locals);
 
 		return {
-			path,
+			path: String(postId),
+			pathParam,
 			segments,
 			breadcrumb: postBreadcrumb,
 			isPost: true,
 			isAdmin,
+			postId,
 			title: dbRow.title,
 			date: dbRow.published_at ?? dbRow.updated_at,
 			created: dbRow.created_at,
 			updated: dbRow.updated_at,
-			category: categoryLabelFromSlug(path),
+			category,
 			content: dbRow.content_html as string,
 			wordCount: dbRow.word_count as number,
-			tags: pathSegmentsBeforeLeaf(path),
-			source: 'db' as const,
-			dbPostId: dbRow.id as number,
-			postSlug: dbRow.slug as string,
+			tags,
 			comments
 		};
 	}
 
-	const fsPost = getBlogPost(path);
-	// publish가 false인 글은 모든 사용자에게 숨김
-	if (fsPost && fsPost.publish !== false) {
-		const postBreadcrumb = [
+	/** /blog/f/{id}/ 폴더 목록 */
+	if (segments[0] === 'f' && segments[1] && /^\d+$/.test(segments[1]) && segments.length === 2) {
+		const folderId = Number(segments[1]);
+		const folder = byId.get(folderId);
+		if (!folder) error(404, '폴더를 찾을 수 없습니다.');
+
+		const chain = ancestorFolderChain(folderId, allFolders);
+		const breadcrumb = [
 			{ label: 'Blog', path: '/blog' },
-			...segments.slice(0, -1).map((segment, index) => {
-				const segmentPath = segments.slice(0, index + 1).join('/');
-				return {
-					label: segment,
-					path: `/blog/${segmentPath}`
-				};
-			})
+			...chain.map((f) => ({
+				label: f.name,
+				path: `/blog/f/${f.id}`
+			}))
 		];
 
-		const comments = await loadCommentsForSlug(path, locals);
+		const metaRows = await listPublishedPosts(locals.supabase);
+		const postMetaById = new Map(metaRows.map((r) => [r.id, r]));
+
+		const subFolderRows = folder.subfolders
+			.map((id) => byId.get(id))
+			.filter(Boolean) as typeof allFolders;
+		subFolderRows.sort((a, b) => a.name.localeCompare(b.name));
+
+		const folders = subFolderRows.map((f) => toFolderInfo(f, allFolders, postMetaById));
+
+		const postIdsOrdered = folder.posts;
+		const postRows = await listPostsByIds(locals.supabase, postIdsOrdered, {
+			onlyPublished: onlyPub
+		});
+		const rowById = new Map(postRows.map((r) => [r.id, r]));
+		const posts: ListPost[] = postIdsOrdered
+			.map((id) => rowById.get(id))
+			.filter(Boolean)
+			.map((r) => postRowToCard(r!, folder.name));
 
 		return {
-			path,
+			path: pathParam,
+			pathParam,
 			segments,
-			breadcrumb: postBreadcrumb,
-			isPost: true,
+			breadcrumb,
+			isPost: false,
 			isAdmin,
-			title: fsPost.title,
-			date: fsPost.date,
-			created: fsPost.created,
-			updated: fsPost.updated,
-			category: fsPost.category,
-			content: fsPost.content,
-			wordCount: fsPost.wordCount,
-			tags: fsPost.tags,
-			...(fsPost.tistory ? { tistory: fsPost.tistory } : {}),
-			source: 'fs' as const,
-			comments
+			currentFolderId: folderId,
+			folders,
+			posts,
+			allPosts: Promise.resolve([] as ListPost[]),
+			postId: null as number | null,
+			comments: [] as CommentRow[]
 		};
 	}
 
-	const { folders, posts } = getBlogItems(path);
-	const dbDirect = await listPostsDirectChildren(locals.supabase, path, { onlyPublished: onlyPub });
-	const dbCards = dbDirect.map(dbRowToCard);
-	const fsCards: ListPost[] = posts.map((p) => ({
-		title: p.title,
-		path: p.path,
-		category: p.category,
-		date: p.date,
-		wordCount: p.wordCount,
-		...(p.tistory ? { tistory: p.tistory } : {})
-	}));
-	const mergedPosts = mergeByPath(fsCards, dbCards);
+	if (segments.length === 0) {
+		const metaRows = await listPublishedPosts(locals.supabase);
+		const postMetaById = new Map(metaRows.map((r) => [r.id, r]));
 
-	const isBlogRoot = path === '';
-	/* 루트에서만 «All Posts» 데이터가 필요함. Promise로 반환해 스트리밍 시 목록·폴더부터 먼저 그린다. */
-	const allPosts = isBlogRoot
-		? buildAllPostsMerged(locals.supabase, path, { onlyPublished: onlyPub })
-		: Promise.resolve([] as ListPost[]);
+		const roots = rootFolderIds(allFolders)
+			.map((id) => byId.get(id))
+			.filter(Boolean) as typeof allFolders;
+		roots.sort((a, b) => a.name.localeCompare(b.name));
+		const folders = roots.map((f) => toFolderInfo(f, allFolders, postMetaById));
 
-	return {
-		path,
-		segments,
-		breadcrumb,
-		isPost: false,
-		isAdmin,
-		folders: folders.map((folder) => ({
-			name: folder.name,
-			path: folder.path,
-			folderCount: folder.folderCount,
-			postCount: folder.postCount,
-			totalFolderCount: folder.totalFolderCount,
-			totalPostCount: folder.totalPostCount,
-			date: folder.date
-		})),
-		posts: mergedPosts,
-		allPosts,
-		comments: [] as CommentRow[]
-	};
+		const folderPostIdSet = new Set<number>();
+		for (const f of allFolders) for (const pid of f.posts) folderPostIdSet.add(pid);
+
+		const orphanRows = await listOrphanPosts(locals.supabase, folderPostIdSet, {
+			onlyPublished: onlyPub
+		});
+		const posts = orphanRows
+			.map((r) => postRowToCard(r, ''))
+			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+		const allPosts = listPublishedPosts(locals.supabase).then((rows) =>
+			rows
+				.map((r) => postRowToCard(r, ''))
+				.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+		);
+
+		return {
+			path: '',
+			pathParam,
+			segments,
+			breadcrumb: [{ label: 'Blog', path: '/blog' }],
+			isPost: false,
+			isAdmin,
+			currentFolderId: null as number | null,
+			folders,
+			posts,
+			allPosts,
+			postId: null as number | null,
+			comments: [] as CommentRow[]
+		};
+	}
+
+	error(404, '찾을 수 없습니다.');
 };
 
 export const actions: Actions = {
@@ -294,7 +291,7 @@ export const actions: Actions = {
 				}
 			}
 
-			const { error } = await locals.supabase.from('comments').insert({
+			const { error: insErr } = await locals.supabase.from('comments').insert({
 				post_slug,
 				author_id: user.id,
 				guest_name: null,
@@ -302,7 +299,7 @@ export const actions: Actions = {
 				parent_id
 			});
 
-			if (error) return fail(400, { message: error.message });
+			if (insErr) return fail(400, { message: insErr.message });
 			return { ok: true };
 		}
 
@@ -350,7 +347,7 @@ export const actions: Actions = {
 		if (!recorded.ok)
 			return fail(503, { message: '댓글 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
 
-		const { error } = await service.from('comments').insert({
+		const { error: insErr } = await service.from('comments').insert({
 			post_slug,
 			author_id: null,
 			guest_name,
@@ -358,7 +355,7 @@ export const actions: Actions = {
 			parent_id
 		});
 
-		if (error) return fail(400, { message: error.message });
+		if (insErr) return fail(400, { message: insErr.message });
 		return { ok: true };
 	},
 
@@ -368,34 +365,35 @@ export const actions: Actions = {
 		const content = String(form.get('content') ?? '').trim();
 		if (!Number.isFinite(id) || !content) return fail(400, { message: '잘못된 요청입니다.' });
 
-		const { error } = await locals.supabase
+		const { error: upErr } = await locals.supabase
 			.from('comments')
 			.update({ content, updated_at: new Date().toISOString() })
 			.eq('id', id);
 
-		if (error) return fail(400, { message: error.message });
+		if (upErr) return fail(400, { message: upErr.message });
 		return { ok: true };
 	},
 
-	deletePost: async ({ request }) => {
+	deletePost: async ({ request, locals }) => {
 		const form = await request.formData();
-		const postPath = String(form.get('post_path') ?? '').trim();
-		
-		if (!postPath) return fail(400, { message: '삭제할 글 경로가 없습니다.' });
-		
-		const BLOG_DIR = path.join(process.cwd(), 'static', 'blog');
-		const postDir = path.join(BLOG_DIR, postPath);
-		
-		if (!fs.existsSync(postDir)) {
-			return fail(404, { message: '삭제할 글을 찾을 수 없습니다.' });
+		const idRaw = String(form.get('post_id') ?? '').trim();
+		const postId = Number(idRaw);
+		if (!Number.isFinite(postId) || postId <= 0) {
+			return fail(400, { message: '삭제할 글 id가 없습니다.' });
 		}
-		
+
+		const folders = await fetchAllFolders(locals.supabase);
+		await removePostFromAllFolders(locals.supabase, folders, postId);
+		await deletePostById(locals.supabase, postId);
+
+		const assetDir = path.join(process.cwd(), 'static', 'blog', String(postId));
 		try {
-			fs.rmSync(postDir, { recursive: true, force: true });
-			return { ok: true };
-		} catch (err) {
-			console.error('Failed to delete post:', err);
-			return fail(500, { message: '글 삭제에 실패했습니다.' });
+			const fs = await import('node:fs/promises');
+			await fs.rm(assetDir, { recursive: true, force: true });
+		} catch {
+			/* 미디어 폴더 없음 등 */
 		}
+
+		return { ok: true };
 	}
 };

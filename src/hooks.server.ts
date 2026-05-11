@@ -41,7 +41,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	};
 
-	// /blog/<slug>/ 파일 경로는 런타임에 생성된 미디어 파일 서빙
+	// /blog/<id>/ 미디어 파일은 런타임에 생성된 정적 자산 서빙
 	const url = new URL(event.request.url);
 	const pathname = url.pathname;
 

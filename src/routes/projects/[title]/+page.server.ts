@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { error } from '@sveltejs/kit';
 import matter from 'gray-matter';
-import { getBlogPost, renderMarkdownContent } from '$lib/server/blog';
+import { renderMarkdownContent } from '$lib/server/blog';
+import { getPostById } from '$lib/server/posts';
 import type { PageServerLoad } from './$types';
 
 export const prerender = 'auto';
@@ -43,7 +44,14 @@ function normalizeBlogPath(raw: string): string {
 	return p.replace(/^\//, '');
 }
 
-export const load: PageServerLoad = async ({ params }) => {
+function relatedPostIdFromEntry(raw: string): number | null {
+	const p = normalizeBlogPath(raw);
+	const n = Number(p);
+	if (Number.isFinite(n) && n > 0) return Math.floor(n);
+	return null;
+}
+
+export const load: PageServerLoad = async ({ params, locals }) => {
 	const title = params.title;
 
 	const projectModules = import.meta.glob('/src/lib/projects/*/info.json');
@@ -95,18 +103,26 @@ export const load: PageServerLoad = async ({ params }) => {
 	}
 
 	const relatedRaw = project['related-posts'] ?? [];
-	const relatedPosts = relatedRaw
-		.map(normalizeBlogPath)
-		.map((p) => getBlogPost(p))
-		.filter((post): post is NonNullable<typeof post> => post !== null)
-		.map((post) => ({
-			title: post.title,
-			path: post.path,
-			category: post.category,
-			date: post.date,
-			wordCount: post.wordCount,
-			...(post.tistory ? { tistory: post.tistory } : {})
-		}));
+	const relatedPosts: {
+		title: string;
+		path: string;
+		category: string;
+		date: string;
+		wordCount: number;
+	}[] = [];
+	for (const entry of relatedRaw) {
+		const id = relatedPostIdFromEntry(String(entry));
+		if (id == null) continue;
+		const row = await getPostById(locals.supabase, id);
+		if (!row?.published) continue;
+		relatedPosts.push({
+			title: row.title,
+			path: String(row.id),
+			category: '',
+			date: row.published_at ?? row.updated_at,
+			wordCount: row.word_count
+		});
+	}
 
 	const descriptionSlides: { html: string }[] = [];
 	const descDir = path.join(PROJECTS_ROOT, project.id, 'descriptions');

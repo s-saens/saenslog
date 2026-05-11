@@ -1,13 +1,8 @@
 import { renderMarkdownToHtml } from '$lib/markdownCompile';
-import {
-	moveBlogPostAssetFolder,
-	rewriteBlogAssetPathsInMarkdown
-} from '$lib/server/blogPostAssets';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type PostListRow = {
 	id: number;
-	slug: string;
 	title: string;
 	published: boolean;
 	published_at: string | null;
@@ -22,48 +17,34 @@ export type PostFullRow = PostListRow & {
 	created_at: string;
 };
 
-/** 목록·메타에 쓰는 상위 경로 (예: `Dev/AI/2` → `Dev/AI`) */
-export function categoryLabelFromSlug(slug: string): string {
-	const i = slug.lastIndexOf('/');
-	if (i <= 0) return '';
-	return slug.slice(0, i);
-}
-
-/** 슬러그 경로 세그먼트 — 마지막 조각(글 식별자) 제외, 태그/분류 칩 표시용 */
-export function pathSegmentsBeforeLeaf(slug: string): string[] {
-	const parts = slug.split('/').filter(Boolean);
-	if (parts.length <= 1) return [];
-	return parts.slice(0, -1);
-}
-
 function countWords(md: string): number {
 	const t = md.trim();
 	if (!t) return 0;
 	return t.split(/\s+/).filter(Boolean).length;
 }
 
-export function normalizeSlug(raw: string): string {
-	const s = raw.trim().replace(/^\/+|\/+$/g, '');
-	if (!s) throw new Error('슬러그가 비어 있습니다.');
-	if (s.includes('..')) throw new Error('슬러그에 .. 를 쓸 수 없습니다.');
+/** 미디어 업로드·정적 경로용 — 숫자 id 한 덩어리 */
+export function normalizeBlogAssetKey(raw: string): string {
+	const s = raw.trim();
+	if (!/^\d+$/.test(s)) throw new Error('유효한 글 id(숫자)가 필요합니다.');
 	return s;
 }
 
 export async function listPostsAdmin(supabase: SupabaseClient): Promise<PostListRow[]> {
 	const { data, error } = await supabase
 		.from('posts')
-		.select('id, slug, title, published, published_at, updated_at, word_count')
+		.select('id, title, published, published_at, updated_at, word_count')
 		.order('updated_at', { ascending: false });
 
 	if (error) throw error;
 	return (data ?? []) as PostListRow[];
 }
 
-export async function getPostBySlug(
+export async function getPostById(
 	supabase: SupabaseClient,
-	slug: string
+	id: number
 ): Promise<PostFullRow | null> {
-	const { data, error } = await supabase.from('posts').select('*').eq('slug', slug).maybeSingle();
+	const { data, error } = await supabase.from('posts').select('*').eq('id', id).maybeSingle();
 
 	if (error) throw error;
 	return data as PostFullRow | null;
@@ -72,14 +53,12 @@ export async function getPostBySlug(
 export async function insertPost(
 	supabase: SupabaseClient,
 	input: {
-		slug: string;
 		title: string;
 		content_md: string;
 		published: boolean;
 	},
 	authorId: string
 ): Promise<{ id: number }> {
-	const slug = normalizeSlug(input.slug);
 	const content_html = renderMarkdownToHtml(input.content_md);
 	const word_count = countWords(input.content_md);
 	const now = new Date().toISOString();
@@ -87,7 +66,6 @@ export async function insertPost(
 	const { data, error } = await supabase
 		.from('posts')
 		.insert({
-			slug,
 			title: input.title.trim(),
 			content_md: input.content_md,
 			content_html,
@@ -104,39 +82,24 @@ export async function insertPost(
 	return { id: data.id as number };
 }
 
-export async function updatePost(
+export async function updatePostById(
 	supabase: SupabaseClient,
-	currentSlug: string,
+	postId: number,
 	input: {
-		slug?: string;
 		title: string;
 		content_md: string;
 		published: boolean;
 	}
-): Promise<{ slug: string }> {
+): Promise<void> {
 	const now = new Date().toISOString();
-	const nextSlug = input.slug !== undefined ? normalizeSlug(input.slug) : currentSlug;
 
 	const { data: current, error: fetchErr } = await supabase
 		.from('posts')
-		.select('id, published, published_at')
-		.eq('slug', currentSlug)
+		.select('published, published_at')
+		.eq('id', postId)
 		.single();
 
 	if (fetchErr) throw fetchErr;
-
-	if (nextSlug !== currentSlug) {
-		const { data: taken, error: takenErr } = await supabase
-			.from('posts')
-			.select('id')
-			.eq('slug', nextSlug)
-			.maybeSingle();
-
-		if (takenErr) throw takenErr;
-		if (taken && (taken as { id: number }).id !== (current as { id: number }).id) {
-			throw new Error('이미 같은 슬러그를 쓰는 글이 있습니다.');
-		}
-	}
 
 	let published_at: string | null = current.published_at as string | null;
 	if (input.published) {
@@ -147,97 +110,85 @@ export async function updatePost(
 		published_at = null;
 	}
 
-	let content_md = input.content_md;
-	if (nextSlug !== currentSlug) {
-		await moveBlogPostAssetFolder(currentSlug, nextSlug);
-		content_md = rewriteBlogAssetPathsInMarkdown(content_md, currentSlug, nextSlug);
-	}
+	const content_html = renderMarkdownToHtml(input.content_md);
+	const word_count = countWords(input.content_md);
 
-	const content_html = renderMarkdownToHtml(content_md);
-	const word_count = countWords(content_md);
+	const { error } = await supabase
+		.from('posts')
+		.update({
+			title: input.title.trim(),
+			content_md: input.content_md,
+			content_html,
+			word_count,
+			published: input.published,
+			published_at,
+			updated_at: now
+		})
+		.eq('id', postId);
 
-	const row: Record<string, unknown> = {
-		title: input.title.trim(),
-		content_md,
-		content_html,
-		word_count,
-		published: input.published,
-		published_at,
-		updated_at: now
-	};
-	if (nextSlug !== currentSlug) {
-		row.slug = nextSlug;
-	}
-
-	const { error } = await supabase.from('posts').update(row).eq('slug', currentSlug);
-
-	if (error) throw error;
-	return { slug: nextSlug };
-}
-
-export async function deletePostBySlug(supabase: SupabaseClient, slug: string): Promise<void> {
-	const { error } = await supabase.from('posts').delete().eq('slug', slug);
 	if (error) throw error;
 }
 
-/** 카테고리 경로의 바로 아래 글만 (파일 시스템 목록과 동일한 깊이) */
-export async function listPostsDirectChildren(
+export async function deletePostById(supabase: SupabaseClient, postId: number): Promise<void> {
+	const { error } = await supabase.from('posts').delete().eq('id', postId);
+	if (error) throw error;
+}
+
+/** 공개 글 전체 — All Posts 등 */
+export async function listPublishedPosts(supabase: SupabaseClient): Promise<PostListRow[]> {
+	const { data, error } = await supabase
+		.from('posts')
+		.select('id, title, published, published_at, updated_at, word_count')
+		.eq('published', true)
+		.order('published_at', { ascending: false });
+
+	if (error) {
+		console.error('listPublishedPosts', error);
+		return [];
+	}
+	return (data ?? []) as PostListRow[];
+}
+
+/** id 목록에 해당하는 메타 — 폴더 `posts` 배열 순서는 호출 측에서 맞춤 */
+export async function listPostsByIds(
 	supabase: SupabaseClient,
-	dirPath: string,
+	ids: number[],
 	opts: { onlyPublished: boolean }
 ): Promise<PostListRow[]> {
+	if (ids.length === 0) return [];
 	let q = supabase
 		.from('posts')
-		.select('id, slug, title, published, published_at, updated_at, word_count');
+		.select('id, title, published, published_at, updated_at, word_count')
+		.in('id', ids);
 
 	if (opts.onlyPublished) q = q.eq('published', true);
 
 	const { data, error } = await q;
 	if (error) {
-		console.error('listPostsDirectChildren', error);
+		console.error('listPostsByIds', error);
 		return [];
 	}
-
 	const rows = (data ?? []) as PostListRow[];
-	const prefix = dirPath ? `${dirPath}/` : '';
-
-	return rows.filter((row) => {
-		if (opts.onlyPublished && !row.published) return false;
-		const slug = row.slug;
-		if (!dirPath) {
-			return !slug.includes('/');
-		}
-		if (!slug.startsWith(prefix)) return false;
-		const rest = slug.slice(prefix.length);
-		return rest.length > 0 && !rest.includes('/');
-	});
+	const want = new Set(ids);
+	return rows.filter((r) => want.has(r.id));
 }
 
-/** basePath 이하 전체 글 (allPosts 섹션·하위 트리) */
-export async function listPostsInSubtree(
+/** 어떤 폴더 `posts`에도 없는 글(루트에 직접 노출) */
+export async function listOrphanPosts(
 	supabase: SupabaseClient,
-	basePath: string,
+	folderPostIds: Set<number>,
 	opts: { onlyPublished: boolean }
 ): Promise<PostListRow[]> {
 	let q = supabase
 		.from('posts')
-		.select('id, slug, title, published, published_at, updated_at, word_count');
+		.select('id, title, published, published_at, updated_at, word_count');
 
 	if (opts.onlyPublished) q = q.eq('published', true);
 
 	const { data, error } = await q;
 	if (error) {
-		console.error('listPostsInSubtree', error);
+		console.error('listOrphanPosts', error);
 		return [];
 	}
-
-	const rows = (data ?? []) as PostListRow[];
-	if (!basePath) {
-		return rows.filter((r) => !opts.onlyPublished || r.published);
-	}
-	const prefix = `${basePath}/`;
-	return rows.filter((row) => {
-		if (opts.onlyPublished && !row.published) return false;
-		return row.slug.startsWith(prefix) || row.slug === basePath;
-	});
+	return (data ?? []).filter((r) => !folderPostIds.has((r as { id: number }).id)) as PostListRow[];
 }
