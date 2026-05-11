@@ -18,6 +18,16 @@ export type PostFullRow = PostListRow & {
 	created_at: string;
 };
 
+/** 목록 정렬: 게시일 우선, 없으면 수정일 (카드 `date`와 동일 기준) */
+export function comparePostsByPostedDateDesc(
+	a: Pick<PostListRow, 'published_at' | 'updated_at'>,
+	b: Pick<PostListRow, 'published_at' | 'updated_at'>
+): number {
+	const ta = new Date(a.published_at ?? a.updated_at).getTime();
+	const tb = new Date(b.published_at ?? b.updated_at).getTime();
+	return tb - ta;
+}
+
 function countWords(md: string): number {
 	const t = md.trim();
 	if (!t) return 0;
@@ -43,11 +53,12 @@ export function normalizeBlogAssetKey(raw: string): string {
 export async function listPostsAdmin(supabase: SupabaseClient): Promise<PostListRow[]> {
 	const { data, error } = await supabase
 		.from('posts')
-		.select('id, title, slug, published, published_at, updated_at, word_count')
-		.order('updated_at', { ascending: false });
+		.select('id, title, slug, published, published_at, updated_at, word_count');
 
 	if (error) throw error;
-	return (data ?? []) as PostListRow[];
+	const rows = (data ?? []) as PostListRow[];
+	rows.sort(comparePostsByPostedDateDesc);
+	return rows;
 }
 
 export async function getPostById(
@@ -187,7 +198,9 @@ export async function listPostsByIds(
 	}
 	const rows = (data ?? []) as PostListRow[];
 	const want = new Set(ids);
-	return rows.filter((r) => want.has(r.id));
+	const filtered = rows.filter((r) => want.has(r.id));
+	filtered.sort(comparePostsByPostedDateDesc);
+	return filtered;
 }
 
 /** 어떤 폴더 `posts`에도 없는 글(루트에 직접 노출) */
@@ -207,5 +220,7 @@ export async function listOrphanPosts(
 		console.error('listOrphanPosts', error);
 		return [];
 	}
-	return (data ?? []).filter((r) => !folderPostIds.has((r as { id: number }).id)) as PostListRow[];
+	return (data ?? [])
+		.filter((r) => !folderPostIds.has((r as { id: number }).id))
+		.sort(comparePostsByPostedDateDesc) as PostListRow[];
 }

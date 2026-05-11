@@ -20,7 +20,8 @@ import {
 	getPostById,
 	listOrphanPosts,
 	listPostsByIds,
-	listPublishedPosts
+	listPublishedPosts,
+	comparePostsByPostedDateDesc
 } from '$lib/server/posts';
 import { tryCreateSupabaseServiceClient } from '$lib/server/supabaseService';
 import type { Actions, PageServerLoad } from './$types';
@@ -189,15 +190,10 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 
 		const folders = subFolderRows.map((f) => toFolderInfo(f, allFolders, postMetaById));
 
-		const postIdsOrdered = folder.posts;
-		const postRows = await listPostsByIds(locals.supabase, postIdsOrdered, {
+		const postRows = await listPostsByIds(locals.supabase, folder.posts, {
 			onlyPublished: onlyPub
 		});
-		const rowById = new Map(postRows.map((r) => [r.id, r]));
-		const posts: ListPost[] = postIdsOrdered
-			.map((id) => rowById.get(id))
-			.filter(Boolean)
-			.map((r) => postRowToCard(r!, folder.name));
+		const posts: ListPost[] = postRows.map((r) => postRowToCard(r, folder.name));
 
 		return {
 			path: pathParam,
@@ -231,14 +227,10 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 		const orphanRows = await listOrphanPosts(locals.supabase, folderPostIdSet, {
 			onlyPublished: onlyPub
 		});
-		const posts = orphanRows
-			.map((r) => postRowToCard(r, ''))
-			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+		const posts = orphanRows.map((r) => postRowToCard(r, ''));
 
 		const allPosts = listPublishedPosts(locals.supabase).then((rows) =>
-			rows
-				.map((r) => postRowToCard(r, ''))
-				.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+			[...rows].sort(comparePostsByPostedDateDesc).map((r) => postRowToCard(r, ''))
 		);
 
 		return {
