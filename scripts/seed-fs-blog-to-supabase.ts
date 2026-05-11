@@ -45,7 +45,6 @@ async function main() {
 	for (const r of rows) {
 		const ts = r.published_at;
 		const { error } = await supabase.from('posts').insert({
-			slug: r.slug,
 			title: r.title,
 			content_md: r.content_md,
 			content_html: r.content_html,
@@ -53,12 +52,11 @@ async function main() {
 			author_id: AUTHOR_ID,
 			published: true,
 			published_at: ts,
-			created_at: ts,
 			updated_at: ts
 		});
 		if (error) {
-			errors.push(`${r.slug}: ${error.message}`);
-			console.error(error.message, r.slug);
+			errors.push(`${r.sourcePath}: ${error.message}`);
+			console.error(error.message, r.sourcePath);
 		} else {
 			ok++;
 		}

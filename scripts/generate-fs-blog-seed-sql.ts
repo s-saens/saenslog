@@ -26,7 +26,8 @@ function parseDate(data: Record<string, unknown>): string {
 }
 
 export type SeedRow = {
-	slug: string;
+	/** 정렬·에러 표시용 — 파일 상대 경로 */
+	sourcePath: string;
 	title: string;
 	content_md: string;
 	content_html: string;
@@ -46,7 +47,7 @@ export function collectMarkdownFiles(): SeedRow[] {
 			}
 			if (!item.name.endsWith('.md')) continue;
 
-			const slug = rel
+			const sourcePath = rel
 				? `${rel}/${path.basename(item.name, '.md')}`
 				: path.basename(item.name, '.md');
 			const raw = fs.readFileSync(abs, 'utf8');
@@ -59,7 +60,7 @@ export function collectMarkdownFiles(): SeedRow[] {
 			const word_count = countWords(content_md);
 
 			rows.push({
-				slug,
+				sourcePath,
 				title,
 				content_md,
 				content_html,
@@ -73,12 +74,11 @@ export function collectMarkdownFiles(): SeedRow[] {
 		throw new Error(`Missing ${BLOG_DIR}`);
 	}
 	walk(BLOG_DIR, '');
-	rows.sort((a, b) => a.slug.localeCompare(b.slug));
+	rows.sort((a, b) => a.sourcePath.localeCompare(b.sourcePath));
 	return rows;
 }
 
 type PayloadRow = {
-	slug: string;
 	title: string;
 	content_md: string;
 	content_html: string;
@@ -88,7 +88,6 @@ type PayloadRow = {
 
 function buildPayloadRow(r: SeedRow): PayloadRow {
 	return {
-		slug: r.slug,
 		title: r.title,
 		content_md: r.content_md,
 		content_html: r.content_html,
@@ -100,11 +99,10 @@ function buildPayloadRow(r: SeedRow): PayloadRow {
 function sqlForPayload(payload: PayloadRow[], delim: string) {
 	const json = JSON.stringify(payload);
 	return `INSERT INTO public.posts (
-  slug, title, content_md, content_html, word_count,
-  author_id, published, published_at, created_at, updated_at
+  title, content_md, content_html, word_count,
+  author_id, published, published_at, updated_at
 )
 SELECT
-  r.slug::text,
   r.title::text,
   r.content_md::text,
   r.content_html::text,
@@ -112,11 +110,9 @@ SELECT
   '${AUTHOR_ID}'::uuid,
   true,
   (r.published_at::text)::timestamptz,
-  (r.published_at::text)::timestamptz,
   (r.published_at::text)::timestamptz
 FROM jsonb_to_recordset($${delim}$${json}$${delim}$::jsonb)
   AS r(
-    slug text,
     title text,
     content_md text,
     content_html text,
