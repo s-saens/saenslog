@@ -3,6 +3,7 @@
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { enhance } from '$app/forms';
 	import { page } from '$app/stores';
 	import CustomScrollbar from '$lib/components/CustomScrollbar.svelte';
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
@@ -25,6 +26,8 @@
 	import { fade } from 'svelte/transition';
 
 	let { children, data } = $props();
+
+	const logoutFormAction = `${resolve('/logout')}?/`;
 
 	/** 메인 스크롤 영역 — 스크롤바·TOC·afterNavigate가 공유 */
 	let mainScrollEl = $state<HTMLElement | null>(null);
@@ -299,7 +302,7 @@
 							<div class="auth-panel" transition:fade={{ duration: 150 }}>
 								<div class="auth-email">{data.profile?.username ?? data.user.email}</div>
 								<a href={resolve('/admin')} class="auth-admin-btn">관리</a>
-								<form method="POST" action="/logout">
+								<form method="POST" action={logoutFormAction} use:enhance>
 									<button type="submit" class="auth-logout-btn">로그아웃</button>
 								</form>
 							</div>

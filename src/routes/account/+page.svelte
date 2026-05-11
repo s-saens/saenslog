@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 
 	let { data } = $props();
+
+	const logoutFormAction = `${resolve('/logout')}?/`;
 </script>
 
 <svelte:head>
@@ -32,7 +35,7 @@
 		</dl>
 	</section>
 
-	<form class="logout" method="POST" action="/logout" use:enhance>
+	<form class="logout" method="POST" action={logoutFormAction} use:enhance>
 		<button type="submit" class="btn-out">로그아웃</button>
 	</form>
 </main>
