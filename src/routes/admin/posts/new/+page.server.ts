@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { appendPostToFolder } from '$lib/server/folders';
+import { appendPostToFolder, BLOG_ROOT_FOLDER_ID } from '$lib/server/folders';
 import { insertPost } from '$lib/server/posts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -7,7 +7,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	const raw = (url.searchParams.get('folder') ?? '').trim();
 	const folderId = raw ? Number(raw) : NaN;
 	return {
-		folderId: Number.isFinite(folderId) && folderId > 0 ? folderId : null
+		folderId:
+			Number.isFinite(folderId) && folderId >= BLOG_ROOT_FOLDER_ID ? folderId : null
 	};
 };
 
@@ -28,17 +29,16 @@ export const actions: Actions = {
 		const published = form.get('published') === 'true';
 		const folderRaw = String(form.get('folder_id') ?? '').trim();
 		const folderId = folderRaw ? Number(folderRaw) : NaN;
-		const slug = String(form.get('slug') ?? '');
 
 		let id: number;
 		try {
-			({ id } = await insertPost(locals.supabase, { title, content_md, published, slug }, user.id));
+			({ id } = await insertPost(locals.supabase, { title, content_md, published }, user.id));
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
 			return fail(400, { message: msg });
 		}
 
-		if (Number.isFinite(folderId) && folderId > 0) {
+		if (Number.isFinite(folderId) && folderId >= BLOG_ROOT_FOLDER_ID) {
 			await appendPostToFolder(locals.supabase, folderId, id);
 		}
 

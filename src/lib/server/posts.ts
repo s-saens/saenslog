@@ -4,7 +4,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type PostListRow = {
 	id: number;
 	title: string;
-	slug: string | null;
 	published: boolean;
 	published_at: string | null;
 	updated_at: string;
@@ -15,10 +14,9 @@ export type PostFullRow = PostListRow & {
 	content_md: string;
 	content_html: string;
 	author_id: string;
-	created_at: string;
 };
 
-/** 목록 정렬: 게시일 우선, 없으면 수정일 (카드 `date`와 동일 기준) */
+/** 목록 정렬: 게시일 우선, 없으면 수정일 */
 export function comparePostsByPostedDateDesc(
 	a: Pick<PostListRow, 'published_at' | 'updated_at'>,
 	b: Pick<PostListRow, 'published_at' | 'updated_at'>
@@ -34,15 +32,6 @@ function countWords(md: string): number {
 	return t.split(/\s+/).filter(Boolean).length;
 }
 
-/** 표시·관리용 선택 슬러그 (비어 있으면 null). URL 경로에는 쓰지 않음. */
-export function normalizeOptionalPostSlug(raw: string | null | undefined): string | null {
-	if (raw == null) return null;
-	const s = raw.trim().replace(/^\/+|\/+$/g, '');
-	if (!s) return null;
-	if (s.includes('..')) throw new Error('슬러그에 .. 를 쓸 수 없습니다.');
-	return s;
-}
-
 /** 미디어 업로드·정적 경로용 — 숫자 id 한 덩어리 */
 export function normalizeBlogAssetKey(raw: string): string {
 	const s = raw.trim();
@@ -53,7 +42,7 @@ export function normalizeBlogAssetKey(raw: string): string {
 export async function listPostsAdmin(supabase: SupabaseClient): Promise<PostListRow[]> {
 	const { data, error } = await supabase
 		.from('posts')
-		.select('id, title, slug, published, published_at, updated_at, word_count');
+		.select('id, title, published, published_at, updated_at, word_count');
 
 	if (error) throw error;
 	const rows = (data ?? []) as PostListRow[];
@@ -77,20 +66,17 @@ export async function insertPost(
 		title: string;
 		content_md: string;
 		published: boolean;
-		slug?: string | null;
 	},
 	authorId: string
 ): Promise<{ id: number }> {
 	const content_html = renderMarkdownToHtml(input.content_md);
 	const word_count = countWords(input.content_md);
 	const now = new Date().toISOString();
-	const slug = normalizeOptionalPostSlug(input.slug ?? null);
 
 	const { data, error } = await supabase
 		.from('posts')
 		.insert({
 			title: input.title.trim(),
-			slug,
 			content_md: input.content_md,
 			content_html,
 			word_count,
@@ -113,8 +99,6 @@ export async function updatePostById(
 		title: string;
 		content_md: string;
 		published: boolean;
-		/** 폼 원문; 비어 있으면 DB에 null 저장 */
-		slug: string;
 	}
 ): Promise<void> {
 	const now = new Date().toISOString();
@@ -138,13 +122,11 @@ export async function updatePostById(
 
 	const content_html = renderMarkdownToHtml(input.content_md);
 	const word_count = countWords(input.content_md);
-	const slug = normalizeOptionalPostSlug(input.slug);
 
 	const { error } = await supabase
 		.from('posts')
 		.update({
 			title: input.title.trim(),
-			slug,
 			content_md: input.content_md,
 			content_html,
 			word_count,
@@ -166,7 +148,7 @@ export async function deletePostById(supabase: SupabaseClient, postId: number): 
 export async function listPublishedPosts(supabase: SupabaseClient): Promise<PostListRow[]> {
 	const { data, error } = await supabase
 		.from('posts')
-		.select('id, title, slug, published, published_at, updated_at, word_count')
+		.select('id, title, published, published_at, updated_at, word_count')
 		.eq('published', true)
 		.order('published_at', { ascending: false });
 
@@ -186,7 +168,7 @@ export async function listPostsByIds(
 	if (ids.length === 0) return [];
 	let q = supabase
 		.from('posts')
-		.select('id, title, slug, published, published_at, updated_at, word_count')
+		.select('id, title, published, published_at, updated_at, word_count')
 		.in('id', ids);
 
 	if (opts.onlyPublished) q = q.eq('published', true);
@@ -201,26 +183,4 @@ export async function listPostsByIds(
 	const filtered = rows.filter((r) => want.has(r.id));
 	filtered.sort(comparePostsByPostedDateDesc);
 	return filtered;
-}
-
-/** 어떤 폴더 `posts`에도 없는 글(루트에 직접 노출) */
-export async function listOrphanPosts(
-	supabase: SupabaseClient,
-	folderPostIds: Set<number>,
-	opts: { onlyPublished: boolean }
-): Promise<PostListRow[]> {
-	let q = supabase
-		.from('posts')
-		.select('id, title, slug, published, published_at, updated_at, word_count');
-
-	if (opts.onlyPublished) q = q.eq('published', true);
-
-	const { data, error } = await q;
-	if (error) {
-		console.error('listOrphanPosts', error);
-		return [];
-	}
-	return (data ?? [])
-		.filter((r) => !folderPostIds.has((r as { id: number }).id))
-		.sort(comparePostsByPostedDateDesc) as PostListRow[];
 }

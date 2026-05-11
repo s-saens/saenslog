@@ -12,6 +12,7 @@
 	import Comments from '$lib/components/Comments.svelte';
 	import { PlusIcon, TextCountIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
+	import { readActionFailureMessage } from '$lib/formActionFailure';
 	import { formatDate } from '$lib/utils/dateFormatter';
 	import { fade, fly } from 'svelte/transition';
 	import { getContext } from 'svelte';
@@ -25,11 +26,70 @@
 
 	let postContentEl: HTMLDivElement | undefined = $state();
 
+	let addMenuOpen = $state(false);
+	let newFolderModalOpen = $state(false);
+	let newFolderName = $state('');
+	let folderCreateError = $state<string | null>(null);
+	let folderNameInputEl = $state<HTMLInputElement | undefined>();
+
+	let moveModalOpen = $state(false);
+	let moveTargetFolderId = $state('');
+	let moveError = $state<string | null>(null);
+
 	const adminNewPostHref = $derived(
 		data.currentFolderId != null
 			? `${resolve('/admin/posts/new')}?folder=${data.currentFolderId}`
 			: resolve('/admin/posts/new')
 	);
+
+	function openNewFolderDialog() {
+		addMenuOpen = false;
+		folderCreateError = null;
+		newFolderName = '';
+		newFolderModalOpen = true;
+	}
+
+	function closeNewFolderModal() {
+		newFolderModalOpen = false;
+		folderCreateError = null;
+	}
+
+	function openMoveModal() {
+		moveTargetFolderId =
+			data.postFolderId != null && data.postFolderId !== 0
+				? String(data.postFolderId)
+				: '';
+		moveError = null;
+		moveModalOpen = true;
+	}
+
+	function closeMoveModal() {
+		moveModalOpen = false;
+		moveError = null;
+	}
+
+	$effect(() => {
+		if (!browser || !newFolderModalOpen) return;
+		const esc = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') closeNewFolderModal();
+		};
+		window.addEventListener('keydown', esc);
+		return () => window.removeEventListener('keydown', esc);
+	});
+
+	$effect(() => {
+		if (!browser || !moveModalOpen) return;
+		const esc = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') closeMoveModal();
+		};
+		window.addEventListener('keydown', esc);
+		return () => window.removeEventListener('keydown', esc);
+	});
+
+	$effect(() => {
+		if (!browser || !newFolderModalOpen || !folderNameInputEl) return;
+		queueMicrotask(() => folderNameInputEl?.focus());
+	});
 
 	$effect(() => {
 		if (!browser || !data.isPost || !postContentEl) return;
@@ -66,14 +126,17 @@
 						{/each}
 					</nav>
 					{#if data.isAdmin && !data.isPost}
-						<a
-							class="breadcrumb-new-post"
-							href={adminNewPostHref}
-							aria-label="이 경로에 새 글 작성"
-							title="이 경로에 새 글"
-						>
-							<PlusIcon width={18} height={18} />
-						</a>
+						<details class="breadcrumb-add-wrap" bind:open={addMenuOpen}>
+							<summary class="breadcrumb-add-trigger" aria-label="추가" title="추가">
+								<PlusIcon width={18} height={18} />
+							</summary>
+							<div class="breadcrumb-add-panel">
+								<a class="breadcrumb-add-item" href={adminNewPostHref}>새 글</a>
+								<button type="button" class="breadcrumb-add-item" onclick={openNewFolderDialog}>
+									새 폴더
+								</button>
+							</div>
+						</details>
 					{/if}
 				</div>
 			</header>
@@ -89,11 +152,11 @@
 								</div>
 							</div>
 							<div class="post-meta" transition:fly|global={{ duration: 400, y: 100, delay: 150 }}>
-								{#if data.created && data.updated && data.created !== data.updated}
-									<span class="date created">{formatDate(data.created)}</span>
+								{#if data.published && data.updated && data.published !== data.updated}
+									<span class="date published">{formatDate(data.published)}</span>
 									<span class="separator">|</span>
 								{/if}
-								<span class="date">{formatDate(data.updated ?? data.created ?? '')}</span>
+								<span class="date">{formatDate(data.updated ?? data.published ?? '')}</span>
 								<span class="separator">•</span>
 								<span class="word-count">
 									<TextCountIcon width={14} height={14} />
@@ -101,6 +164,9 @@
 								</span>
 								{#if data.isAdmin && data.postId != null}
 									<div class="post-admin-actions">
+										<button type="button" class="post-admin-link" onclick={openMoveModal}>
+											이동
+										</button>
 										<a class="post-admin-link" href={hrefAdminPostEdit(data.postId)}>수정</a>
 										<form
 											class="post-admin-delete"
@@ -172,6 +238,124 @@
 				{/if}
 			</div>
 		</div>
+		{#if newFolderModalOpen}
+			<button
+				type="button"
+				class="folder-modal-backdrop"
+				onclick={closeNewFolderModal}
+				aria-label="닫기"
+			></button>
+			<div class="folder-modal" role="dialog" aria-modal="true" aria-labelledby="new-folder-title">
+				<h2 id="new-folder-title" class="folder-modal-title">새 폴더</h2>
+				<form
+					method="POST"
+					action="?/createFolder"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							if (result.type === 'failure') {
+								folderCreateError = readActionFailureMessage(
+									result.data,
+									'폴더를 만들 수 없습니다.'
+								);
+								await update({ reset: false });
+								return;
+							}
+							await update();
+						};
+					}}
+				>
+					<input
+						type="hidden"
+						name="parent_folder_id"
+						value={data.currentFolderId != null ? String(data.currentFolderId) : ''}
+					/>
+					<label class="folder-modal-label" for="new-folder-name-input">폴더 이름</label>
+					<input
+						id="new-folder-name-input"
+						name="name"
+						class="folder-modal-input"
+						bind:this={folderNameInputEl}
+						bind:value={newFolderName}
+						autocomplete="off"
+						maxlength="160"
+						required
+					/>
+					{#if folderCreateError}
+						<p class="folder-modal-error" role="alert">{folderCreateError}</p>
+					{/if}
+					<div class="folder-modal-actions">
+						<button type="button" class="folder-modal-btn secondary" onclick={closeNewFolderModal}>
+							취소
+						</button>
+						<button type="submit" class="folder-modal-btn primary">확인</button>
+					</div>
+				</form>
+			</div>
+		{/if}
+		{#if moveModalOpen}
+			<button
+				type="button"
+				class="folder-modal-backdrop"
+				onclick={closeMoveModal}
+				aria-label="닫기"
+			></button>
+			<div class="folder-modal folder-move-modal" role="dialog" aria-modal="true" aria-labelledby="move-post-title">
+				<h2 id="move-post-title" class="folder-modal-title">글 위치 이동</h2>
+				<form
+					method="POST"
+					action="?/movePost"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							if (result.type === 'failure') {
+								moveError = readActionFailureMessage(
+									result.data,
+									'글을 이동하지 못했습니다.'
+								);
+								await update({ reset: false });
+								return;
+							}
+							await update();
+						};
+					}}
+				>
+					<input type="hidden" name="post_id" value={String(data.postId)} />
+					<fieldset class="folder-move-fieldset">
+						<legend class="folder-move-legend">대상 폴더</legend>
+						<div class="folder-move-scroll">
+							<label class="folder-move-option">
+								<input
+									type="radio"
+									name="target_folder_id"
+									bind:group={moveTargetFolderId}
+									value=""
+								/>
+								<span>블로그 루트 (/blog)</span>
+							</label>
+							{#each data.folderMoveTargets as row (row.id)}
+								<label class="folder-move-option">
+									<input
+										type="radio"
+										name="target_folder_id"
+										bind:group={moveTargetFolderId}
+										value={String(row.id)}
+									/>
+									<span>{row.pathLabel}</span>
+								</label>
+							{/each}
+						</div>
+					</fieldset>
+					{#if moveError}
+						<p class="folder-modal-error" role="alert">{moveError}</p>
+					{/if}
+					<div class="folder-modal-actions">
+						<button type="button" class="folder-modal-btn secondary" onclick={closeMoveModal}>
+							취소
+						</button>
+						<button type="submit" class="folder-modal-btn primary">확인</button>
+					</div>
+				</form>
+			</div>
+		{/if}
 	{/if}
 </main>
 
@@ -278,13 +462,31 @@
 		opacity: 0.6;
 	}
 
-	.breadcrumb-new-post {
+	.breadcrumb-add-wrap {
+		position: relative;
+		display: inline-flex;
+		flex-shrink: 0;
+		margin-left: 0.1rem;
+	}
+
+	.breadcrumb-add-wrap summary {
+		list-style: none;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.breadcrumb-add-wrap summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.breadcrumb-add-trigger {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
 		padding: 0.15rem;
-		margin-left: 0.1rem;
 		color: var(--text-secondary);
 		border-radius: 6px;
 		transition:
@@ -293,9 +495,197 @@
 			opacity 0.15s ease;
 	}
 
-	.breadcrumb-new-post:hover {
+	.breadcrumb-add-trigger:hover {
 		color: var(--text);
 		background-color: color-mix(in srgb, var(--text) 8%, transparent);
+	}
+
+	.breadcrumb-add-panel {
+		position: absolute;
+		top: calc(100% + 0.28rem);
+		right: 0;
+		z-index: 30;
+		min-width: 10rem;
+		padding: 0.35rem 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		box-shadow:
+			0 6px 20px color-mix(in srgb, var(--text) 12%, transparent),
+			0 1px 2px color-mix(in srgb, var(--text) 8%, transparent);
+	}
+
+	.breadcrumb-add-item {
+		display: block;
+		width: 100%;
+		padding: 0.52rem 0.85rem;
+		text-align: left;
+		font: inherit;
+		font-size: 0.9rem;
+		color: var(--text);
+		text-decoration: none;
+		background: none;
+		border: none;
+		cursor: pointer;
+		transition: background-color 0.12s ease;
+	}
+
+	a.breadcrumb-add-item:hover,
+	button.breadcrumb-add-item:hover {
+		background-color: color-mix(in srgb, var(--text) 7%, transparent);
+	}
+
+	.folder-modal-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 90;
+		margin: 0;
+		padding: 0;
+		border: none;
+		cursor: pointer;
+		background: color-mix(in srgb, var(--text) 35%, transparent);
+	}
+
+	.folder-modal {
+		position: fixed;
+		left: 50%;
+		top: 50%;
+		z-index: 91;
+		width: min(92vw, 22rem);
+		transform: translate(-50%, -50%);
+		padding: 1.1rem 1.15rem 1rem;
+		border-radius: 12px;
+		border: 1px solid var(--border);
+		background: var(--bg);
+		box-shadow:
+			0 18px 44px color-mix(in srgb, var(--text) 18%, transparent),
+			0 2px 8px color-mix(in srgb, var(--text) 10%, transparent);
+	}
+
+	.folder-modal-title {
+		margin: 0 0 0.85rem;
+		font-size: 1.05rem;
+		font-weight: 600;
+	}
+
+	.folder-modal-label {
+		display: block;
+		font-size: 0.82rem;
+		color: var(--text-secondary);
+		margin-bottom: 0.35rem;
+	}
+
+	.folder-modal-input {
+		width: 100%;
+		box-sizing: border-box;
+		padding: 0.55rem 0.65rem;
+		font: inherit;
+		font-size: 0.92rem;
+		border-radius: 8px;
+		border: 1px solid var(--border);
+		background: var(--bg);
+		color: var(--text);
+	}
+
+	.folder-modal-error {
+		margin: 0.55rem 0 0;
+		font-size: 0.82rem;
+		color: #f87171;
+	}
+
+	.folder-modal-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.45rem;
+		margin-top: 1rem;
+	}
+
+	.folder-modal-btn {
+		font: inherit;
+		font-size: 0.88rem;
+		padding: 0.45rem 0.75rem;
+		border-radius: 8px;
+		cursor: pointer;
+		border: 1px solid var(--border);
+		transition:
+			background-color 0.12s ease,
+			color 0.12s ease;
+	}
+
+	.folder-modal-btn.secondary {
+		background: transparent;
+		color: var(--text-secondary);
+	}
+
+	.folder-modal-btn.secondary:hover {
+		background: color-mix(in srgb, var(--text) 7%, transparent);
+		color: var(--text);
+	}
+
+	.folder-modal-btn.primary {
+		background: color-mix(in srgb, var(--text) 88%, var(--bg));
+		color: var(--bg);
+		border-color: transparent;
+	}
+
+	.folder-modal-btn.primary:hover {
+		opacity: 0.92;
+	}
+
+	.folder-move-modal {
+		width: min(92vw, 26rem);
+	}
+
+	.folder-move-fieldset {
+		border: none;
+		margin: 0;
+		padding: 0;
+		min-width: 0;
+	}
+
+	.folder-move-legend {
+		padding: 0;
+		font-size: 0.82rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+		margin-bottom: 0.45rem;
+	}
+
+	.folder-move-scroll {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		max-height: min(42vh, 16rem);
+		overflow-y: auto;
+		padding: 0.25rem 0;
+		margin: 0 0 0.35rem;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--text) 4%, transparent);
+	}
+
+	.folder-move-option {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.45rem;
+		padding: 0.42rem 0.65rem;
+		cursor: pointer;
+		font-size: 0.88rem;
+		line-height: 1.35;
+		color: var(--text);
+		transition: background-color 0.12s ease;
+	}
+
+	.folder-move-option:hover {
+		background: color-mix(in srgb, var(--text) 8%, transparent);
+	}
+
+	.folder-move-option input {
+		margin-top: 0.2rem;
+		flex-shrink: 0;
 	}
 
 	.crumb.current {
@@ -340,11 +730,11 @@
 		border-bottom: 1px solid var(--border);
 	}
 
-	.date.created {
+	.date.published {
 		opacity: 0.8;
 	}
 
-	.date:not(.created) {
+	.date:not(.published) {
 		font-weight: 500;
 	}
 

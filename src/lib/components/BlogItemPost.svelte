@@ -5,15 +5,13 @@
 	interface Props {
 		title: string;
 		path: string;
-		/** 비어 있으면 category를 보조줄에 표시 */
-		slug: string;
 		category: string;
 		date: string;
 		wordCount: number;
 		tistory?: string;
 	}
 
-	let { title, path, slug, category, date, wordCount, tistory }: Props = $props();
+	let { title, path, category, date, wordCount, tistory }: Props = $props();
 
 	const formatDate = (dateStr: string) => {
 		if (!dateStr) return '';
@@ -70,7 +68,7 @@
 		</span>
 	</div>
 	<div class="info-row2">
-		<span class="category">{slug.trim() ? slug : category}</span>
+		<span class="category">{category}</span>
 	</div>
 </div>
 

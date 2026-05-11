@@ -23,10 +23,7 @@
 				<li class="row">
 					<a class="title" href={hrefBlogPath(String(p.id))}>{p.title}</a>
 					<span class="meta">
-						<span class="slug"
-							>id {p.id}{#if p.slug?.trim()}
-								· {p.slug.trim()}{/if}</span
-						>
+						<span class="id-meta">id {p.id}</span>
 						<span class="pill" class:pub={p.published} class:draft={!p.published}>
 							{p.published ? '공개' : '초안'}
 						</span>
@@ -131,7 +128,7 @@
 		color: var(--text-tertiary);
 	}
 
-	.slug {
+	.id-meta {
 		font-family: var(--font-mono);
 		word-break: break-all;
 	}

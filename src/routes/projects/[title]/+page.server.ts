@@ -106,7 +106,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const relatedPosts: {
 		title: string;
 		path: string;
-		slug: string;
 		category: string;
 		date: string;
 		wordCount: number;
@@ -119,7 +118,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		relatedPosts.push({
 			title: row.title,
 			path: String(row.id),
-			slug: (row.slug ?? '').trim(),
 			category: '',
 			date: row.published_at ?? row.updated_at,
 			wordCount: row.word_count

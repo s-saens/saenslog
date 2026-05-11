@@ -24,7 +24,6 @@
 	interface RelatedPost {
 		title: string;
 		path: string;
-		slug: string;
 		category: string;
 		date: string;
 		wordCount: number;

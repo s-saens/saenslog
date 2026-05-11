@@ -46,10 +46,6 @@
 				<span class="label">제목</span>
 				<input class="input" name="title" required bind:value={titleVal} />
 			</label>
-			<label class="field full">
-				<span class="label">표시용 슬러그 (선택)</span>
-				<input class="input mono" name="slug" autocomplete="off" />
-			</label>
 		</div>
 
 		<label class="check">
