@@ -135,41 +135,41 @@
 							<div class="footer"></div>
 						</article>
 					{/key}
-{:else}
-				{#key $page.url.pathname}
-					<!-- 카테고리 페이지 -->
-					<div class="list-wrapper">
-						<BlogListSection
-							folders={data.folders}
-							posts={data.posts}
-							transitionDelay={TRANSITION_DELAY}
-						/>
-						{#if data.path === ''}
-							{#await data.allPosts}
-								<section
-									class="all-posts-pending"
-									aria-busy="true"
-									aria-label="전체 글 목록 로드 중"
-								>
-									<div class="all-posts-spinner"></div>
-									<span class="all-posts-pending-text">All Posts 로딩 중…</span>
-								</section>
-							{:then allPosts}
-								<BlogAllPostsSection
-									allPosts={allPosts ?? []}
-									folderCount={data.folders?.length || 0}
-									postCount={data.posts?.length || 0}
-									transitionDelay={TRANSITION_DELAY}
-								/>
-							{:catch}
-								<section class="all-posts-error">
-									<span>목록을 불러오지 못했습니다.</span>
-								</section>
-							{/await}
-						{/if}
-					</div>
-				{/key}
-			{/if}
+				{:else}
+					{#key $page.url.pathname}
+						<!-- 카테고리 페이지 -->
+						<div class="list-wrapper">
+							<BlogListSection
+								folders={data.folders}
+								posts={data.posts}
+								transitionDelay={TRANSITION_DELAY}
+							/>
+							{#if data.path === ''}
+								{#await data.allPosts}
+									<section
+										class="all-posts-pending"
+										aria-busy="true"
+										aria-label="전체 글 목록 로드 중"
+									>
+										<div class="all-posts-spinner"></div>
+										<span class="all-posts-pending-text">All Posts 로딩 중…</span>
+									</section>
+								{:then allPosts}
+									<BlogAllPostsSection
+										allPosts={allPosts ?? []}
+										folderCount={data.folders?.length || 0}
+										postCount={data.posts?.length || 0}
+										transitionDelay={TRANSITION_DELAY}
+									/>
+								{:catch}
+									<section class="all-posts-error">
+										<span>목록을 불러오지 못했습니다.</span>
+									</section>
+								{/await}
+							{/if}
+						</div>
+					{/key}
+				{/if}
 			</div>
 		</div>
 	{/if}
@@ -236,7 +236,9 @@
 	}
 
 	@keyframes spin {
-		to { transform: rotate(360deg); }
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	.all-posts-pending-text {

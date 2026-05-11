@@ -132,7 +132,12 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 
 		const tags = chain.map((f) => f.name);
 		const category =
-			chain.length > 1 ? chain.map((f) => f.name).slice(0, -1).join('/') : '';
+			chain.length > 1
+				? chain
+						.map((f) => f.name)
+						.slice(0, -1)
+						.join('/')
+				: '';
 
 		const comments = await loadCommentsForPost(postId, locals);
 

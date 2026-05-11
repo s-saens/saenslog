@@ -14,7 +14,10 @@ function asNumberArray(raw: unknown): number[] {
 }
 
 export async function fetchAllFolders(supabase: SupabaseClient): Promise<FolderRow[]> {
-	const { data, error } = await supabase.from('folders').select('id, name, posts, subfolders').order('id');
+	const { data, error } = await supabase
+		.from('folders')
+		.select('id, name, posts, subfolders')
+		.order('id');
 
 	if (error) {
 		console.error('fetchAllFolders', error);
@@ -101,7 +104,11 @@ export async function appendPostToFolder(
 	folderId: number,
 	postId: number
 ): Promise<void> {
-	const { data, error } = await supabase.from('folders').select('posts').eq('id', folderId).single();
+	const { data, error } = await supabase
+		.from('folders')
+		.select('posts')
+		.eq('id', folderId)
+		.single();
 	if (error) throw error;
 	const posts = asNumberArray((data as { posts?: unknown })?.posts);
 	if (posts.includes(postId)) return;
@@ -117,7 +124,11 @@ export async function removePostFromFolder(
 	folderId: number,
 	postId: number
 ): Promise<void> {
-	const { data, error } = await supabase.from('folders').select('posts').eq('id', folderId).single();
+	const { data, error } = await supabase
+		.from('folders')
+		.select('posts')
+		.eq('id', folderId)
+		.single();
 	if (error) throw error;
 	const posts = asNumberArray((data as { posts?: unknown })?.posts).filter((id) => id !== postId);
 	const { error: upErr } = await supabase.from('folders').update({ posts }).eq('id', folderId);

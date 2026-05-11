@@ -16,9 +16,7 @@
 	</header>
 
 	{#if data.posts.length === 0}
-		<p class="empty">
-			글이 없습니다. 새 글을 작성해 보세요.
-		</p>
+		<p class="empty">글이 없습니다. 새 글을 작성해 보세요.</p>
 	{:else}
 		<ul class="list">
 			{#each data.posts as p (p.id)}

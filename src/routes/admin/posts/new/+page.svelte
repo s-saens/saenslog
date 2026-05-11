@@ -53,11 +53,7 @@
 			<span>바로 공개</span>
 		</label>
 
-		<AdminMarkdownField
-			bind:md
-			docSyncKey="new-draft"
-			getAssetSlug={() => ''}
-		/>
+		<AdminMarkdownField bind:md docSyncKey="new-draft" getAssetSlug={() => ''} />
 
 		<div class="toolbar">
 			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>

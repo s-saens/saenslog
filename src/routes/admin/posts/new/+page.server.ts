@@ -29,11 +29,7 @@ export const actions: Actions = {
 		const folderRaw = String(form.get('folder_id') ?? '').trim();
 		const folderId = folderRaw ? Number(folderRaw) : NaN;
 
-		const { id } = await insertPost(
-			locals.supabase,
-			{ title, content_md, published },
-			user.id
-		);
+		const { id } = await insertPost(locals.supabase, { title, content_md, published }, user.id);
 
 		if (Number.isFinite(folderId) && folderId > 0) {
 			await appendPostToFolder(locals.supabase, folderId, id);

@@ -1,10 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import path from 'path';
 import { deletePostById, getPostById, updatePostById } from '$lib/server/posts';
-import {
-	fetchAllFolders,
-	removePostFromAllFolders
-} from '$lib/server/folders';
+import { fetchAllFolders, removePostFromAllFolders } from '$lib/server/folders';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -20,7 +17,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 export const actions: Actions = {
 	autosave: async ({ request, locals, params }) => {
 		const postId = Number(params.id);
-		if (!Number.isFinite(postId) || postId <= 0) return fail(400, { message: '잘못된 글 id입니다.' });
+		if (!Number.isFinite(postId) || postId <= 0)
+			return fail(400, { message: '잘못된 글 id입니다.' });
 
 		const form = await request.formData();
 		const title = String(form.get('title') ?? '').trim();
@@ -40,7 +38,8 @@ export const actions: Actions = {
 	},
 	save: async ({ request, locals, params }) => {
 		const postId = Number(params.id);
-		if (!Number.isFinite(postId) || postId <= 0) return fail(400, { message: '잘못된 글 id입니다.' });
+		if (!Number.isFinite(postId) || postId <= 0)
+			return fail(400, { message: '잘못된 글 id입니다.' });
 
 		const form = await request.formData();
 		const title = String(form.get('title') ?? '').trim();
@@ -56,7 +55,8 @@ export const actions: Actions = {
 	},
 	delete: async ({ locals, params }) => {
 		const postId = Number(params.id);
-		if (!Number.isFinite(postId) || postId <= 0) return fail(400, { message: '잘못된 글 id입니다.' });
+		if (!Number.isFinite(postId) || postId <= 0)
+			return fail(400, { message: '잘못된 글 id입니다.' });
 
 		const folders = await fetchAllFolders(locals.supabase);
 		await removePostFromAllFolders(locals.supabase, folders, postId);
