@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { hrefBlogPath } from '$lib/appPaths';
+	import { hrefBlogPost } from '$lib/appPaths';
 	import { browser } from '$app/environment';
 	import AdminBlogPreviewOverlay from '$lib/components/AdminBlogPreviewOverlay.svelte';
 	import AdminMarkdownField from '$lib/components/AdminMarkdownField.svelte';
@@ -9,7 +9,7 @@
 
 	let { data, form } = $props();
 
-	let slugVal = $state('');
+	let assetKey = $state('');
 	let titleVal = $state('');
 	let md = $state('');
 	let published = $state(false);
@@ -17,16 +17,13 @@
 	let saving = $state(false);
 	let autosaveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-	// 자동 저장 타이머
 	let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 
-	// 자동 저장 함수
 	async function autosave() {
 		if (!browser) return;
 		autosaveStatus = 'saving';
 		try {
 			const fd = new FormData();
-			fd.set('slug', slugVal);
 			fd.set('title', titleVal);
 			fd.set('content_md', md);
 			fd.set('published', published ? 'true' : 'false');
@@ -47,14 +44,12 @@
 		}
 	}
 
-	// 10초마다 자동 저장
 	$effect(() => {
 		if (!browser) return;
 		autosaveTimer = setInterval(autosave, 10000);
 		return () => clearInterval(autosaveTimer);
 	});
 
-	// Ctrl/Cmd+S 단축키 처리
 	$effect(() => {
 		if (!browser) return;
 		function handleKeydown(e: KeyboardEvent) {
@@ -71,7 +66,7 @@
 	let wordCount = $derived(md.trim() ? md.trim().split(/\s+/).filter(Boolean).length : 0);
 
 	$effect.pre(() => {
-		slugVal = data.post.slug;
+		assetKey = String(data.post.id);
 		titleVal = data.post.title;
 		md = data.post.content_md || '';
 		published = data.post.published;
@@ -82,21 +77,18 @@
 	<title>{data.post.title} · 수정 | SAENS</title>
 </svelte:head>
 
-<AdminBlogPreviewOverlay
-	bind:open={previewOpen}
-	title={titleVal}
-	slug={slugVal}
-	{html}
-	{wordCount}
-/>
+<AdminBlogPreviewOverlay bind:open={previewOpen} title={titleVal} slug={assetKey} {html} {wordCount} />
 
 <main class="editor-page">
 	<h1>글 수정</h1>
 	<p class="slug-line">
-		<a class="blog-link" href={hrefBlogPath(slugVal)}>블로그에서 보기 →</a>
+		<span class="id-label">글 id · 미디어 경로</span>
+		<code class="id-code">{assetKey}</code>
+		<a class="blog-link" href={hrefBlogPost(assetKey)}>블로그에서 보기 →</a>
 	</p>
 	<p class="hint">
-		슬러그를 바꾸면 URL 경로가 바뀝니다. 저장 후 댓글은 새 경로에 그대로 이어집니다.
+		공개 주소는 <code class="inline">/blog/{assetKey}</code> 입니다. 본문에 넣는 이미지는
+		<code class="inline">static/blog/{assetKey}/</code>에 저장됩니다.
 	</p>
 
 	{#if form?.message}
@@ -120,10 +112,6 @@
 	>
 		<div class="grid">
 			<label class="field full">
-				<span class="label">슬러그 (URL 경로, 예: Dev/AI/3)</span>
-				<input class="input mono" name="slug" required bind:value={slugVal} autocomplete="off" />
-			</label>
-			<label class="field full">
 				<span class="label">제목</span>
 				<input class="input" name="title" required bind:value={titleVal} />
 			</label>
@@ -134,7 +122,7 @@
 			<span>공개</span>
 		</label>
 
-		<AdminMarkdownField bind:md docSyncKey={`fs-${slugVal}`} getAssetSlug={() => slugVal} />
+		<AdminMarkdownField bind:md docSyncKey={`db-${assetKey}`} getAssetSlug={() => assetKey} />
 
 		<div class="toolbar">
 			<span class="autosave-status">
@@ -192,14 +180,32 @@
 		color: var(--text-secondary);
 	}
 
+	.inline {
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.85em;
+	}
+
 	.slug-line {
-		margin: 0 0 1.25rem;
+		margin: 0 0 0.75rem;
 		font-size: 0.82rem;
 		color: var(--text-tertiary);
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.75rem;
+	}
+
+	.id-label {
+		color: var(--text-secondary);
+	}
+
+	.id-code {
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.85rem;
+		padding: 0.15rem 0.45rem;
+		border-radius: 6px;
+		background: color-mix(in srgb, var(--text) 7%, transparent);
+		border: 1px solid var(--border);
 	}
 
 	.blog-link {
@@ -235,12 +241,6 @@
 		gap: 1rem;
 	}
 
-	@media (min-width: 640px) {
-		.grid {
-			grid-template-columns: 1fr 1fr;
-		}
-	}
-
 	.field {
 		display: flex;
 		flex-direction: column;
@@ -264,11 +264,6 @@
 		border-radius: 8px;
 		background: var(--bg);
 		color: var(--text);
-	}
-
-	.input.mono {
-		font-family: var(--font-mono, ui-monospace, monospace);
-		font-size: 0.82rem;
 	}
 
 	.check {

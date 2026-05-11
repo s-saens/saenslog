@@ -21,15 +21,15 @@
 		</p>
 	{:else}
 		<ul class="list">
-			{#each data.posts as p (p.path)}
+			{#each data.posts as p (p.id)}
 				<li class="row">
-					<a class="title" href={hrefBlogPath(p.path)}>{p.title}</a>
+					<a class="title" href={hrefBlogPath(String(p.id))}>{p.title}</a>
 					<span class="meta">
-						<span class="slug">{p.path}</span>
-						<span class="pill" class:pub={p.publish} class:draft={!p.publish}>
-							{p.publish ? '공개' : '초안'}
+						<span class="slug">id {p.id}</span>
+						<span class="pill" class:pub={p.published} class:draft={!p.published}>
+							{p.published ? '공개' : '초안'}
 						</span>
-						<time datetime={p.date}>{p.date.slice(0, 10)}</time>
+						<time datetime={p.updated_at}>{p.updated_at.slice(0, 10)}</time>
 					</span>
 				</li>
 			{/each}

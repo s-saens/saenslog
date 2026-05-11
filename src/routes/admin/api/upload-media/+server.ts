@@ -7,7 +7,7 @@ import {
 	blogAssetPublicPrefix,
 	nextSequentialAssetBasename
 } from '$lib/server/blogPostAssets';
-import { normalizeSlug } from '$lib/server/posts';
+import { normalizeBlogAssetKey } from '$lib/server/posts';
 import type { RequestHandler } from './$types';
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -38,9 +38,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	let slug: string;
 	try {
-		slug = normalizeSlug(String(form.get('slug') ?? ''));
+		slug = normalizeBlogAssetKey(String(form.get('slug') ?? ''));
 	} catch {
-		error(400, '유효한 slug가 필요합니다.');
+		error(400, '유효한 글 id(숫자)가 필요합니다.');
 	}
 
 	const mime = raw.type || 'application/octet-stream';

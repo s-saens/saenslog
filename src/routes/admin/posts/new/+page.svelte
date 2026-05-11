@@ -1,75 +1,14 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { browser } from '$app/environment';
 	import AdminBlogPreviewOverlay from '$lib/components/AdminBlogPreviewOverlay.svelte';
 	import AdminMarkdownField from '$lib/components/AdminMarkdownField.svelte';
 	import { renderMarkdownToHtml } from '$lib/markdownCompile';
 
 	let { data, form } = $props();
 
-	function slugPrefixFromParent(parent: string | undefined) {
-		const p = parent ?? '';
-		return p ? `${p}/` : '';
-	}
-
-	let slugVal = $state('');
 	let titleVal = $state('');
 	let md = $state('');
 	let previewOpen = $state(false);
-	let autosaveStatus = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-	// 자동 저장 타이머
-	let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
-
-	// 자동 저장 함수
-	async function autosave() {
-		if (!browser) return;
-		autosaveStatus = 'saving';
-		try {
-			const fd = new FormData();
-			fd.set('slug', slugVal);
-			fd.set('title', titleVal);
-			fd.set('content_md', md);
-			const res = await fetch('?/autosave', {
-				method: 'POST',
-				body: fd
-			});
-			if (res.ok) {
-				autosaveStatus = 'saved';
-				setTimeout(() => {
-					if (autosaveStatus === 'saved') autosaveStatus = 'idle';
-				}, 2000);
-			} else {
-				autosaveStatus = 'error';
-			}
-		} catch {
-			autosaveStatus = 'error';
-		}
-	}
-
-	// 10초마다 자동 저장
-	$effect(() => {
-		if (!browser) return;
-		autosaveTimer = setInterval(autosave, 10000);
-		return () => clearInterval(autosaveTimer);
-	});
-
-	// Ctrl/Cmd+S 단축키 처리
-	$effect(() => {
-		if (!browser) return;
-		function handleKeydown(e: KeyboardEvent) {
-			if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-				e.preventDefault();
-				void autosave();
-			}
-		}
-		window.addEventListener('keydown', handleKeydown);
-		return () => window.removeEventListener('keydown', handleKeydown);
-	});
-
-	$effect.pre(() => {
-		slugVal = slugPrefixFromParent(data.parentPrefix);
-	});
 
 	let html = $derived(renderMarkdownToHtml(md));
 	let wordCount = $derived(md.trim() ? md.trim().split(/\s+/).filter(Boolean).length : 0);
@@ -81,32 +20,28 @@
 
 <AdminBlogPreviewOverlay
 	bind:open={previewOpen}
-	title={titleVal}
-	slug={slugVal || 'draft/preview'}
+	title={titleVal || '제목 없음'}
+	slug="draft/preview"
 	{html}
 	{wordCount}
 />
 
 <main class="editor-page">
 	<h1>새 글</h1>
+	<p class="hint">
+		저장하면 Supabase에 글이 생성되고 숫자 id가 부여됩니다. 그 후 같은 화면에서 미디어 붙여넣기가
+		<code class="inline">static/blog/&lt;id&gt;/</code>로 연결됩니다.
+	</p>
 
 	{#if form?.message}
 		<p class="err" role="alert">{form.message}</p>
 	{/if}
 
 	<form class="form" method="POST" action="?/save" use:enhance>
+		{#if data.folderId != null}
+			<input type="hidden" name="folder_id" value={String(data.folderId)} />
+		{/if}
 		<div class="grid">
-			<label class="field full">
-				<span class="label">슬러그 (URL 경로, 예: Dev/AI/3 — 분류·경로는 슬러그로만 지정)</span>
-				<input
-					class="input"
-					name="slug"
-					required
-					placeholder="Dev/AI/글슬러그"
-					autocomplete="off"
-					bind:value={slugVal}
-				/>
-			</label>
 			<label class="field full">
 				<span class="label">제목</span>
 				<input class="input" name="title" required bind:value={titleVal} />
@@ -118,23 +53,15 @@
 			<span>바로 공개</span>
 		</label>
 
-		<AdminMarkdownField bind:md getAssetSlug={() => slugVal} />
+		<AdminMarkdownField
+			bind:md
+			docSyncKey="new-draft"
+			getAssetSlug={() => ''}
+		/>
 
 		<div class="toolbar">
-			<span class="autosave-status">
-				{#if autosaveStatus === 'saving'}
-					저장 중...
-				{:else if autosaveStatus === 'saved'}
-					저장됨
-				{:else if autosaveStatus === 'error'}
-					저장 실패
-				{:else}
-					자동 저장 활성화
-				{/if}
-			</span>
 			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>
-			<button type="submit" class="btn primary">발행</button>
-			<button type="button" class="btn" onclick={autosave} disabled={autosaveStatus === 'saving'}>초안 저장</button>
+			<button type="submit" class="btn primary">저장</button>
 		</div>
 	</form>
 </main>
@@ -151,6 +78,18 @@
 		font-size: 1.35rem;
 		font-weight: 600;
 		color: var(--text);
+	}
+
+	.hint {
+		margin: 0 0 1.25rem;
+		font-size: 0.8rem;
+		line-height: 1.45;
+		color: var(--text-secondary);
+	}
+
+	.inline {
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.85em;
 	}
 
 	.err {
@@ -170,20 +109,14 @@
 		gap: 1rem;
 	}
 
-	@media (min-width: 640px) {
-		.grid {
-			grid-template-columns: 1fr 1fr;
-		}
-
-		.field.full {
-			grid-column: 1 / -1;
-		}
-	}
-
 	.field {
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
+	}
+
+	.field.full {
+		grid-column: 1 / -1;
 	}
 
 	.label {
@@ -209,24 +142,11 @@
 		color: var(--text-secondary);
 	}
 
-	.autosave-status {
-		font-size: 0.78rem;
-		color: var(--text-tertiary);
-		padding: 0 0.25rem;
-	}
-
 	.toolbar {
 		display: flex;
-		flex-wrap: nowrap;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.5rem;
-		overflow-x: auto;
-		padding-bottom: 0.15rem;
-	}
-
-	.toolbar .btn {
-		flex: 0 0 auto;
-		white-space: nowrap;
 	}
 
 	.btn {
@@ -252,10 +172,5 @@
 
 	.btn.primary:hover {
 		opacity: 0.92;
-	}
-
-	.btn:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
 	}
 </style>
