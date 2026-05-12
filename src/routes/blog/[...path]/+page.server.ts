@@ -7,6 +7,7 @@ import {
 	hashCommentClientIp,
 	recordGuestCommentAttempt
 } from '$lib/server/commentGuestRateLimit';
+import { gateLikeAction, recordLikeActionAttempt } from '$lib/server/likeRateLimit';
 import {
 	ancestorFolderChain,
 	BLOG_ROOT_FOLDER_ID,
@@ -30,6 +31,7 @@ import {
 	type PostListRow
 } from '$lib/server/posts';
 import { thrownMessageForActionFail } from '$lib/formActionFailure';
+import { plainTextFromMarkdown, SEO_DEFAULT_DESCRIPTION } from '$lib/seo';
 import { renderMarkdownToHtml } from '$lib/server/markdown';
 import { tryCreateSupabaseServiceClient } from '$lib/server/supabaseService';
 import type { Actions, PageServerLoad } from './$types';
@@ -55,6 +57,61 @@ type CommentRow = {
 
 function commentPostRef(postId: number): string {
 	return String(postId);
+}
+
+async function loadPostLikeSummary(
+	supabase: App.Locals['supabase'],
+	service: ReturnType<typeof tryCreateSupabaseServiceClient>,
+	postId: number,
+	userId: string | null,
+	ipHash: string | null
+): Promise<{ count: number; liked: boolean }> {
+	const { count, error: cErr } = await supabase
+		.from('post_likes')
+		.select('*', { count: 'exact', head: true })
+		.eq('post_id', postId);
+	if (cErr) console.error('post_likes count', cErr);
+
+	let liked = false;
+	if (userId) {
+		const { data } = await supabase
+			.from('post_likes')
+			.select('id')
+			.eq('post_id', postId)
+			.eq('user_id', userId)
+			.maybeSingle();
+		liked = !!data;
+	} else if (ipHash && service) {
+		const { data } = await service
+			.from('post_likes')
+			.select('id')
+			.eq('post_id', postId)
+			.eq('ip_hash', ipHash)
+			.is('user_id', null)
+			.maybeSingle();
+		liked = !!data;
+	}
+
+	return { count: count ?? 0, liked };
+}
+
+function buildCommentLikeMap(
+	commentIds: number[],
+	rows: { comment_id: number; user_id: string | null; ip_hash: string | null }[],
+	userId: string | null,
+	ipHash: string | null
+): Record<string, { count: number; liked: boolean }> {
+	const out: Record<string, { count: number; liked: boolean }> = {};
+	for (const id of commentIds) out[String(id)] = { count: 0, liked: false };
+	for (const row of rows) {
+		const key = String(row.comment_id);
+		const cur = out[key];
+		if (!cur) continue;
+		cur.count++;
+		if (userId && row.user_id === userId) cur.liked = true;
+		else if (!userId && ipHash && row.user_id === null && row.ip_hash === ipHash) cur.liked = true;
+	}
+	return out;
 }
 
 async function loadCommentsForPost(postId: number, locals: App.Locals): Promise<CommentRow[]> {
@@ -160,6 +217,8 @@ async function loadBlogFolderListing(
 	const postRows = await listPostsByIds(supabase, folder.posts, {
 		onlyPublished: opts.onlyPublished
 	});
+	const folderTitle = folderId === BLOG_ROOT_FOLDER_ID ? 'Blog' : folderDisplayLabel(folder);
+
 	const posts: ListPost[] = postRows.map((r) => postRowToCard(r, folderDisplayLabel(folder)));
 
 	return {
@@ -175,12 +234,23 @@ async function loadBlogFolderListing(
 		allPosts: opts.allPosts,
 		postId: null as number | null,
 		comments: [] as CommentRow[],
+		postLikeCount: 0,
+		postLikedByViewer: false,
+		commentLikesById: {} as Record<string, { count: number; liked: boolean }>,
 		postFolderId: null as number | null,
-		folderMoveTargets: [] as { id: number; pathLabel: string }[]
+		folderMoveTargets: [] as { id: number; pathLabel: string }[],
+		seo: {
+			title: folderTitle,
+			description:
+				folderId === BLOG_ROOT_FOLDER_ID
+					? '블로그 글과 폴더 목록입니다.'
+					: `"${folderTitle}" 폴더의 글 목록입니다.`,
+			canonicalPath: folderId === BLOG_ROOT_FOLDER_ID ? '/blog' : `/blog/f/${folderId}`
+		}
 	};
 }
 
-export const load: PageServerLoad = async ({ params, locals, parent }) => {
+export const load: PageServerLoad = async ({ params, locals, parent, getClientAddress }) => {
 	const { user } = await parent();
 	let isAdmin = false;
 
@@ -228,6 +298,42 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 
 		const comments = await loadCommentsForPost(postId, locals);
 
+		const rateSecret = privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
+		const viewerIpHash = rateSecret
+			? hashCommentClientIp(rateSecret, getClientAddress() ?? 'unknown')
+			: null;
+		const serviceClient = tryCreateSupabaseServiceClient();
+		const postLike = await loadPostLikeSummary(
+			locals.supabase,
+			serviceClient,
+			postId,
+			user?.id ?? null,
+			viewerIpHash
+		);
+
+		const commentIds = comments.map((c) => c.id);
+		let commentLikesById: Record<string, { count: number; liked: boolean }> = {};
+		if (commentIds.length > 0) {
+			const { data: likeRows, error: lrErr } = await locals.supabase
+				.from('comment_likes')
+				.select('comment_id, user_id, ip_hash')
+				.in('comment_id', commentIds);
+			if (lrErr) console.error('comment_likes load', lrErr);
+			commentLikesById = buildCommentLikeMap(commentIds, likeRows ?? [], user?.id ?? null, viewerIpHash);
+		}
+
+		let viewCount = Number(dbRow.view_count ?? 0);
+		if (dbRow.published) {
+			const { data: counted, error: rpcErr } = await locals.supabase.rpc('increment_post_view', {
+				post_id: postId
+			});
+			if (!rpcErr && counted != null) {
+				viewCount = Number(counted);
+			} else if (rpcErr) {
+				console.warn('[increment_post_view]', rpcErr.message);
+			}
+		}
+
 		return {
 			path: String(postId),
 			pathParam,
@@ -243,10 +349,22 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			category,
 			content: renderMarkdownToHtml(dbRow.content_md),
 			wordCount: dbRow.word_count as number,
+			viewCount,
 			tags,
 			comments,
+			postLikeCount: postLike.count,
+			postLikedByViewer: postLike.liked,
+			commentLikesById,
 			postFolderId: isAdmin ? (hostFolder?.id ?? null) : null,
-			folderMoveTargets: isAdmin ? folderMovePickerEntries(allFolders) : []
+			folderMoveTargets: isAdmin ? folderMovePickerEntries(allFolders) : [],
+			seo: {
+				title: dbRow.title,
+				description: plainTextFromMarkdown(dbRow.content_md, 158) || SEO_DEFAULT_DESCRIPTION,
+				canonicalPath: `/blog/${postId}`,
+				type: 'article',
+				publishedTime: dbRow.published_at ?? undefined,
+				modifiedTime: dbRow.updated_at
+			}
 		};
 	}
 
@@ -403,6 +521,205 @@ export const actions: Actions = {
 			.eq('id', id);
 
 		if (upErr) return fail(400, { message: upErr.message });
+		return { ok: true };
+	},
+
+	togglePostLike: async ({ request, locals, getClientAddress }) => {
+		const service = tryCreateSupabaseServiceClient();
+		const rateSecret = privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
+		if (!service || !rateSecret) {
+			return fail(503, {
+				message:
+					'좋아요를 처리할 수 없습니다. 서버에 SUPABASE_SECRET_KEY(및 선택적으로 COMMENT_RATE_LIMIT_SECRET)를 설정했는지 확인하세요.'
+			});
+		}
+
+		const form = await request.formData();
+		const postId = Number(form.get('post_id'));
+		if (!Number.isFinite(postId) || postId <= 0) {
+			return fail(400, { message: '잘못된 요청입니다.' });
+		}
+
+		const ip = getClientAddress() ?? 'unknown';
+		const ipHash = hashCommentClientIp(rateSecret, ip);
+
+		const gate = await gateLikeAction(service, ipHash);
+		if (!gate.ok) return fail(429, { message: gate.message });
+
+		const { data: postRow } = await service
+			.from('posts')
+			.select('id, published')
+			.eq('id', postId)
+			.maybeSingle();
+		if (!postRow) return fail(404, { message: '글을 찾을 수 없습니다.' });
+
+		if (!postRow.published) {
+			const {
+				data: { user: u0 }
+			} = await locals.supabase.auth.getUser();
+			if (!u0) return fail(404, { message: '글을 찾을 수 없습니다.' });
+			const { data: profile0 } = await locals.supabase
+				.from('profiles')
+				.select('role')
+				.eq('id', u0.id)
+				.maybeSingle();
+			if (profile0?.role !== 'admin') return fail(404, { message: '글을 찾을 수 없습니다.' });
+		}
+
+		const {
+			data: { user }
+		} = await locals.supabase.auth.getUser();
+
+		if (user) {
+			const { data: existing } = await service
+				.from('post_likes')
+				.select('id')
+				.eq('post_id', postId)
+				.eq('user_id', user.id)
+				.maybeSingle();
+			if (existing) {
+				const { error: delErr } = await service.from('post_likes').delete().eq('id', existing.id);
+				if (delErr) return fail(400, { message: delErr.message });
+			} else {
+				const { error: insErr } = await service.from('post_likes').insert({
+					post_id: postId,
+					user_id: user.id,
+					ip_hash: null
+				});
+				if (insErr) return fail(400, { message: insErr.message });
+			}
+		} else {
+			const { data: existing } = await service
+				.from('post_likes')
+				.select('id')
+				.eq('post_id', postId)
+				.is('user_id', null)
+				.eq('ip_hash', ipHash)
+				.maybeSingle();
+			if (existing) {
+				const { error: delErr } = await service.from('post_likes').delete().eq('id', existing.id);
+				if (delErr) return fail(400, { message: delErr.message });
+			} else {
+				const { error: insErr } = await service.from('post_likes').insert({
+					post_id: postId,
+					user_id: null,
+					ip_hash: ipHash
+				});
+				if (insErr) return fail(400, { message: insErr.message });
+			}
+		}
+
+		const recorded = await recordLikeActionAttempt(service, ipHash);
+		if (!recorded.ok)
+			return fail(503, { message: '좋아요 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+
+		return { ok: true };
+	},
+
+	toggleCommentLike: async ({ request, locals, getClientAddress }) => {
+		const service = tryCreateSupabaseServiceClient();
+		const rateSecret = privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
+		if (!service || !rateSecret) {
+			return fail(503, {
+				message:
+					'좋아요를 처리할 수 없습니다. 서버에 SUPABASE_SECRET_KEY(및 선택적으로 COMMENT_RATE_LIMIT_SECRET)를 설정했는지 확인하세요.'
+			});
+		}
+
+		const form = await request.formData();
+		const commentId = Number(form.get('comment_id'));
+		const postSlug = String(form.get('post_slug') ?? '').trim();
+		if (!Number.isFinite(commentId) || !postSlug) {
+			return fail(400, { message: '잘못된 요청입니다.' });
+		}
+
+		const ip = getClientAddress() ?? 'unknown';
+		const ipHash = hashCommentClientIp(rateSecret, ip);
+
+		const gate = await gateLikeAction(service, ipHash);
+		if (!gate.ok) return fail(429, { message: gate.message });
+
+		const { data: commentRow } = await service
+			.from('comments')
+			.select('id, post_slug')
+			.eq('id', commentId)
+			.maybeSingle();
+		if (!commentRow || commentRow.post_slug !== postSlug) {
+			return fail(404, { message: '댓글을 찾을 수 없습니다.' });
+		}
+
+		const postId = Number(postSlug);
+		if (!Number.isFinite(postId) || postId <= 0) {
+			return fail(400, { message: '잘못된 요청입니다.' });
+		}
+
+		const { data: postRow } = await service
+			.from('posts')
+			.select('id, published')
+			.eq('id', postId)
+			.maybeSingle();
+		if (!postRow) return fail(404, { message: '글을 찾을 수 없습니다.' });
+
+		if (!postRow.published) {
+			const {
+				data: { user: u0 }
+			} = await locals.supabase.auth.getUser();
+			if (!u0) return fail(404, { message: '글을 찾을 수 없습니다.' });
+			const { data: profile0 } = await locals.supabase
+				.from('profiles')
+				.select('role')
+				.eq('id', u0.id)
+				.maybeSingle();
+			if (profile0?.role !== 'admin') return fail(404, { message: '글을 찾을 수 없습니다.' });
+		}
+
+		const {
+			data: { user }
+		} = await locals.supabase.auth.getUser();
+
+		if (user) {
+			const { data: existing } = await service
+				.from('comment_likes')
+				.select('id')
+				.eq('comment_id', commentId)
+				.eq('user_id', user.id)
+				.maybeSingle();
+			if (existing) {
+				const { error: delErr } = await service.from('comment_likes').delete().eq('id', existing.id);
+				if (delErr) return fail(400, { message: delErr.message });
+			} else {
+				const { error: insErr } = await service.from('comment_likes').insert({
+					comment_id: commentId,
+					user_id: user.id,
+					ip_hash: null
+				});
+				if (insErr) return fail(400, { message: insErr.message });
+			}
+		} else {
+			const { data: existing } = await service
+				.from('comment_likes')
+				.select('id')
+				.eq('comment_id', commentId)
+				.is('user_id', null)
+				.eq('ip_hash', ipHash)
+				.maybeSingle();
+			if (existing) {
+				const { error: delErr } = await service.from('comment_likes').delete().eq('id', existing.id);
+				if (delErr) return fail(400, { message: delErr.message });
+			} else {
+				const { error: insErr } = await service.from('comment_likes').insert({
+					comment_id: commentId,
+					user_id: null,
+					ip_hash: ipHash
+				});
+				if (insErr) return fail(400, { message: insErr.message });
+			}
+		}
+
+		const recorded = await recordLikeActionAttempt(service, ipHash);
+		if (!recorded.ok)
+			return fail(503, { message: '좋아요 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+
 		return { ok: true };
 	},
 

@@ -10,6 +10,7 @@
 	import BlogAllPostsSection from '$lib/components/BlogAllPostsSection.svelte';
 	import BlogListSection from '$lib/components/BlogListSection.svelte';
 	import Comments from '$lib/components/Comments.svelte';
+	import PostLikes from '$lib/components/PostLikes.svelte';
 	import { PlusIcon, TextCountIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { readActionFailureMessage } from '$lib/formActionFailure';
@@ -160,6 +161,8 @@
 									<TextCountIcon width={14} height={14} />
 									{data.wordCount}
 								</span>
+								<span class="separator">•</span>
+								<span class="view-count">조회 {data.viewCount?.toLocaleString('ko-KR') ?? '0'}</span>
 								{#if data.isAdmin && data.postId != null}
 									<div class="post-admin-actions">
 										<button type="button" class="post-admin-link" onclick={openMoveModal}>
@@ -190,10 +193,16 @@
 								{@html data.content}
 							</div>
 							{#if data.postId != null}
+								<PostLikes
+									postId={data.postId}
+									initialCount={data.postLikeCount}
+									initialLiked={data.postLikedByViewer}
+								/>
 								<Comments
 									postSlug={String(data.postId)}
 									initialComments={data.comments}
 									currentUserId={data.user?.id ?? null}
+									commentLikesById={data.commentLikesById}
 								/>
 							{/if}
 							<div class="footer"></div>
@@ -782,6 +791,10 @@
 		height: 14px;
 	}
 
+	.view-count {
+		font-variant-numeric: tabular-nums;
+	}
+
 	.post .content {
 		line-height: 1.8;
 		user-select: text;
@@ -1021,26 +1034,32 @@
 	/* 표 */
 	.post .content :global(.table-container) {
 		position: relative;
-		margin: 1.5rem 0;
+		margin: 0.55rem 0;
 	}
 
 	.post .content :global(.table-wrapper) {
 		overflow-x: auto;
 		-webkit-overflow-scrolling: touch;
+		border-radius: 12px;
+		border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+		background: color-mix(in srgb, var(--bg) 94%, var(--text) 3%);
+		box-shadow:
+			0 1px 2px color-mix(in srgb, var(--text) 5%, transparent),
+			0 3px 12px color-mix(in srgb, var(--text) 4%, transparent);
 	}
 
 	.post .content :global(table) {
-		width: max-content;
-		min-width: 100%;
+		width: 100%;
 		border-collapse: collapse;
+		table-layout: auto;
 		font-size: 0.875rem;
-		border: 1px solid var(--border);
+		border: none;
 		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
 	}
 
-	/* 이미지가 있는 표는 width 100%, 스크롤 없음 */
+	/* 이미지가 있는 표는 줄바꿈 허용 */
 	.post .content :global(table:has(img)) {
-		width: 100%;
 		white-space: normal;
 	}
 
@@ -1049,26 +1068,59 @@
 	}
 
 	.post .content :global(thead) {
-		background-color: color-mix(in srgb, var(--text) 6%, var(--bg));
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--text) 10%, var(--bg)) 0%,
+			color-mix(in srgb, var(--text) 5.5%, var(--bg)) 100%
+		);
 	}
 
 	.post .content :global(th) {
-		padding: 0.65rem 0.9rem;
+		padding: 0.3rem 0.55rem;
 		text-align: center;
-		font-weight: 600;
+		font-weight: 650;
 		color: var(--text);
-		border: 1px solid var(--border);
-		font-size: 0.82rem;
-		letter-spacing: 0.02em;
+		border: none;
+		border-bottom: 2px solid color-mix(in srgb, var(--text) 14%, var(--border) 40%);
+		border-right: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
+		font-size: 0.8125rem;
+		letter-spacing: 0.015em;
+	}
+
+	.post .content :global(th:last-child) {
+		border-right: none;
 	}
 
 	.post .content :global(td) {
-		padding: 0.55rem 0.9rem;
+		padding: 0.22rem 0.55rem;
 		text-align: center;
 		color: var(--text-secondary);
-		border: 1px solid var(--border);
+		border: none;
+		border-bottom: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+		border-right: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
 		vertical-align: middle;
 		background-color: transparent;
+	}
+
+	.post .content :global(td:last-child) {
+		border-right: none;
+	}
+
+	.post .content :global(td p),
+	.post .content :global(th p) {
+		text-align: center;
+	}
+
+	.post .content :global(tbody tr:last-child td) {
+		border-bottom: none;
+	}
+
+	.post .content :global(tbody tr:nth-child(even) td) {
+		background-color: color-mix(in srgb, var(--text) 3.2%, var(--bg));
+	}
+
+	.post .content :global(tbody tr:hover td) {
+		background-color: color-mix(in srgb, var(--text) 7%, var(--bg));
 	}
 
 	.post .content :global(td:has(> img)),

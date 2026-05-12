@@ -5,6 +5,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { supabase } from '$lib/supabase';
+	import HeartIcon from '$lib/components/icons/HeartIcon.svelte';
 	import { onMount } from 'svelte';
 
 	export type CommentItem = {
@@ -20,15 +21,17 @@
 let {
 	postSlug,
 	initialComments,
-	currentUserId
+	currentUserId,
+	commentLikesById = {}
 }: {
 	postSlug: string;
 	initialComments: CommentItem[];
 	currentUserId: string | null;
+	commentLikesById?: Record<string, { count: number; liked: boolean }>;
 } = $props();
 
 let comments = $state<CommentItem[]>([]);
-	let replyToId = $state<number | null>(null);
+let replyToId = $state<number | null>(null);
 
 $effect(() => {
 	comments = [...initialComments];
@@ -70,6 +73,26 @@ $effect(() => {
 	function formatTime(iso: string) {
 		const d = new Date(iso);
 		return d.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+	}
+
+	function likesFor(id: number) {
+		return commentLikesById[String(id)] ?? { count: 0, liked: false };
+	}
+
+	function afterLikeToggle() {
+		return async ({
+			result,
+			update
+		}: {
+			result: { type: string; data?: { message?: string } };
+			update: () => Promise<void>;
+		}) => {
+			if (result.type === 'failure') {
+				const msg = result.data?.message;
+				if (msg) alert(msg);
+			}
+			await update();
+		};
 	}
 
 	function afterCommentSubmit() {
@@ -138,12 +161,33 @@ $effect(() => {
 
 	<ul class="thread">
 		{#each topLevel() as c (c.id)}
+			{@const cl = likesFor(c.id)}
 			<li class="item">
 				<div class="meta">
 					<span class="who">{displayName(c)}</span>
 					<time datetime={c.created_at}>{formatTime(c.created_at)}</time>
 				</div>
 				<div class="body">{c.content}</div>
+
+				<form
+					class="comment-like"
+					method="POST"
+					action="?/toggleCommentLike"
+					use:enhance={afterLikeToggle}
+				>
+					<input type="hidden" name="post_slug" value={postSlug} />
+					<input type="hidden" name="comment_id" value={c.id} />
+					<button
+						type="submit"
+						class="comment-like-btn"
+						class:comment-like-btn--on={cl.liked}
+						aria-pressed={cl.liked}
+						aria-label={cl.liked ? '이 댓글 좋아요 취소' : '이 댓글 좋아요'}
+					>
+						<HeartIcon filled={cl.liked} width={16} height={16} />
+						<span class="comment-like-n">{cl.count.toLocaleString('ko-KR')}</span>
+					</button>
+				</form>
 
 				{#if currentUserId && c.author_id && currentUserId === c.author_id}
 					<details class="editbox">
@@ -226,12 +270,32 @@ $effect(() => {
 				{#if repliesFor(c.id).length > 0}
 					<ul class="replies">
 						{#each repliesFor(c.id) as r (r.id)}
+							{@const rl = likesFor(r.id)}
 							<li class="item reply">
 								<div class="meta">
 									<span class="who">{displayName(r)}</span>
 									<time datetime={r.created_at}>{formatTime(r.created_at)}</time>
 								</div>
 								<div class="body">{r.content}</div>
+								<form
+									class="comment-like"
+									method="POST"
+									action="?/toggleCommentLike"
+									use:enhance={afterLikeToggle}
+								>
+									<input type="hidden" name="post_slug" value={postSlug} />
+									<input type="hidden" name="comment_id" value={r.id} />
+									<button
+										type="submit"
+										class="comment-like-btn"
+										class:comment-like-btn--on={rl.liked}
+										aria-pressed={rl.liked}
+										aria-label={rl.liked ? '이 댓글 좋아요 취소' : '이 댓글 좋아요'}
+									>
+										<HeartIcon filled={rl.liked} width={15} height={15} />
+										<span class="comment-like-n">{rl.count.toLocaleString('ko-KR')}</span>
+									</button>
+								</form>
 								{#if currentUserId && r.author_id && currentUserId === r.author_id}
 									<details class="editbox">
 										<summary>수정</summary>
@@ -413,6 +477,46 @@ $effect(() => {
 		color: var(--text);
 		white-space: pre-wrap;
 		word-break: break-word;
+	}
+
+	.comment-like {
+		margin: 0;
+		padding: 0;
+		align-self: flex-start;
+	}
+
+	.comment-like-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.28rem;
+		font: inherit;
+		font-size: 0.78rem;
+		cursor: pointer;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		padding: 0.18rem 0.48rem 0.18rem 0.38rem;
+		background: var(--bg);
+		color: var(--text-tertiary);
+		transition:
+			border-color 0.15s ease,
+			color 0.15s ease,
+			background 0.15s ease;
+	}
+
+	.comment-like-btn:hover {
+		border-color: color-mix(in srgb, #f472b6 35%, var(--border));
+		color: var(--text-secondary);
+	}
+
+	.comment-like-btn--on {
+		border-color: color-mix(in srgb, #f472b6 50%, var(--border));
+		color: #f472b6;
+		background: color-mix(in srgb, #f472b6 10%, var(--bg));
+	}
+
+	.comment-like-n {
+		font-weight: 600;
+		font-size: 0.78rem;
 	}
 
 	.replies {

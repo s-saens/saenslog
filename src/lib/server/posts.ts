@@ -8,6 +8,7 @@ export type PostListRow = {
 	published_at: string | null;
 	updated_at: string;
 	word_count: number;
+	view_count?: number;
 };
 
 export type PostFullRow = PostListRow & {
@@ -42,7 +43,7 @@ export function normalizeBlogAssetKey(raw: string): string {
 export async function listPostsAdmin(supabase: SupabaseClient): Promise<PostListRow[]> {
 	const { data, error } = await supabase
 		.from('posts')
-		.select('id, title, published, published_at, updated_at, word_count');
+		.select('id, title, published, published_at, updated_at, word_count, view_count');
 
 	if (error) throw error;
 	const rows = (data ?? []) as PostListRow[];
@@ -148,7 +149,7 @@ export async function deletePostById(supabase: SupabaseClient, postId: number): 
 export async function listPublishedPosts(supabase: SupabaseClient): Promise<PostListRow[]> {
 	const { data, error } = await supabase
 		.from('posts')
-		.select('id, title, published, published_at, updated_at, word_count')
+		.select('id, title, published, published_at, updated_at, word_count, view_count')
 		.eq('published', true)
 		.order('published_at', { ascending: false });
 
@@ -168,7 +169,7 @@ export async function listPostsByIds(
 	if (ids.length === 0) return [];
 	let q = supabase
 		.from('posts')
-		.select('id, title, published, published_at, updated_at, word_count')
+		.select('id, title, published, published_at, updated_at, word_count, view_count')
 		.in('id', ids);
 
 	if (opts.onlyPublished) q = q.eq('published', true);

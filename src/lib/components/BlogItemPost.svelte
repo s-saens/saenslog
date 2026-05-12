@@ -42,7 +42,12 @@
 
 <!-- 카드 전체는 .card-link 오버레이, 티스토리는 z-index로 분리 (중첩 <a> 방지) -->
 <div class="blog-item post" class:overflowing={isOverflowing} data-title={title}>
-	<a href={hrefBlogPath(path)} class="card-link" aria-label="블로그 글: {title}"></a>
+	<a
+		href={hrefBlogPath(path)}
+		class="card-link"
+		aria-label="블로그 글: {title}"
+		data-sveltekit-preload-data="tap"
+	></a>
 	<div class="icon">
 		<PostIcon />
 	</div>
