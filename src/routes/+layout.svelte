@@ -13,14 +13,6 @@
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
 	import { navigating } from '$lib/stores/navigating.svelte';
-	import '@fontsource/ibm-plex-mono/400.css';
-	import '@fontsource/ibm-plex-mono/500.css';
-	import '@fontsource/ibm-plex-mono/600.css';
-	import '@fontsource/ibm-plex-mono/700.css';
-	import '@fontsource/ibm-plex-sans-kr/400.css';
-	import '@fontsource/ibm-plex-sans-kr/500.css';
-	import '@fontsource/ibm-plex-sans-kr/600.css';
-	import '@fontsource/ibm-plex-sans-kr/700.css';
 	import 'highlight.js/styles/github-dark-dimmed.css';
 	import { onMount, setContext } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -79,7 +71,7 @@
 			'--text-tertiary': '#808080',
 			'--border': '#505050',
 			'--accent': '#ffffff',
-			'--img-filter': 'invert(1)',
+			'--img-filter': 'none',
 			'--code-bg': '#1e2228'
 		},
 		light: {
@@ -195,6 +187,12 @@
 <svelte:head>
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<link rel="icon" href="/favicon.ico" sizes="32x32" />
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link
+		rel="stylesheet"
+		href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap"
+	/>
 	<title>SAENS</title>
 </svelte:head>
 
@@ -295,12 +293,12 @@
 							}}
 						>
 							<span class="account-initial"
-								>{(data.profile?.username?.[0] ?? data.user.email?.[0] ?? '?').toUpperCase()}</span
+								>{(data.user.email?.[0] ?? '?').toUpperCase()}</span
 							>
 						</button>
 						{#if showAuthPanel}
 							<div class="auth-panel" transition:fade={{ duration: 150 }}>
-								<div class="auth-email">{data.profile?.username ?? data.user.email}</div>
+								<div class="auth-email">{data.user.email}</div>
 								<a href={resolve('/admin')} class="auth-admin-btn">관리</a>
 								<form method="POST" action={logoutFormAction} use:enhance>
 									<button type="submit" class="auth-logout-btn">로그아웃</button>
@@ -352,7 +350,7 @@
 		--font-mono:
 			'IBM Plex Mono', ui-monospace, 'Cascadia Code', 'Segoe UI Mono', 'SFMono-Regular', Menlo,
 			Monaco, Consolas, monospace;
-		--img-filter: invert(1);
+		--img-filter: none;
 		--code-bg: #1e2228;
 	}
 

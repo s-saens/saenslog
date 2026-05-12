@@ -22,22 +22,17 @@ const MEDIA_MIME_TYPES: Record<string, string> = {
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = createSupabaseServer(event);
 
-	event.locals.safeGetSession = async () => {
+	event.locals.safeGetUser = async () => {
 		try {
 			const {
 				data: { user },
 				error
 			} = await event.locals.supabase.auth.getUser();
-			if (error || !user) return { session: null, user: null };
-
-			const {
-				data: { session }
-			} = await event.locals.supabase.auth.getSession();
-
-			return { session, user };
+			if (error || !user) return null;
+			return user;
 		} catch (e) {
-			console.error('safeGetSession', e);
-			return { session: null, user: null };
+			console.error('safeGetUser', e);
+			return null;
 		}
 	};
 

@@ -1,52 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import type { Track } from '$lib/stores/music.svelte';
-
-const AUDIO_EXTENSIONS = /\.(mp3|ogg|flac|wav|m4a|aac)$/i;
-
-function parseFilename(filename: string): Pick<Track, 'artist' | 'title' | 'subtitle'> {
-	const nameWithoutExt = filename.replace(/\.[^.]+$/, '');
-	const parts = nameWithoutExt.split('-').map((p) => p.trim());
-	return {
-		artist: parts[0] ?? 'Unknown',
-		title: parts[1] ?? filename,
-		subtitle: parts[2] ?? ''
-	};
-}
+import { getTracks } from '$lib/server/tracks';
 
 export const load = async ({ locals }) => {
-	const { session, user } = await locals.safeGetSession();
+	const [user, tracks] = await Promise.all([locals.safeGetUser(), getTracks()]);
 
-	let profile: App.Profile | null = null;
-	if (user) {
-		try {
-			const { data, error } = await locals.supabase
-				.from('profiles')
-				.select('username, display_name, avatar_url, role')
-				.eq('id', user.id)
-				.single();
-			if (!error && data && (data.role === 'admin' || data.role === 'member')) {
-				profile = data as App.Profile;
-			}
-		} catch (e) {
-			console.error('layout profile', e);
-		}
-	}
-
-	const musicsDir = path.join(process.cwd(), 'static', 'musics');
-
-	if (!fs.existsSync(musicsDir)) {
-		return { session, user, profile, tracks: [] as Track[] };
-	}
-
-	const files = fs.readdirSync(musicsDir).filter((f) => AUDIO_EXTENSIONS.test(f));
-
-	const tracks: Track[] = files.map((filename, i) => ({
-		id: i + 1,
-		...parseFilename(filename),
-		src: `/musics/${encodeURIComponent(filename)}`,
-		duration: ''
-	}));
-
-	return { session, user, profile, tracks };
+	return { user, tracks };
 };
