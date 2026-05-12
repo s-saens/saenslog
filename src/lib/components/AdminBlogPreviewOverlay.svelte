@@ -258,6 +258,28 @@
 		filter: none;
 	}
 
+	.post :global(.content figure.post-image-figure) {
+		margin: 1rem auto;
+		max-width: 100%;
+	}
+
+	.post :global(.content figure.post-image-figure figcaption) {
+		margin-top: 0.45rem;
+		text-align: center;
+		font-size: 0.82rem;
+		line-height: 1.35;
+		color: var(--text-secondary);
+		font-family: var(--font-default);
+	}
+
+	:global([data-theme='dark']) .post :global(.content img[data-image-color-mode='light']) {
+		filter: invert(1) hue-rotate(180deg);
+	}
+
+	:global([data-theme='light']) .post :global(.content img[data-image-color-mode='dark']) {
+		filter: invert(1) hue-rotate(180deg);
+	}
+
 	.post :global(.content p) {
 		margin: 1rem 0;
 		font-family: var(--font-default);
@@ -459,6 +481,30 @@
 		color: var(--text-secondary);
 		border: 1px solid var(--border);
 		vertical-align: middle;
+	}
+
+	.post :global(.content td:has(> img)),
+	.post :global(.content th:has(> img)),
+	.post :global(.content td:has(> figure.post-image-figure)),
+	.post :global(.content th:has(> figure.post-image-figure)) {
+		padding: 0;
+		overflow: hidden;
+	}
+
+	.post :global(.content td figure.post-image-figure),
+	.post :global(.content th figure.post-image-figure) {
+		margin: 0;
+		max-width: 100%;
+	}
+
+	.post :global(.content td img),
+	.post :global(.content th img) {
+		max-height: none;
+		width: 100%;
+		height: auto;
+		border-radius: 0;
+		display: block;
+		margin: 0;
 	}
 
 	.post :global(.content .table-scroll-btn) {

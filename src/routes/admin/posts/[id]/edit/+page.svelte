@@ -132,6 +132,12 @@
 		<AdminMarkdownField bind:md docSyncKey={`db-${assetKey}`} getAssetSlug={() => assetKey} />
 
 		<div class="toolbar">
+			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>
+			<button type="submit" class="btn primary" disabled={saving}>
+				{saving ? '저장 중...' : '저장'}
+			</button>
+			<a class="btn" href={resolve('/admin/posts')}>목록</a>
+			<button type="submit" class="btn danger" form="post-delete-form">삭제</button>
 			<span class="autosave-status">
 				{#if autosaveStatus === 'saving'}
 					저장 중...
@@ -143,12 +149,6 @@
 					자동 저장 활성화
 				{/if}
 			</span>
-			<button type="button" class="btn" onclick={() => (previewOpen = true)}>미리보기</button>
-			<button type="submit" class="btn primary" disabled={saving}>
-				{saving ? '저장 중...' : '저장'}
-			</button>
-			<a class="btn" href={resolve('/admin/posts')}>목록</a>
-			<button type="submit" class="btn danger" form="post-delete-form">삭제</button>
 		</div>
 	</form>
 
@@ -285,6 +285,9 @@
 		font-size: 0.78rem;
 		color: var(--text-tertiary);
 		padding: 0 0.25rem;
+		margin-left: auto;
+		flex-shrink: 0;
+		white-space: nowrap;
 	}
 
 	.toolbar {
