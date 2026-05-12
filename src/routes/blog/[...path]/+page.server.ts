@@ -30,6 +30,7 @@ import {
 	type PostListRow
 } from '$lib/server/posts';
 import { thrownMessageForActionFail } from '$lib/formActionFailure';
+import { renderMarkdownToHtml } from '$lib/server/markdown';
 import { tryCreateSupabaseServiceClient } from '$lib/server/supabaseService';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -110,7 +111,9 @@ function postRowToCard(
 	};
 }
 
-function folderListingBreadcrumbItems(chainExcludingRoot: FolderRow[]): { label: string; path: string }[] {
+function folderListingBreadcrumbItems(
+	chainExcludingRoot: FolderRow[]
+): { label: string; path: string }[] {
 	return chainExcludingRoot.map((f) => ({
 		label: folderDisplayLabel(f),
 		path: `/blog/f/${f.id}`
@@ -144,13 +147,10 @@ async function loadBlogFolderListing(
 			? [{ label: 'Blog', path: '/blog' }]
 			: [{ label: 'Blog', path: '/blog' }, ...folderListingBreadcrumbItems(chainNoRoot)];
 
-	const metaRows =
-		opts.preloadedPublishedRows ?? (await listPublishedPosts(supabase));
+	const metaRows = opts.preloadedPublishedRows ?? (await listPublishedPosts(supabase));
 	const postMetaById = new Map(metaRows.map((r) => [r.id, r]));
 
-	const subFolderRows = folder.subfolders
-		.map((id) => byId.get(id))
-		.filter(Boolean) as FolderRow[];
+	const subFolderRows = folder.subfolders.map((id) => byId.get(id)).filter(Boolean) as FolderRow[];
 	subFolderRows.sort((a, b) =>
 		(a.name ?? '').localeCompare(b.name ?? '', 'ko', { sensitivity: 'base' })
 	);
@@ -181,8 +181,18 @@ async function loadBlogFolderListing(
 }
 
 export const load: PageServerLoad = async ({ params, locals, parent }) => {
-	const { profile } = await parent();
-	const isAdmin = profile?.role === 'admin';
+	const { user } = await parent();
+	let isAdmin = false;
+
+	if (user) {
+		const { data: profile } = await locals.supabase
+			.from('profiles')
+			.select('role')
+			.eq('id', user.id)
+			.single();
+		isAdmin = profile?.role === 'admin';
+	}
+
 	const pathParam = params.path || '';
 	const segments = pathParam.split('/').filter(Boolean);
 	const onlyPub = !isAdmin;
@@ -231,7 +241,7 @@ export const load: PageServerLoad = async ({ params, locals, parent }) => {
 			published: dbRow.published_at,
 			updated: dbRow.updated_at,
 			category,
-			content: dbRow.content_html as string,
+			content: renderMarkdownToHtml(dbRow.content_md),
 			wordCount: dbRow.word_count as number,
 			tags,
 			comments,
@@ -479,15 +489,9 @@ export const actions: Actions = {
 		}
 
 		try {
-			const { id } = await createFolderUnderParent(locals.supabase, parentFolderId, nameRaw);
-			throw redirect(
-				303,
-				resolve('/blog/[...path]', {
-					path: `f/${id}`
-				})
-			);
+			await createFolderUnderParent(locals.supabase, parentFolderId, nameRaw);
+			return { ok: true };
 		} catch (e) {
-			if (isRedirect(e)) throw e;
 			console.error('[createFolder]', e);
 			return fail(400, {
 				message: thrownMessageForActionFail(e, '폴더를 만들 수 없습니다.')

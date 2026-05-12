@@ -56,9 +56,7 @@
 
 	function openMoveModal() {
 		moveTargetFolderId =
-			data.postFolderId != null && data.postFolderId !== 0
-				? String(data.postFolderId)
-				: '';
+			data.postFolderId != null && data.postFolderId !== 0 ? String(data.postFolderId) : '';
 		moveError = null;
 		moveModalOpen = true;
 	}
@@ -260,6 +258,7 @@
 								await update({ reset: false });
 								return;
 							}
+							closeNewFolderModal();
 							await update();
 						};
 					}}
@@ -293,13 +292,14 @@
 			</div>
 		{/if}
 		{#if moveModalOpen}
-			<button
-				type="button"
-				class="folder-modal-backdrop"
-				onclick={closeMoveModal}
-				aria-label="닫기"
+			<button type="button" class="folder-modal-backdrop" onclick={closeMoveModal} aria-label="닫기"
 			></button>
-			<div class="folder-modal folder-move-modal" role="dialog" aria-modal="true" aria-labelledby="move-post-title">
+			<div
+				class="folder-modal folder-move-modal"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="move-post-title"
+			>
 				<h2 id="move-post-title" class="folder-modal-title">글 위치 이동</h2>
 				<form
 					method="POST"
@@ -307,10 +307,7 @@
 					use:enhance={() => {
 						return async ({ result, update }) => {
 							if (result.type === 'failure') {
-								moveError = readActionFailureMessage(
-									result.data,
-									'글을 이동하지 못했습니다.'
-								);
+								moveError = readActionFailureMessage(result.data, '글을 이동하지 못했습니다.');
 								await update({ reset: false });
 								return;
 							}
@@ -809,6 +806,28 @@
 		filter: none;
 	}
 
+	.post .content :global(figure.post-image-figure) {
+		margin: 1rem auto;
+		max-width: 100%;
+	}
+
+	.post .content :global(figure.post-image-figure figcaption) {
+		margin-top: 0.45rem;
+		text-align: center;
+		font-size: 0.82rem;
+		line-height: 1.35;
+		color: var(--text-secondary);
+		font-family: var(--font-default);
+	}
+
+	:global([data-theme='dark']) .post .content :global(img[data-image-color-mode='light']) {
+		filter: invert(1) hue-rotate(180deg);
+	}
+
+	:global([data-theme='light']) .post .content :global(img[data-image-color-mode='dark']) {
+		filter: invert(1) hue-rotate(180deg);
+	}
+
 	.post .content :global(p) {
 		margin: 1rem 0;
 		font-family: var(--font-default);
@@ -1053,9 +1072,23 @@
 	}
 
 	.post .content :global(td:has(> img)),
-	.post .content :global(th:has(> img)) {
+	.post .content :global(th:has(> img)),
+	.post .content :global(td:has(> figure.post-image-figure)),
+	.post .content :global(th:has(> figure.post-image-figure)) {
 		padding: 0;
 		overflow: hidden;
+	}
+
+	.post .content :global(td figure.post-image-figure),
+	.post .content :global(th figure.post-image-figure) {
+		margin: 0;
+		max-width: 100%;
+	}
+
+	.post .content :global(td figure.post-image-figure figcaption),
+	.post .content :global(th figure.post-image-figure figcaption) {
+		font-size: 0.75rem;
+		padding: 0.35rem 0.5rem 0.45rem;
 	}
 
 	.post .content :global(td img),

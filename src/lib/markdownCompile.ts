@@ -2,6 +2,8 @@ import hljs from 'highlight.js';
 import { marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 
+import { POST_IMAGE_FIGURE_CLASS } from '$lib/browser/tiptapImageWithColorMode';
+
 marked.use(
 	markedHighlight({
 		langPrefix: 'hljs language-',
@@ -13,14 +15,25 @@ marked.use(
 );
 
 const renderer = new marked.Renderer();
-const originalImage = renderer.image;
+const originalImage = renderer.image.bind(renderer);
+
+function escapeHtmlAttr(s: string): string {
+	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
 
 renderer.image = function (token) {
 	let href = token.href;
 	if (!href.startsWith('/') && !href.startsWith('http')) {
 		href = '/' + href;
 	}
-	return originalImage.call(this, { ...token, href });
+	const alt = typeof token.text === 'string' ? token.text : '';
+	if (!alt.trim()) {
+		return originalImage({ ...token, href });
+	}
+	const safe = escapeHtmlAttr(alt);
+	const hrefEsc = escapeHtmlAttr(href);
+	const titleAttr = token.title ? ` title="${escapeHtmlAttr(String(token.title))}"` : '';
+	return `<figure class="${POST_IMAGE_FIGURE_CLASS}"><img src="${hrefEsc}" alt="${safe}" loading="lazy"${titleAttr} /><figcaption>${safe}</figcaption></figure>`;
 };
 
 renderer.table = function (token) {
@@ -30,6 +43,18 @@ renderer.table = function (token) {
 
 marked.setOptions({ renderer });
 
+/** marked가 `<p><figure>…</figure></p>`로 감쌀 때 블록으로 분리 */
+function unwrapStandaloneImageFigures(html: string): string {
+	return html.replace(
+		new RegExp(
+			`<p>\\s*(<figure class="${POST_IMAGE_FIGURE_CLASS}">[\\s\\S]*?<\\/figure>)\\s*<\\/p>`,
+			'gi'
+		),
+		'$1'
+	);
+}
+
 export function renderMarkdownToHtml(markdown: string): string {
-	return marked.parse(markdown, { async: false }) as string;
+	const raw = marked.parse(markdown, { async: false }) as string;
+	return unwrapStandaloneImageFigures(raw);
 }
