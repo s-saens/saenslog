@@ -49,7 +49,6 @@
 	.post-likes {
 		margin: 1.75rem 0 0.25rem;
 		padding-top: 1.25rem;
-		border-top: 1px solid var(--border);
 	}
 
 	.heart-btn {

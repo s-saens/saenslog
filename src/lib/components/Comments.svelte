@@ -32,6 +32,8 @@ let {
 
 let comments = $state<CommentItem[]>([]);
 let replyToId = $state<number | null>(null);
+let editingCommentId = $state<number | null>(null);
+let editDraft = $state('');
 
 $effect(() => {
 	comments = [...initialComments];
@@ -118,6 +120,60 @@ $effect(() => {
 			await update();
 		};
 	}
+
+	function startEdit(comment: CommentItem) {
+		editingCommentId = comment.id;
+		editDraft = comment.content;
+	}
+
+	function cancelEdit() {
+		editingCommentId = null;
+	}
+
+	function afterEditSubmit() {
+		return async ({
+			result,
+			update
+		}: {
+			result: { type: string; data?: { message?: string } };
+			update: () => Promise<void>;
+		}) => {
+			if (result.type === 'failure') {
+				const msg = result.data?.message;
+				if (msg) alert(msg);
+				await update();
+				return;
+			}
+			editingCommentId = null;
+			await update();
+		};
+	}
+
+	function afterCommentDelete(commentId: number) {
+		return async ({ cancel }: { cancel: () => void }) => {
+			if (!confirm('이 댓글을 삭제할까요?')) {
+				cancel();
+				return;
+			}
+
+			return async ({
+				result,
+				update
+			}: {
+				result: { type: string; data?: { message?: string } };
+				update: () => Promise<void>;
+			}) => {
+				if (result.type === 'failure') {
+					const msg = result.data?.message;
+					if (msg) alert(msg);
+					await update();
+					return;
+				}
+				comments = comments.filter((item) => item.id !== commentId);
+				await update();
+			};
+		};
+	}
 </script>
 
 <div class="comments">
@@ -164,10 +220,56 @@ $effect(() => {
 			{@const cl = likesFor(c.id)}
 			<li class="item">
 				<div class="meta">
-					<span class="who">{displayName(c)}</span>
-					<time datetime={c.created_at}>{formatTime(c.created_at)}</time>
+					<div class="meta-main">
+						<span class="who">{displayName(c)}</span>
+						<time datetime={c.created_at}>{formatTime(c.created_at)}</time>
+					</div>
+					{#if currentUserId && c.author_id && currentUserId === c.author_id}
+						<div class="meta-actions">
+							{#if editingCommentId !== c.id}
+								<button type="button" class="btn ghost small" onclick={() => startEdit(c)}
+									>수정</button
+								>
+							{/if}
+							<form
+								class="comment-action-form"
+								method="POST"
+								action="?/deleteComment"
+								use:enhance={afterCommentDelete(c.id)}
+							>
+								<input type="hidden" name="post_slug" value={postSlug} />
+								<input type="hidden" name="comment_id" value={c.id} />
+								<button type="submit" class="btn danger ghost small">삭제</button>
+							</form>
+						</div>
+					{/if}
 				</div>
-				<div class="body">{c.content}</div>
+				{#if editingCommentId === c.id}
+					<form
+						class="edit-inline"
+						method="POST"
+						action="?/editComment"
+						use:enhance={afterEditSubmit}
+					>
+						<input type="hidden" name="comment_id" value={c.id} />
+						<label class="sr-only" for="edit-comment-{c.id}">댓글 수정</label>
+						<textarea
+							id="edit-comment-{c.id}"
+							class="textarea"
+							name="content"
+							rows="3"
+							required
+							maxlength="12000"
+							bind:value={editDraft}
+						></textarea>
+						<div class="edit-actions">
+							<button type="submit" class="btn small">저장</button>
+							<button type="button" class="btn ghost small" onclick={cancelEdit}>취소</button>
+						</div>
+					</form>
+				{:else}
+					<div class="body">{c.content}</div>
+				{/if}
 
 				<form
 					class="comment-like"
@@ -189,44 +291,17 @@ $effect(() => {
 					</button>
 				</form>
 
-				{#if currentUserId && c.author_id && currentUserId === c.author_id}
-					<details class="editbox">
-						<summary>수정</summary>
-						<form method="POST" action="?/editComment" use:enhance={() =>
-							async ({ update }) => {
-								await update();
-							}}>
-							<input type="hidden" name="comment_id" value={c.id} />
-							<textarea class="textarea" name="content" rows="3" required>{c.content}</textarea>
-							<button type="submit" class="btn small">저장</button>
-						</form>
-					</details>
-					<form
-						method="POST"
-						action="?/deleteComment"
-						use:enhance={() =>
-							async ({ update }) => {
-								if (!confirm('이 댓글을 삭제할까요?')) {
-									return;
-								}
-								comments = comments.filter((item) => item.id !== c.id);
-								await update();
-							}}
-					>
-						<input type="hidden" name="comment_id" value={c.id} />
-						<button type="submit" class="btn danger ghost small">삭제</button>
-					</form>
-				{/if}
-
-				{#if replyToId !== c.id}
-					<button
-						type="button"
-						class="btn ghost small"
-						onclick={() => (replyToId = replyToId === c.id ? null : c.id)}
-					>
-						답글
-					</button>
-				{/if}
+				<div class="comment-actions">
+					{#if replyToId !== c.id}
+						<button
+							type="button"
+							class="btn ghost small"
+							onclick={() => (replyToId = replyToId === c.id ? null : c.id)}
+						>
+							답글
+						</button>
+					{/if}
+				</div>
 
 				{#if replyToId === c.id}
 					<form
@@ -273,10 +348,60 @@ $effect(() => {
 							{@const rl = likesFor(r.id)}
 							<li class="item reply">
 								<div class="meta">
-									<span class="who">{displayName(r)}</span>
-									<time datetime={r.created_at}>{formatTime(r.created_at)}</time>
+									<div class="meta-main">
+										<span class="who">{displayName(r)}</span>
+										<time datetime={r.created_at}>{formatTime(r.created_at)}</time>
+									</div>
+									{#if currentUserId && r.author_id && currentUserId === r.author_id}
+										<div class="meta-actions">
+											{#if editingCommentId !== r.id}
+												<button
+													type="button"
+													class="btn ghost small"
+													onclick={() => startEdit(r)}>수정</button
+												>
+											{/if}
+											<form
+												class="comment-action-form"
+												method="POST"
+												action="?/deleteComment"
+												use:enhance={afterCommentDelete(r.id)}
+											>
+												<input type="hidden" name="post_slug" value={postSlug} />
+												<input type="hidden" name="comment_id" value={r.id} />
+												<button type="submit" class="btn danger ghost small">삭제</button>
+											</form>
+										</div>
+									{/if}
 								</div>
-								<div class="body">{r.content}</div>
+								{#if editingCommentId === r.id}
+									<form
+										class="edit-inline"
+										method="POST"
+										action="?/editComment"
+										use:enhance={afterEditSubmit}
+									>
+										<input type="hidden" name="comment_id" value={r.id} />
+										<label class="sr-only" for="edit-comment-{r.id}">답글 수정</label>
+										<textarea
+											id="edit-comment-{r.id}"
+											class="textarea"
+											name="content"
+											rows="2"
+											required
+											maxlength="12000"
+											bind:value={editDraft}
+										></textarea>
+										<div class="edit-actions">
+											<button type="submit" class="btn small">저장</button>
+											<button type="button" class="btn ghost small" onclick={cancelEdit}
+												>취소</button
+											>
+										</div>
+									</form>
+								{:else}
+									<div class="body">{r.content}</div>
+								{/if}
 								<form
 									class="comment-like"
 									method="POST"
@@ -296,36 +421,6 @@ $effect(() => {
 										<span class="comment-like-n">{rl.count.toLocaleString('ko-KR')}</span>
 									</button>
 								</form>
-								{#if currentUserId && r.author_id && currentUserId === r.author_id}
-									<details class="editbox">
-										<summary>수정</summary>
-										<form method="POST" action="?/editComment" use:enhance={() =>
-											async ({ update }) => {
-												await update();
-											}}>
-											<input type="hidden" name="comment_id" value={r.id} />
-											<textarea class="textarea" name="content" rows="2" required
-												>{r.content}</textarea
-											>
-											<button type="submit" class="btn small">저장</button>
-										</form>
-									</details>
-									<form
-										method="POST"
-										action="?/deleteComment"
-										use:enhance={() =>
-											async ({ update }) => {
-												if (!confirm('이 댓글을 삭제할까요?')) {
-													return;
-												}
-												comments = comments.filter((item) => item.id !== r.id);
-												await update();
-											}}
-									>
-										<input type="hidden" name="comment_id" value={r.id} />
-										<button type="submit" class="btn danger ghost small">삭제</button>
-									</form>
-								{/if}
 							</li>
 						{/each}
 					</ul>
@@ -460,10 +555,38 @@ $effect(() => {
 
 	.meta {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: baseline;
-		gap: 0.5rem;
+		justify-content: space-between;
+		gap: 0.25rem 0.65rem;
+		width: 100%;
+		box-sizing: border-box;
 		font-size: 0.78rem;
 		color: var(--text-tertiary);
+	}
+
+	.meta-main {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.meta-actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		flex: 0 0 auto;
+		margin-left: auto;
+	}
+
+	.meta-actions .btn.small {
+		font-size: 0.68rem;
+		padding: 0.12rem 0.38rem;
+		line-height: 1.25;
+		border-radius: 6px;
+		align-self: center;
 	}
 
 	.who {
@@ -483,6 +606,32 @@ $effect(() => {
 		margin: 0;
 		padding: 0;
 		align-self: flex-start;
+	}
+
+	.comment-actions {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		width: 100%;
+	}
+
+	.comment-actions .btn {
+		align-self: center;
+	}
+
+	.comment-actions:empty {
+		display: none;
+	}
+
+	.comment-action-form {
+		margin: 0;
+		padding: 0;
+		display: inline-flex;
+		align-items: center;
+		border: none;
+		background: none;
 	}
 
 	.comment-like-btn {
@@ -543,21 +692,22 @@ $effect(() => {
 		flex-wrap: wrap;
 	}
 
-	.editbox {
-		font-size: 0.82rem;
-		color: var(--text-secondary);
-		width: 100%;
-	}
-
-	.editbox summary {
-		cursor: pointer;
-		margin-bottom: 0.35rem;
-	}
-
-	.editbox form {
+	.edit-inline {
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
+		width: 100%;
+		margin: 0;
+		padding: 0;
+		border: none;
+		background: none;
+	}
+
+	.edit-actions {
+		display: flex;
+		gap: 0.4rem;
+		flex-wrap: wrap;
+		align-items: center;
 	}
 
 	.sr-only {

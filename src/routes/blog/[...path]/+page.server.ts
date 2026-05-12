@@ -537,6 +537,46 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
+	deleteComment: async ({ request, locals }) => {
+		const form = await request.formData();
+		const id = Number(form.get('comment_id'));
+		const postSlug = String(form.get('post_slug') ?? '').trim();
+
+		if (!Number.isFinite(id) || id <= 0 || !postSlug) {
+			return fail(400, { message: '잘못된 요청입니다.' });
+		}
+
+		const {
+			data: { user }
+		} = await locals.supabase.auth.getUser();
+		if (!user) return fail(401, { message: '로그인이 필요합니다.' });
+
+		const { data: row, error: selErr } = await locals.supabase
+			.from('comments')
+			.select('id, author_id, post_slug')
+			.eq('id', id)
+			.maybeSingle();
+
+		if (selErr) return fail(400, { message: selErr.message });
+		if (!row || row.post_slug !== postSlug) {
+			return fail(404, { message: '댓글을 찾을 수 없습니다.' });
+		}
+		if (row.author_id !== user.id) {
+			return fail(403, { message: '삭제할 권한이 없습니다.' });
+		}
+
+		const { data: deleted, error: delErr } = await locals.supabase
+			.from('comments')
+			.delete()
+			.eq('id', id)
+			.select('id');
+
+		if (delErr) return fail(400, { message: delErr.message });
+		if (!deleted?.length) return fail(403, { message: '삭제할 수 없습니다.' });
+
+		return { ok: true };
+	},
+
 	togglePostLike: async ({ request, locals, getClientAddress }) => {
 		const service = tryCreateSupabaseServiceClient();
 		const rateSecret = privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
@@ -698,7 +738,10 @@ export const actions: Actions = {
 				.eq('user_id', user.id)
 				.maybeSingle();
 			if (existing) {
-				const { error: delErr } = await service.from('comment_likes').delete().eq('id', existing.id);
+				const { error: delErr } = await service
+					.from('comment_likes')
+					.delete()
+					.eq('id', existing.id);
 				if (delErr) return fail(400, { message: delErr.message });
 			} else {
 				const { error: insErr } = await service.from('comment_likes').insert({
@@ -717,7 +760,10 @@ export const actions: Actions = {
 				.eq('ip_hash', ipHash)
 				.maybeSingle();
 			if (existing) {
-				const { error: delErr } = await service.from('comment_likes').delete().eq('id', existing.id);
+				const { error: delErr } = await service
+					.from('comment_likes')
+					.delete()
+					.eq('id', existing.id);
 				if (delErr) return fail(400, { message: delErr.message });
 			} else {
 				const { error: insErr } = await service.from('comment_likes').insert({
