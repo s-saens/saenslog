@@ -26,5 +26,7 @@ export type BlogPostListItem = {
 	category: string;
 	date: string;
 	wordCount: number;
+	/** 목록·관련 글 카드 조회수 (없으면 0) */
+	viewCount?: number;
 	tistory?: string;
 };

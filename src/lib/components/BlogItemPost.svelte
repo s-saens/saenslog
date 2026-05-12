@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { hrefBlogPath } from '$lib/appPaths';
-	import { PostIcon, TextCountIcon, TistoryIcon } from '$lib/components/icons';
+	import { EyeIcon, PostIcon, TextCountIcon, TistoryIcon } from '$lib/components/icons';
 
 	interface Props {
 		title: string;
@@ -8,10 +8,11 @@
 		category: string;
 		date: string;
 		wordCount: number;
+		viewCount?: number;
 		tistory?: string;
 	}
 
-	let { title, path, category, date, wordCount, tistory }: Props = $props();
+	let { title, path, category, date, wordCount, viewCount = 0, tistory }: Props = $props();
 
 	const formatDate = (dateStr: string) => {
 		if (!dateStr) return '';
@@ -65,7 +66,13 @@
 			</a>
 		{/if}
 	</div>
-	<div class="date">{formatDate(date)}</div>
+	<div class="date-row">
+		<span class="date">{formatDate(date)}</span>
+		<span class="views" aria-label="조회 {viewCount}회">
+			<EyeIcon width={11} height={11} />
+			{viewCount}
+		</span>
+	</div>
 	<div class="info-row1">
 		<span class="word-count">
 			<TextCountIcon width={10} height={10} />
@@ -231,13 +238,36 @@
 		opacity: 0.7;
 	}
 
-	.date {
-		position: relative;
+	.date-row {
 		grid-row: 2;
 		grid-column: 2;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 0.45rem;
+		flex-wrap: wrap;
+		min-width: 0;
 		color: var(--text-tertiary);
 		font-size: 0.7rem;
+	}
+
+	.date {
+		position: relative;
 		cursor: default;
+		flex-shrink: 0;
+	}
+
+	.views {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		flex-shrink: 0;
+		cursor: default;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.views :global(svg) {
+		flex-shrink: 0;
 	}
 
 	.date::after {

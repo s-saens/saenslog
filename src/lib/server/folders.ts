@@ -84,6 +84,17 @@ export function ancestorFolderChain(folderId: number, folders: FolderRow[]): Fol
 	return chain.reverse();
 }
 
+/** 루트(id=0) 제외, 루트→…→해당 폴더 순서의 라벨을 잇는 경로(예: `Deb/AI`). */
+export function folderPathLabelExcludingRoot(
+	folderId: number,
+	folders: FolderRow[],
+	separator = '/'
+): string {
+	const chain = ancestorFolderChain(folderId, folders).filter((f) => f.id !== BLOG_ROOT_FOLDER_ID);
+	if (chain.length === 0) return '';
+	return chain.map(folderDisplayLabel).join(separator);
+}
+
 export function findFolderContainingPost(postId: number, folders: FolderRow[]): FolderRow | null {
 	for (const f of folders) {
 		if (f.posts.includes(postId)) return f;
@@ -222,7 +233,9 @@ export async function movePostToFolder(
 }
 
 /** 관리자 글 이동 UI — 폴더 트리 경로 레이블(루트 id는 빈 선택으로 처리하므로 제외) */
-export function folderMovePickerEntries(allFolders: FolderRow[]): { id: number; pathLabel: string }[] {
+export function folderMovePickerEntries(
+	allFolders: FolderRow[]
+): { id: number; pathLabel: string }[] {
 	const rows = allFolders
 		.filter((f) => f.id !== BLOG_ROOT_FOLDER_ID)
 		.map((f) => ({

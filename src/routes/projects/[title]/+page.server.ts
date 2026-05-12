@@ -110,6 +110,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		category: string;
 		date: string;
 		wordCount: number;
+		viewCount: number;
 	}[] = [];
 	for (const entry of relatedRaw) {
 		const id = relatedPostIdFromEntry(String(entry));
@@ -121,7 +122,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			path: String(row.id),
 			category: '',
 			date: row.published_at ?? row.updated_at,
-			wordCount: row.word_count
+			wordCount: row.word_count,
+			viewCount: Number(row.view_count ?? 0)
 		});
 	}
 

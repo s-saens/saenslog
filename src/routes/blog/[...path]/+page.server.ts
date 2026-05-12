@@ -15,6 +15,7 @@ import {
 	fetchAllFolders,
 	findFolderContainingPost,
 	folderDisplayLabel,
+	folderPathLabelExcludingRoot,
 	folderMovePickerEntries,
 	foldersById,
 	movePostToFolder,
@@ -42,6 +43,7 @@ type ListPost = {
 	category: string;
 	date: string;
 	wordCount: number;
+	viewCount: number;
 	tistory?: string;
 };
 
@@ -156,6 +158,7 @@ function postRowToCard(
 		updated_at: string;
 		word_count: number;
 		id: number;
+		view_count?: number | null;
 	},
 	folderLabel: string
 ): ListPost {
@@ -164,7 +167,8 @@ function postRowToCard(
 		path: String(row.id),
 		category: folderLabel,
 		date: row.published_at ?? row.updated_at,
-		wordCount: row.word_count
+		wordCount: row.word_count,
+		viewCount: Number(row.view_count ?? 0)
 	};
 }
 
@@ -219,7 +223,8 @@ async function loadBlogFolderListing(
 	});
 	const folderTitle = folderId === BLOG_ROOT_FOLDER_ID ? 'Blog' : folderDisplayLabel(folder);
 
-	const posts: ListPost[] = postRows.map((r) => postRowToCard(r, folderDisplayLabel(folder)));
+	const listPathLabel = folderPathLabelExcludingRoot(folderId, allFolders);
+	const posts: ListPost[] = postRows.map((r) => postRowToCard(r, listPathLabel));
 
 	return {
 		path: folderId === BLOG_ROOT_FOLDER_ID ? '' : pathParam,
@@ -268,7 +273,6 @@ export const load: PageServerLoad = async ({ params, locals, parent, getClientAd
 	const onlyPub = !isAdmin;
 
 	const allFolders = await fetchAllFolders(locals.supabase);
-	const byId = foldersById(allFolders);
 
 	/** 단일 세그먼트 숫자 → 글 */
 	if (segments.length === 1 && /^\d+$/.test(segments[0])) {
@@ -319,7 +323,12 @@ export const load: PageServerLoad = async ({ params, locals, parent, getClientAd
 				.select('comment_id, user_id, ip_hash')
 				.in('comment_id', commentIds);
 			if (lrErr) console.error('comment_likes load', lrErr);
-			commentLikesById = buildCommentLikeMap(commentIds, likeRows ?? [], user?.id ?? null, viewerIpHash);
+			commentLikesById = buildCommentLikeMap(
+				commentIds,
+				likeRows ?? [],
+				user?.id ?? null,
+				viewerIpHash
+			);
 		}
 
 		let viewCount = Number(dbRow.view_count ?? 0);
@@ -382,7 +391,11 @@ export const load: PageServerLoad = async ({ params, locals, parent, getClientAd
 	if (segments.length === 0) {
 		const publishedRows = await listPublishedPosts(locals.supabase);
 		const allPosts = Promise.resolve(
-			[...publishedRows].sort(comparePostsByPostedDateDesc).map((r) => postRowToCard(r, ''))
+			[...publishedRows].sort(comparePostsByPostedDateDesc).map((r) => {
+				const host = findFolderContainingPost(r.id, allFolders);
+				const pathLabel = host ? folderPathLabelExcludingRoot(host.id, allFolders) : '';
+				return postRowToCard(r, pathLabel);
+			})
 		);
 		return loadBlogFolderListing(
 			locals.supabase,

@@ -1,5 +1,6 @@
 export { default as BlogIcon } from './BlogIcon.svelte';
 export { default as CopyIcon } from './CopyIcon.svelte';
+export { default as EyeIcon } from './EyeIcon.svelte';
 export { default as FaviconIcon } from './FaviconIcon.svelte';
 export { default as FolderIcon } from './FolderIcon.svelte';
 export { default as FolderMultiIcon } from './FolderMultiIcon.svelte';

@@ -27,6 +27,7 @@
 		category: string;
 		date: string;
 		wordCount: number;
+		viewCount?: number;
 		tistory?: string;
 	}
 
