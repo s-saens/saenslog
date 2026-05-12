@@ -20,6 +20,34 @@
 	import { renderMarkdownToHtml } from '$lib/markdownCompile';
 	import AdminMediaLibraryModal from '$lib/components/AdminMediaLibraryModal.svelte';
 
+	/** TipTap 펜스·highlight.js와 맞추기 쉬운 소문자 식별자 */
+	const CODE_LANG_PRESETS = [
+		'bash',
+		'c',
+		'cpp',
+		'css',
+		'diff',
+		'go',
+		'html',
+		'http',
+		'java',
+		'javascript',
+		'json',
+		'markdown',
+		'plaintext',
+		'python',
+		'rust',
+		'scss',
+		'shell',
+		'sql',
+		'svelte',
+		'toml',
+		'tsx',
+		'typescript',
+		'xml',
+		'yaml'
+	] as const;
+
 	let {
 		md = $bindable(''),
 		name = 'content_md',
@@ -46,12 +74,68 @@
 	let captionPos = $state<number | null>(null);
 	let captionInputEl = $state<HTMLInputElement | undefined>(undefined);
 
-	/** 표 안에서 ⌘/Ctrl+N·D — 행/열 추가·삭제 팝업 */
+	/** 표 안에서 ⌥/Alt+N·D — 행·열 추가·삭제 팝업(Cmd/Ctrl 누르지 않음) */
 	let tableDimMode = $state<null | 'add' | 'del'>(null);
 	let tableDimSel = $state(0);
 	let tableDimModalEl = $state<HTMLDivElement | undefined>(undefined);
 
 	let syncedDocKey: string | number | undefined = undefined;
+
+	let codeBlockActive = $state(false);
+	let codeLangOpen = $state(false);
+	let codeLangDraft = $state('');
+	let codeLangPos = $state<number | null>(null);
+	let codeLangInputEl = $state<HTMLInputElement | undefined>(undefined);
+
+	function findCodeBlockBeforePos(editor: Editor): number | null {
+		const from = editor.state.selection.$from;
+		for (let d = from.depth; d > 0; d--) {
+			const node = from.node(d);
+			if (node.type.name === 'codeBlock') {
+				return from.before(d);
+			}
+		}
+		return null;
+	}
+
+	function openCodeLangModalFor(editor: Editor) {
+		if (!editor.isActive('codeBlock')) return;
+		const attrs = editor.getAttributes('codeBlock') as { language?: string | null };
+		const lang = attrs.language != null && String(attrs.language).trim() !== '' ? String(attrs.language) : '';
+		codeLangDraft = lang;
+		codeLangPos = findCodeBlockBeforePos(editor);
+		codeLangOpen = true;
+	}
+
+	function closeCodeLangModal() {
+		codeLangOpen = false;
+		codeLangPos = null;
+		codeLangDraft = '';
+	}
+
+	function saveCodeLang() {
+		const ed = editorInst;
+		const pos = codeLangPos;
+		if (!ed || pos == null) {
+			closeCodeLangModal();
+			return;
+		}
+		const raw = codeLangDraft.trim();
+		const language = raw === '' ? null : raw.toLowerCase();
+		const node = ed.state.doc.nodeAt(pos);
+		if (!node || node.type.name !== 'codeBlock') {
+			closeCodeLangModal();
+			return;
+		}
+		ed.chain()
+			.focus()
+			.command(({ tr }) => {
+				tr.setNodeMarkup(pos, undefined, { ...node.attrs, language });
+				return true;
+			})
+			.run();
+		closeCodeLangModal();
+	}
 
 	function resolveImageNodePos(view: EditorView, img: HTMLImageElement): number | null {
 		let pos = view.posAtDOM(img, 0);
@@ -92,9 +176,23 @@
 	});
 
 	$effect(() => {
+		if (!browser || !codeLangOpen) return;
+		void tick().then(() => codeLangInputEl?.focus?.());
+	});
+
+	$effect(() => {
 		if (!browser || !captionOpen) return;
 		const esc = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') closeCaptionModal();
+		};
+		window.addEventListener('keydown', esc);
+		return () => window.removeEventListener('keydown', esc);
+	});
+
+	$effect(() => {
+		if (!browser || !codeLangOpen) return;
+		const esc = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') closeCodeLangModal();
 		};
 		window.addEventListener('keydown', esc);
 		return () => window.removeEventListener('keydown', esc);
@@ -206,7 +304,7 @@
 				AudioBlock,
 				Placeholder.configure({
 					placeholder:
-						'내용을 입력하세요. # + 스페이스로 제목. /표 또는 /table + 스페이스로 표 삽입. 표 안에서 ⌘/Ctrl+N·D 로 행·열 편집.'
+						'내용을 입력하세요. # + 스페이스로 제목. /표 또는 /table + 스페이스로 표 삽입. 표 안에서 ⌥/Alt+N·D 로 행·열 편집.'
 				})
 			],
 			content: renderMarkdownToHtml(md),
@@ -215,29 +313,23 @@
 					class: 'tiptap notion-ish-editor',
 					spellcheck: 'true'
 				},
+				handleKeyDown(_view, event) {
+					if (
+						event.altKey &&
+						event.shiftKey &&
+						!event.ctrlKey &&
+						!event.metaKey &&
+						event.code === 'KeyL'
+					) {
+						if (ed.isActive('codeBlock')) {
+							event.preventDefault();
+							openCodeLangModalFor(ed);
+							return true;
+						}
+					}
+					return false;
+				},
 				handleDOMEvents: {
-					keydown(_view, event) {
-						const e = event as KeyboardEvent;
-						if (tableDimMode !== null) return false;
-						const mod = e.ctrlKey || e.metaKey;
-						if (!mod) return false;
-						const key = e.key.toLowerCase();
-						if (key === 'n') {
-							if (!ed.isActive('table')) return false;
-							e.preventDefault();
-							tableDimMode = 'add';
-							tableDimSel = 0;
-							return true;
-						}
-						if (key === 'd') {
-							if (!ed.isActive('table')) return false;
-							e.preventDefault();
-							tableDimMode = 'del';
-							tableDimSel = 0;
-							return true;
-						}
-						return false;
-					},
 					dblclick(view, event) {
 						const t = event.target;
 						if (!(t instanceof HTMLImageElement) || !view.dom.contains(t)) return false;
@@ -288,9 +380,55 @@
 		editorInst = ed;
 		if (docSyncKey != null) syncedDocKey = docSyncKey;
 
+		function syncCodeBlockActive() {
+			codeBlockActive = ed.isActive('codeBlock');
+		}
+		syncCodeBlockActive();
+		ed.on('selectionUpdate', syncCodeBlockActive);
+		ed.on('transaction', syncCodeBlockActive);
+
+		/** 표 편집: ⌥/Alt+N·D (Cmd/Ctrl 없이). `code`로 판별해 한글 등 다른 배열에서도 동일 키(ㅜ/ㅇ)에 반응. */
+		function tableShortcutCapture(e: KeyboardEvent) {
+			const isN = e.code === 'KeyN';
+			const isD = e.code === 'KeyD';
+			if (!isN && !isD) return;
+
+			const isPlainAlt = e.altKey && !e.metaKey && !e.ctrlKey;
+
+			if (tableDimMode !== null) {
+				if (isPlainAlt && (isN || isD)) {
+					e.preventDefault();
+					e.stopPropagation();
+				}
+				return;
+			}
+
+			if (!isPlainAlt) return;
+
+			const active = document.activeElement;
+			if (!active || !hostEl?.contains(active)) return;
+			if (!ed.isActive('table')) return;
+
+			e.preventDefault();
+			e.stopPropagation();
+			if (isN) {
+				tableDimMode = 'add';
+				tableDimSel = 0;
+			} else {
+				tableDimMode = 'del';
+				tableDimSel = 0;
+			}
+		}
+
+		window.addEventListener('keydown', tableShortcutCapture, true);
+
 		return () => {
+			ed.off('selectionUpdate', syncCodeBlockActive);
+			ed.off('transaction', syncCodeBlockActive);
+			window.removeEventListener('keydown', tableShortcutCapture, true);
 			ed.destroy();
 			editorInst = null;
+			codeBlockActive = false;
 		};
 	});
 </script>
@@ -301,9 +439,20 @@
 		<span class="label" id="admin-md-field-label"
 			>{label} (노션 스타일 편집 · 저장 시 마크다운)</span
 		>
-		<button type="button" class="linkish" onclick={() => (mediaOpen = true)}>
-			미디어 라이브러리
-		</button>
+		<span class="label-actions">
+			{#if codeBlockActive}
+				<button
+					type="button"
+					class="linkish"
+					onclick={() => editorInst && openCodeLangModalFor(editorInst)}
+				>
+					코드 언어
+				</button>
+			{/if}
+			<button type="button" class="linkish" onclick={() => (mediaOpen = true)}>
+				미디어 라이브러리
+			</button>
+		</span>
 	</span>
 	<p class="paste-hint">
 		미디어는 <strong>슬러그 입력 후</strong> 붙여 넣을 수 있습니다. 새 줄에서 <kbd>#</kbd>~<kbd
@@ -312,8 +461,11 @@
 		+ 스페이스로 제목. <kbd>Ctrl</kbd>+<kbd>V</kbd> / <kbd>⌘</kbd>+<kbd>V</kbd>로 미디어 붙여넣기.
 		<kbd>/표</kbd> 또는 <kbd>/table</kbd> 뒤
 		<kbd>스페이스</kbd>로 표 삽입. 셀 안에서도 이미지 붙여넣기가 됩니다. 이미지는
-		<strong>더블클릭</strong>하면 캡션을 넣을 수 있고, 글에서는 사진 바로 아래에 표시됩니다. 		표 위에 마우스를 올리면 삭제(×)가 나타납니다. 표 안에서 <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>N</kbd>은
-		행·열 추가, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>D</kbd>는 행·열 삭제 팝업(↑↓ 선택, Enter, Esc 취소).
+		<strong>더블클릭</strong>하면 캡션을 넣을 수 있고, 글에서는 사진 바로 아래에 표시됩니다. 표 위에 마우스를 올리면
+		삭제(×)가 나타납니다. 표 안에서 <kbd>⌥</kbd>/<kbd>Alt</kbd>+<kbd>N</kbd>은 행·열 추가,
+		<kbd>⌥</kbd>/<kbd>Alt</kbd>+<kbd>D</kbd>는 행·열 삭제 팝업(↑↓, Enter, Esc). 코드 블록 안에서는 상단
+		<strong>코드 언어</strong> 또는 <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>로 펜스 언어를 지정할 수 있습니다
+		(비우면 일반 블록).
 	</p>
 	{#if !browser}
 		<textarea
@@ -344,6 +496,51 @@
 </div>
 
 <AdminMediaLibraryModal bind:open={mediaOpen} onInsert={insertSnippet} />
+
+{#if codeLangOpen}
+	<div
+		class="cap-backdrop"
+		role="button"
+		tabindex="-1"
+		onclick={closeCodeLangModal}
+		onkeydown={(e) => e.key === 'Enter' && closeCodeLangModal()}
+		aria-label="닫기"
+	></div>
+	<div class="cap-modal" role="dialog" aria-modal="true" aria-labelledby="code-lang-title">
+		<h2 id="code-lang-title" class="cap-title">코드 블록 언어</h2>
+		<p class="cap-sub">
+			저장 시 <code class="cap-code">```언어</code> 펜스로 들어갑니다. 목록에 없으면 직접 입력해도 됩니다.
+		</p>
+		<form
+			class="cap-form"
+			onsubmit={(e) => {
+				e.preventDefault();
+				saveCodeLang();
+			}}
+		>
+			<input
+				type="text"
+				class="cap-input"
+				bind:this={codeLangInputEl}
+				bind:value={codeLangDraft}
+				list="admin-code-lang-presets"
+				placeholder="비우면 언어 없음 · 예: typescript"
+				aria-label="코드 블록 언어"
+				autocomplete="off"
+				spellcheck="false"
+			/>
+			<datalist id="admin-code-lang-presets">
+				{#each CODE_LANG_PRESETS as preset (preset)}
+					<option value={preset}></option>
+				{/each}
+			</datalist>
+			<div class="cap-actions">
+				<button type="button" class="cap-btn ghost" onclick={closeCodeLangModal}>취소</button>
+				<button type="submit" class="cap-btn primary">적용</button>
+			</div>
+		</form>
+	</div>
+{/if}
 
 {#if captionOpen}
 	<div
@@ -449,6 +646,14 @@
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
+		gap: 0.5rem;
+	}
+
+	.label-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
 		gap: 0.5rem;
 	}
 
