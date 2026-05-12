@@ -65,8 +65,10 @@
 							<span class="sep">‣</span>
 							{@const path = crumbSegments.slice(0, i + 1).join('/')}
 							{#if i < crumbSegments.length - 1}
-								<a href={resolve(`/blog/${path}` as '/blog' | `/blog/${string}`)} class="crumb"
-									>{seg}</a
+								<a
+									href={resolve(`/blog/${path}` as '/blog' | `/blog/${string}`)}
+									class="crumb"
+									data-sveltekit-preload-data="tap">{seg}</a
 								>
 							{:else}
 								<span class="crumb current">{seg}</span>
@@ -436,25 +438,31 @@
 
 	.post :global(.content .table-container) {
 		position: relative;
-		margin: 1.5rem 0;
+		margin: 0.55rem 0;
 	}
 
 	.post :global(.content .table-wrapper) {
 		overflow-x: auto;
 		-webkit-overflow-scrolling: touch;
+		border-radius: 12px;
+		border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+		background: color-mix(in srgb, var(--bg) 94%, var(--text) 3%);
+		box-shadow:
+			0 1px 2px color-mix(in srgb, var(--text) 5%, transparent),
+			0 3px 12px color-mix(in srgb, var(--text) 4%, transparent);
 	}
 
 	.post :global(.content table) {
-		width: max-content;
-		min-width: 100%;
+		width: 100%;
 		border-collapse: collapse;
+		table-layout: auto;
 		font-size: 0.875rem;
-		border: 1px solid var(--border);
+		border: none;
 		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
 	}
 
 	.post :global(.content table:has(img)) {
-		width: 100%;
 		white-space: normal;
 	}
 
@@ -463,24 +471,58 @@
 	}
 
 	.post :global(.content thead) {
-		background-color: color-mix(in srgb, var(--text) 6%, var(--bg));
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--text) 10%, var(--bg)) 0%,
+			color-mix(in srgb, var(--text) 5.5%, var(--bg)) 100%
+		);
 	}
 
 	.post :global(.content th) {
-		padding: 0.65rem 0.9rem;
+		padding: 0.3rem 0.55rem;
 		text-align: center;
-		font-weight: 600;
+		font-weight: 650;
 		color: var(--text);
-		border: 1px solid var(--border);
-		font-size: 0.82rem;
+		border: none;
+		border-bottom: 2px solid color-mix(in srgb, var(--text) 14%, var(--border) 40%);
+		border-right: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
+		font-size: 0.8125rem;
+		letter-spacing: 0.015em;
+	}
+
+	.post :global(.content th:last-child) {
+		border-right: none;
 	}
 
 	.post :global(.content td) {
-		padding: 0.55rem 0.9rem;
+		padding: 0.22rem 0.55rem;
 		text-align: center;
 		color: var(--text-secondary);
-		border: 1px solid var(--border);
+		border: none;
+		border-bottom: 1px solid color-mix(in srgb, var(--border) 42%, transparent);
+		border-right: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
 		vertical-align: middle;
+	}
+
+	.post :global(.content td:last-child) {
+		border-right: none;
+	}
+
+	.post :global(.content td p),
+	.post :global(.content th p) {
+		text-align: center;
+	}
+
+	.post :global(.content tbody tr:last-child td) {
+		border-bottom: none;
+	}
+
+	.post :global(.content tbody tr:nth-child(even) td) {
+		background-color: color-mix(in srgb, var(--text) 3.2%, var(--bg));
+	}
+
+	.post :global(.content tbody tr:hover td) {
+		background-color: color-mix(in srgb, var(--text) 7%, var(--bg));
 	}
 
 	.post :global(.content td:has(> img)),

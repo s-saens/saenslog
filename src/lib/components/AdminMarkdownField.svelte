@@ -923,6 +923,24 @@
 		height: auto;
 	}
 
+	/* 블로그 본문과 동일: 테마 + data-image-color-mode 에 따른 색 반전 */
+	:global(.notion-ish-editor.tiptap img) {
+		filter: var(--img-filter);
+		transition: filter 0.3s ease;
+	}
+
+	:global(.notion-ish-editor.tiptap img.no-invert) {
+		filter: none;
+	}
+
+	:global([data-theme='dark'] .notion-ish-editor.tiptap img[data-image-color-mode='light']) {
+		filter: invert(1) hue-rotate(180deg);
+	}
+
+	:global([data-theme='light'] .notion-ish-editor.tiptap img[data-image-color-mode='dark']) {
+		filter: invert(1) hue-rotate(180deg);
+	}
+
 	:global(.notion-ish-editor.tiptap .tiptap-image-color-wrap) {
 		position: relative;
 		display: block;
