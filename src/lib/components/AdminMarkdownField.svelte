@@ -15,6 +15,8 @@
 	import { htmlToMarkdown } from '$lib/browser/htmlToMarkdown';
 	import { AudioBlock } from '$lib/browser/tiptapAudioBlock';
 	import { ImageWithColorMode } from '$lib/browser/tiptapImageWithColorMode';
+	import { AdminTable } from '$lib/browser/tiptapAdminTable';
+	import { SlashInsertTable } from '$lib/browser/tiptapSlashInsertTable';
 	import { renderMarkdownToHtml } from '$lib/markdownCompile';
 	import AdminMediaLibraryModal from '$lib/components/AdminMediaLibraryModal.svelte';
 
@@ -39,18 +41,15 @@
 	let editorInst = $state<Editor | null>(null);
 	let mediaOpen = $state(false);
 
-	let tableUi = $state({
-		inTable: false,
-		canAddRow: false,
-		canAddCol: false,
-		canDelTable: false,
-		canToggleHeader: false
-	});
-
 	let captionOpen = $state(false);
 	let captionDraft = $state('');
 	let captionPos = $state<number | null>(null);
 	let captionInputEl = $state<HTMLInputElement | undefined>(undefined);
+
+	/** 표 안에서 ⌘/Ctrl+N·D — 행/열 추가·삭제 팝업 */
+	let tableDimMode = $state<null | 'add' | 'del'>(null);
+	let tableDimSel = $state(0);
+	let tableDimModalEl = $state<HTMLDivElement | undefined>(undefined);
 
 	let syncedDocKey: string | number | undefined = undefined;
 
@@ -101,48 +100,65 @@
 		return () => window.removeEventListener('keydown', esc);
 	});
 
-	function refreshTableUi() {
-		const e = editorInst;
-		if (!e) {
-			tableUi = {
-				inTable: false,
-				canAddRow: false,
-				canAddCol: false,
-				canDelTable: false,
-				canToggleHeader: false
-			};
-			return;
-		}
-		const inTable = e.isActive('table');
-		tableUi = {
-			inTable,
-			canAddRow: inTable && e.can().addRowAfter(),
-			canAddCol: inTable && e.can().addColumnAfter(),
-			canDelTable: inTable && e.can().deleteTable(),
-			canToggleHeader: inTable && e.can().toggleHeaderRow()
-		};
+	function closeTableDimModal() {
+		tableDimMode = null;
+		tableDimSel = 0;
+		void tick().then(() => editorInst?.chain().focus().run());
 	}
 
-	function insertTableGrid() {
-		editorInst?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-		refreshTableUi();
+	function confirmTableDimModal() {
+		const ed = editorInst;
+		if (!ed || tableDimMode === null) {
+			closeTableDimModal();
+			return;
+		}
+		if (tableDimMode === 'add') {
+			if (tableDimSel === 0 && ed.can().addRowAfter()) ed.chain().focus().addRowAfter().run();
+			else if (tableDimSel === 1 && ed.can().addColumnAfter()) ed.chain().focus().addColumnAfter().run();
+		} else {
+			if (tableDimSel === 0 && ed.can().deleteRow()) ed.chain().focus().deleteRow().run();
+			else if (tableDimSel === 1 && ed.can().deleteColumn()) ed.chain().focus().deleteColumn().run();
+		}
+		closeTableDimModal();
 	}
-	function tableAddRowAfter() {
-		editorInst?.chain().focus().addRowAfter().run();
-		refreshTableUi();
+
+	function handleTableDimKeydown(e: KeyboardEvent) {
+		if (tableDimMode === null) return;
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			e.stopPropagation();
+			closeTableDimModal();
+			return;
+		}
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			e.stopPropagation();
+			confirmTableDimModal();
+			return;
+		}
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			e.stopPropagation();
+			tableDimSel = Math.min(1, tableDimSel + 1);
+			return;
+		}
+		if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			e.stopPropagation();
+			tableDimSel = Math.max(0, tableDimSel - 1);
+			return;
+		}
 	}
-	function tableAddColAfter() {
-		editorInst?.chain().focus().addColumnAfter().run();
-		refreshTableUi();
-	}
-	function tableToggleHeaderRow() {
-		editorInst?.chain().focus().toggleHeaderRow().run();
-		refreshTableUi();
-	}
-	function tableDelete() {
-		editorInst?.chain().focus().deleteTable().run();
-		refreshTableUi();
-	}
+
+	$effect(() => {
+		if (!browser || tableDimMode === null) return;
+		const onKey = (e: KeyboardEvent) => {
+			handleTableDimKeydown(e);
+		};
+		window.addEventListener('keydown', onKey, true);
+		void tick().then(() => tableDimModalEl?.focus());
+		return () => window.removeEventListener('keydown', onKey, true);
+	});
 
 	function insertSnippet(snippet: string) {
 		const ed = editorInst;
@@ -174,7 +190,9 @@
 				StarterKit.configure({
 					heading: { levels: [1, 2, 3, 4, 5, 6] }
 				}),
-				TableKit,
+				TableKit.configure({ table: false }),
+				AdminTable,
+				SlashInsertTable,
 				Link.configure({
 					openOnClick: false,
 					autolink: true,
@@ -188,7 +206,7 @@
 				AudioBlock,
 				Placeholder.configure({
 					placeholder:
-						'내용을 입력하세요. 새 줄에서 # + 스페이스로 제목. 표는 「표 삽입」, 셀 안에도 이미지 붙여넣기 가능.'
+						'내용을 입력하세요. # + 스페이스로 제목. /표 또는 /table + 스페이스로 표 삽입. 표 안에서 ⌘/Ctrl+N·D 로 행·열 편집.'
 				})
 			],
 			content: renderMarkdownToHtml(md),
@@ -198,6 +216,28 @@
 					spellcheck: 'true'
 				},
 				handleDOMEvents: {
+					keydown(_view, event) {
+						const e = event as KeyboardEvent;
+						if (tableDimMode !== null) return false;
+						const mod = e.ctrlKey || e.metaKey;
+						if (!mod) return false;
+						const key = e.key.toLowerCase();
+						if (key === 'n') {
+							if (!ed.isActive('table')) return false;
+							e.preventDefault();
+							tableDimMode = 'add';
+							tableDimSel = 0;
+							return true;
+						}
+						if (key === 'd') {
+							if (!ed.isActive('table')) return false;
+							e.preventDefault();
+							tableDimMode = 'del';
+							tableDimSel = 0;
+							return true;
+						}
+						return false;
+					},
 					dblclick(view, event) {
 						const t = event.target;
 						if (!(t instanceof HTMLImageElement) || !view.dom.contains(t)) return false;
@@ -242,15 +282,11 @@
 			},
 			onUpdate: ({ editor }) => {
 				md = htmlToMarkdown(editor.getHTML());
-				refreshTableUi();
 			}
 		});
 
 		editorInst = ed;
 		if (docSyncKey != null) syncedDocKey = docSyncKey;
-
-		ed.on('selectionUpdate', refreshTableUi);
-		refreshTableUi();
 
 		return () => {
 			ed.destroy();
@@ -273,49 +309,12 @@
 		미디어는 <strong>슬러그 입력 후</strong> 붙여 넣을 수 있습니다. 새 줄에서 <kbd>#</kbd>~<kbd
 			>######</kbd
 		>
-		+ 스페이스로 제목. <kbd>Ctrl</kbd>+<kbd>V</kbd> / <kbd>⌘</kbd>+<kbd>V</kbd>. 표는
-		<strong>표 삽입</strong>으로 넣고, 셀 안에서도 이미지 붙여넣기가 됩니다. 이미지는
-		<strong>더블클릭</strong>하면 캡션을 넣을 수 있고, 글에서는 사진 바로 아래에 표시됩니다.
+		+ 스페이스로 제목. <kbd>Ctrl</kbd>+<kbd>V</kbd> / <kbd>⌘</kbd>+<kbd>V</kbd>로 미디어 붙여넣기.
+		<kbd>/표</kbd> 또는 <kbd>/table</kbd> 뒤
+		<kbd>스페이스</kbd>로 표 삽입. 셀 안에서도 이미지 붙여넣기가 됩니다. 이미지는
+		<strong>더블클릭</strong>하면 캡션을 넣을 수 있고, 글에서는 사진 바로 아래에 표시됩니다. 		표 위에 마우스를 올리면 삭제(×)가 나타납니다. 표 안에서 <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>N</kbd>은
+		행·열 추가, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>D</kbd>는 행·열 삭제 팝업(↑↓ 선택, Enter, Esc 취소).
 	</p>
-	{#if browser}
-		<div class="table-toolbar" role="toolbar" aria-label="표 편집">
-			<button type="button" class="table-tool-btn" onclick={insertTableGrid}>표 삽입</button>
-			{#if tableUi.inTable}
-				<button
-					type="button"
-					class="table-tool-btn"
-					disabled={!tableUi.canAddRow}
-					onclick={tableAddRowAfter}
-				>
-					행 추가
-				</button>
-				<button
-					type="button"
-					class="table-tool-btn"
-					disabled={!tableUi.canAddCol}
-					onclick={tableAddColAfter}
-				>
-					열 추가
-				</button>
-				<button
-					type="button"
-					class="table-tool-btn"
-					disabled={!tableUi.canToggleHeader}
-					onclick={tableToggleHeaderRow}
-				>
-					머리글 행 전환
-				</button>
-				<button
-					type="button"
-					class="table-tool-btn danger"
-					disabled={!tableUi.canDelTable}
-					onclick={tableDelete}
-				>
-					표 삭제
-				</button>
-			{/if}
-		</div>
-	{/if}
 	{#if !browser}
 		<textarea
 			class="textarea"
@@ -384,6 +383,56 @@
 	</div>
 {/if}
 
+{#if tableDimMode !== null}
+	<div
+		class="cap-backdrop"
+		role="button"
+		tabindex="-1"
+		onclick={closeTableDimModal}
+		onkeydown={(e) => e.key === 'Enter' && closeTableDimModal()}
+		aria-label="닫기"
+	></div>
+	<div
+		bind:this={tableDimModalEl}
+		class="cap-modal tbl-dim-modal"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="tbl-dim-title"
+		tabindex="-1"
+	>
+		<h2 id="tbl-dim-title" class="cap-title">
+			{tableDimMode === 'add' ? '행·열 추가' : '행·열 삭제'}
+		</h2>
+		<p class="cap-sub tbl-dim-hint">
+			<kbd>↑</kbd><kbd>↓</kbd>로 선택 · <kbd>Enter</kbd> 적용 · <kbd>Esc</kbd> 취소
+		</p>
+		<div class="tbl-dim-list">
+			<button
+				type="button"
+				id="tbl-dim-opt-0"
+				class="tbl-dim-option"
+				class:is-selected={tableDimSel === 0}
+				onclick={() => (tableDimSel = 0)}
+			>
+				{tableDimMode === 'add' ? '행 추가 (현재 행 아래)' : '행 삭제 (현재 행)'}
+			</button>
+			<button
+				type="button"
+				id="tbl-dim-opt-1"
+				class="tbl-dim-option"
+				class:is-selected={tableDimSel === 1}
+				onclick={() => (tableDimSel = 1)}
+			>
+				{tableDimMode === 'add' ? '열 추가 (현재 열 오른쪽)' : '열 삭제 (현재 열)'}
+			</button>
+		</div>
+		<div class="cap-actions">
+			<button type="button" class="cap-btn ghost" onclick={closeTableDimModal}>취소</button>
+			<button type="button" class="cap-btn primary" onclick={confirmTableDimModal}>적용</button>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.field {
 		display: flex;
@@ -440,44 +489,57 @@
 		background: color-mix(in srgb, var(--bg-lighter) 90%, transparent);
 	}
 
-	.table-toolbar {
+	:global(.notion-ish-editor.tiptap .admin-editor-table-wrap) {
+		position: relative;
+		margin: 0.45rem 0;
+	}
+
+	:global(.notion-ish-editor.tiptap .admin-editor-table-del) {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		z-index: 5;
 		display: flex;
-		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.35rem;
-		margin: 0.05rem 0 0.4rem;
-	}
-
-	.table-tool-btn {
-		font: inherit;
-		font-size: 0.72rem;
-		padding: 0.28rem 0.55rem;
-		border: 1px solid var(--border);
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		padding: 0;
+		margin: 0;
+		border: 1px solid color-mix(in srgb, #fff 12%, #7f1d1d);
 		border-radius: 6px;
-		background: var(--bg);
-		color: var(--text-secondary);
+		background: #dc2626;
+		color: #fff;
+		font: inherit;
+		font-size: 1.1rem;
+		line-height: 1;
 		cursor: pointer;
+		opacity: 0;
+		pointer-events: none;
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 15%, transparent);
 		transition:
-			border-color 0.12s ease,
-			color 0.12s ease;
+			opacity 0.12s ease,
+			background-color 0.12s ease;
 	}
 
-	.table-tool-btn:hover:not(:disabled) {
-		color: var(--text);
-		border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+	:global(.notion-ish-editor.tiptap .admin-editor-table-wrap:hover .admin-editor-table-del) {
+		opacity: 1;
+		pointer-events: auto;
 	}
 
-	.table-tool-btn:disabled {
-		opacity: 0.45;
-		cursor: not-allowed;
+	:global(.notion-ish-editor.tiptap .admin-editor-table-wrap > table) {
+		margin: 0;
 	}
 
-	.table-tool-btn.danger {
-		color: #f87171;
+	:global(.notion-ish-editor.tiptap .admin-editor-table-del:hover) {
+		background: #b91c1c;
 	}
 
-	.table-tool-btn.danger:hover:not(:disabled) {
-		border-color: color-mix(in srgb, #f87171 45%, var(--border));
+	:global(.notion-ish-editor.tiptap .admin-editor-table-del:focus-visible) {
+		opacity: 1;
+		pointer-events: auto;
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 
 	.textarea {
@@ -835,5 +897,55 @@
 		border: 1px solid var(--accent);
 		background: var(--accent);
 		color: var(--bg);
+	}
+
+	.tbl-dim-modal {
+		outline: none;
+	}
+
+	.tbl-dim-hint kbd {
+		font: inherit;
+		font-size: 0.68rem;
+		padding: 0.05em 0.3em;
+		margin: 0 0.1em;
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		background: color-mix(in srgb, var(--bg-lighter) 90%, transparent);
+	}
+
+	.tbl-dim-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		margin-bottom: 0.85rem;
+	}
+
+	.tbl-dim-option {
+		font: inherit;
+		font-size: 0.82rem;
+		text-align: left;
+		width: 100%;
+		padding: 0.45rem 0.55rem;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: var(--bg);
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition:
+			border-color 0.12s ease,
+			background-color 0.12s ease,
+			color 0.12s ease;
+	}
+
+	.tbl-dim-option:hover {
+		border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+		color: var(--text);
+	}
+
+	.tbl-dim-option.is-selected {
+		border-color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+		color: var(--text);
+		font-weight: 550;
 	}
 </style>
