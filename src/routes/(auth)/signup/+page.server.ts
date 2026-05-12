@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
-	return { next: url.searchParams.get('next') ?? '/' };
+	return { next: url.searchParams.get('next') ?? '/', seo: { title: '회원가입' } };
 };
 
 export const actions: Actions = {

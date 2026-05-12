@@ -5,10 +5,6 @@
 	let { data, form } = $props();
 </script>
 
-<svelte:head>
-	<title>회원가입 | SAENS</title>
-</svelte:head>
-
 <h1 class="title">회원가입</h1>
 
 {#if form && 'message' in form && form.message}

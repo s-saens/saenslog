@@ -11,7 +11,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const post = await getPostById(locals.supabase, id);
 	if (!post) error(404, '글을 찾을 수 없습니다.');
 
-	return { post };
+	return {
+		post,
+		seo: { title: `${post.title} · 수정 · 관리` }
+	};
 };
 
 export const actions: Actions = {

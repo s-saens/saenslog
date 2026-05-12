@@ -4,6 +4,7 @@ import { error } from '@sveltejs/kit';
 import matter from 'gray-matter';
 import { renderMarkdownContent } from '$lib/server/blog';
 import { getPostById } from '$lib/server/posts';
+import { SEO_DEFAULT_DESCRIPTION } from '$lib/seo';
 import type { PageServerLoad } from './$types';
 
 export const prerender = 'auto';
@@ -147,6 +148,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	return {
 		project,
 		relatedPosts,
-		descriptionSlides
+		descriptionSlides,
+		seo: {
+			title: project.title,
+			description:
+				project.tags.length > 0
+					? `${project.tags.join(', ')} — 프로젝트 소개`
+					: SEO_DEFAULT_DESCRIPTION,
+			canonicalPath: `/projects/${title}`,
+			ogImage: project.logoPath
+		}
 	};
 };

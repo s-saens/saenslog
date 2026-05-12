@@ -7,10 +7,6 @@
 	const logoutFormAction = `${resolve('/logout')}?/`;
 </script>
 
-<svelte:head>
-	<title>계정 | SAENS</title>
-</svelte:head>
-
 <main class="account">
 	<h1 class="title">계정</h1>
 

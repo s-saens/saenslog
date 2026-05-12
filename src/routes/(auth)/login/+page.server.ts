@@ -5,7 +5,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	const err = url.searchParams.get('error');
 	return {
 		next: url.searchParams.get('next') ?? '/',
-		urlError: err
+		urlError: err,
+		seo: { title: '로그인' }
 	};
 };
 

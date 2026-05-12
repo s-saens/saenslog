@@ -5,10 +5,6 @@
 	let { data } = $props();
 </script>
 
-<svelte:head>
-	<title>글 목록 | 관리 | SAENS</title>
-</svelte:head>
-
 <main class="posts-admin">
 	<header class="head">
 		<h1>블로그 글</h1>
@@ -21,7 +17,9 @@
 		<ul class="list">
 			{#each data.posts as p (p.id)}
 				<li class="row">
-					<a class="title" href={hrefBlogPath(String(p.id))}>{p.title}</a>
+					<a class="title" href={hrefBlogPath(String(p.id))} data-sveltekit-preload-data="tap"
+						>{p.title}</a
+					>
 					<span class="meta">
 						<span class="id-meta">id {p.id}</span>
 						<span class="pill" class:pub={p.published} class:draft={!p.published}>

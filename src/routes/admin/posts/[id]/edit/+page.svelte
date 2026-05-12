@@ -73,10 +73,6 @@
 	});
 </script>
 
-<svelte:head>
-	<title>{data.post.title} · 수정 | SAENS</title>
-</svelte:head>
-
 <AdminBlogPreviewOverlay
 	bind:open={previewOpen}
 	title={titleVal}

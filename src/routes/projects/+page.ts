@@ -1,3 +1,5 @@
+import { SEO_DEFAULT_DESCRIPTION } from '$lib/seo';
+
 export const prerender = 'auto';
 
 interface ProjectInfo {
@@ -44,6 +46,11 @@ export async function load() {
 	projects.sort((a, b) => a.id.localeCompare(b.id));
 
 	return {
-		projects
+		projects,
+		seo: {
+			title: '프로젝트',
+			description: '작업한 프로젝트 목록과 상세 소개입니다.',
+			canonicalPath: '/projects'
+		}
 	};
 }

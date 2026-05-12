@@ -7,8 +7,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	const raw = (url.searchParams.get('folder') ?? '').trim();
 	const folderId = raw ? Number(raw) : NaN;
 	return {
-		folderId:
-			Number.isFinite(folderId) && folderId >= BLOG_ROOT_FOLDER_ID ? folderId : null
+		folderId: Number.isFinite(folderId) && folderId >= BLOG_ROOT_FOLDER_ID ? folderId : null,
+		seo: { title: '새 글 · 관리' }
 	};
 };
 

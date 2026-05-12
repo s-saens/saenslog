@@ -14,10 +14,6 @@
 	let wordCount = $derived(md.trim() ? md.trim().split(/\s+/).filter(Boolean).length : 0);
 </script>
 
-<svelte:head>
-	<title>새 글 | 관리 | SAENS</title>
-</svelte:head>
-
 <AdminBlogPreviewOverlay
 	bind:open={previewOpen}
 	title={titleVal || '제목 없음'}

@@ -3,5 +3,8 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const posts = await listPostsAdmin(locals.supabase);
-	return { posts };
+	return {
+		posts,
+		seo: { title: '글 목록 · 관리' }
+	};
 };

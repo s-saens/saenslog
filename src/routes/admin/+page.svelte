@@ -2,10 +2,6 @@
 	import { resolve } from '$app/paths';
 </script>
 
-<svelte:head>
-	<title>관리 | SAENS</title>
-</svelte:head>
-
 <main class="admin">
 	<h1 class="title">관리</h1>
 	<p class="lead">글 작성·수정은 다음 단계에서 여기에 연결됩니다.</p>

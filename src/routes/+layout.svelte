@@ -9,6 +9,7 @@
 	import LoadingOverlay from '$lib/components/LoadingOverlay.svelte';
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
 	import { pathWithBase, hrefBlogPathname, hrefProjectsPathname } from '$lib/appPaths';
+	import { absoluteUrl } from '$lib/seo';
 	import { BlogIcon, LogoIcon, MailIcon, MoonIcon, SunIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
@@ -18,6 +19,49 @@
 	import { fade } from 'svelte/transition';
 
 	let { children, data } = $props();
+
+	function isPrivateSeoPath(pathname: string): boolean {
+		return (
+			pathname.startsWith('/admin') ||
+			pathname.startsWith('/account') ||
+			pathname.startsWith('/login') ||
+			pathname.startsWith('/signup') ||
+			pathname.startsWith('/logout')
+		);
+	}
+
+	const headSeo = $derived.by(() => {
+		const d = data.seoDefaults;
+		if (!d) return null;
+		const pathname = $page.url.pathname;
+		const payload = $page.data.seo ?? {};
+		const priv = isPrivateSeoPath(pathname);
+		const title =
+			pathname === '/'
+				? d.siteName
+				: payload.title
+					? `${payload.title} · ${d.siteName}`
+					: d.siteName;
+		const description = (payload.description ?? d.defaultDescription).trim();
+		const path = payload.canonicalPath ?? pathname;
+		const canonical = absoluteUrl(d.siteUrl, path);
+		const ogType = payload.type ?? 'website';
+		const robots = payload.robots ?? (priv ? 'noindex, nofollow' : undefined);
+		const imgSrc = payload.ogImage ?? d.defaultOgImagePath;
+		const ogImage = absoluteUrl(d.siteUrl, imgSrc);
+		return {
+			title,
+			description,
+			canonical,
+			ogType,
+			robots,
+			ogImage,
+			siteName: d.siteName,
+			locale: d.locale,
+			publishedTime: payload.publishedTime,
+			modifiedTime: payload.modifiedTime
+		};
+	});
 
 	const logoutFormAction = `${resolve('/logout')}?/`;
 
@@ -44,7 +88,7 @@
 	// 외부 클릭 시 auth 패널 닫기
 	$effect(() => {
 		if (!browser) return;
-		
+
 		function handleClickOutside(event: MouseEvent) {
 			const target = event.target as Element;
 			// auth 패널이나 버튼 내부를 클릭한 경우 무시
@@ -52,7 +96,7 @@
 				showAuthPanel = false;
 			}
 		}
-		
+
 		document.addEventListener('click', handleClickOutside);
 		return () => document.removeEventListener('click', handleClickOutside);
 	});
@@ -185,6 +229,32 @@
 </script>
 
 <svelte:head>
+	<meta name="naver-site-verification" content="258f4fc55757d4d5d2442b1d94851ca87fe5e029" />
+	{#if headSeo}
+		<title>{headSeo.title}</title>
+		<meta name="description" content={headSeo.description} />
+		<link rel="canonical" href={headSeo.canonical} />
+		{#if headSeo.robots}
+			<meta name="robots" content={headSeo.robots} />
+		{/if}
+		<meta property="og:site_name" content={headSeo.siteName} />
+		<meta property="og:title" content={headSeo.title} />
+		<meta property="og:description" content={headSeo.description} />
+		<meta property="og:url" content={headSeo.canonical} />
+		<meta property="og:type" content={headSeo.ogType} />
+		<meta property="og:locale" content={headSeo.locale} />
+		<meta property="og:image" content={headSeo.ogImage} />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={headSeo.title} />
+		<meta name="twitter:description" content={headSeo.description} />
+		<meta name="twitter:image" content={headSeo.ogImage} />
+		{#if headSeo.publishedTime}
+			<meta property="article:published_time" content={headSeo.publishedTime} />
+		{/if}
+		{#if headSeo.modifiedTime}
+			<meta property="article:modified_time" content={headSeo.modifiedTime} />
+		{/if}
+	{/if}
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<link rel="icon" href="/favicon.ico" sizes="32x32" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -193,7 +263,6 @@
 		rel="stylesheet"
 		href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap"
 	/>
-	<title>SAENS</title>
 </svelte:head>
 
 <div class="app">
@@ -202,7 +271,7 @@
 
 	<header class="site-header">
 		<nav class="nav-container">
-			<div class="nav-left"> </div>
+			<div class="nav-left"></div>
 			<div class="nav-center">
 				<div
 					class="nav-tooltip-wrapper"
@@ -292,9 +361,7 @@
 								showAuthPanel = !showAuthPanel;
 							}}
 						>
-							<span class="account-initial"
-								>{(data.user.email?.[0] ?? '?').toUpperCase()}</span
-							>
+							<span class="account-initial">{(data.user.email?.[0] ?? '?').toUpperCase()}</span>
 						</button>
 						{#if showAuthPanel}
 							<div class="auth-panel" transition:fade={{ duration: 150 }}>

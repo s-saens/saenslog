@@ -5,10 +5,6 @@
 	let { data, form } = $props();
 </script>
 
-<svelte:head>
-	<title>로그인 | SAENS</title>
-</svelte:head>
-
 <h1 class="title">로그인</h1>
 
 {#if data.urlError}

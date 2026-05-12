@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
 	const { user } = await parent();
-	if (!user) return {};
+	if (!user) return { seo: { title: '계정' } };
 
 	const { data, error } = await locals.supabase
 		.from('profiles')
@@ -11,8 +11,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		.single();
 
 	if (error || !data || (data.role !== 'admin' && data.role !== 'member')) {
-		return { profile: null };
+		return { profile: null, seo: { title: '계정' } };
 	}
 
-	return { profile: data as App.Profile };
+	return { profile: data as App.Profile, seo: { title: '계정' } };
 };
