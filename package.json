@@ -47,14 +47,13 @@
 		"vitest-browser-svelte": "^2.0.1"
 	},
 	"dependencies": {
-		"@fontsource/ibm-plex-mono": "^5.2.7",
-		"@fontsource/ibm-plex-sans-kr": "^5.2.8",
 		"@supabase/ssr": "^0.10.2",
 		"@supabase/supabase-js": "^2.105.1",
 		"@tiptap/core": "^3.22.5",
 		"@tiptap/extension-image": "^3.22.5",
 		"@tiptap/extension-link": "^3.22.5",
 		"@tiptap/extension-placeholder": "^3.22.5",
+		"@tiptap/extension-table": "^3.22.5",
 		"@tiptap/pm": "^3.22.5",
 		"@tiptap/starter-kit": "^3.22.5",
 		"dotenv": "^17.4.2",
