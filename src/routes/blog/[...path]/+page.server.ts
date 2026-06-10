@@ -68,31 +68,32 @@ async function loadPostLikeSummary(
 	userId: string | null,
 	ipHash: string | null
 ): Promise<{ count: number; liked: boolean }> {
-	const { count, error: cErr } = await supabase
+	const countPromise = supabase
 		.from('post_likes')
 		.select('*', { count: 'exact', head: true })
 		.eq('post_id', postId);
-	if (cErr) console.error('post_likes count', cErr);
 
-	let liked = false;
-	if (userId) {
-		const { data } = await supabase
-			.from('post_likes')
-			.select('id')
-			.eq('post_id', postId)
-			.eq('user_id', userId)
-			.maybeSingle();
-		liked = !!data;
-	} else if (ipHash && service) {
-		const { data } = await service
-			.from('post_likes')
-			.select('id')
-			.eq('post_id', postId)
-			.eq('ip_hash', ipHash)
-			.is('user_id', null)
-			.maybeSingle();
-		liked = !!data;
-	}
+	const likedPromise = userId
+		? supabase
+				.from('post_likes')
+				.select('id')
+				.eq('post_id', postId)
+				.eq('user_id', userId)
+				.maybeSingle()
+				.then(({ data }) => !!data)
+		: ipHash && service
+			? service
+					.from('post_likes')
+					.select('id')
+					.eq('post_id', postId)
+					.eq('ip_hash', ipHash)
+					.is('user_id', null)
+					.maybeSingle()
+					.then(({ data }) => !!data)
+			: Promise.resolve(false);
+
+	const [{ count, error: cErr }, liked] = await Promise.all([countPromise, likedPromise]);
+	if (cErr) console.error('post_likes count', cErr);
 
 	return { count: count ?? 0, liked };
 }
@@ -208,7 +209,12 @@ async function loadBlogFolderListing(
 			? [{ label: 'Blog', path: '/blog' }]
 			: [{ label: 'Blog', path: '/blog' }, ...folderListingBreadcrumbItems(chainNoRoot)];
 
-	const metaRows = opts.preloadedPublishedRows ?? (await listPublishedPosts(supabase));
+	const [metaRows, postRows] = await Promise.all([
+		opts.preloadedPublishedRows
+			? Promise.resolve(opts.preloadedPublishedRows)
+			: listPublishedPosts(supabase),
+		listPostsByIds(supabase, folder.posts, { onlyPublished: opts.onlyPublished })
+	]);
 	const postMetaById = new Map(metaRows.map((r) => [r.id, r]));
 
 	const subFolderRows = folder.subfolders.map((id) => byId.get(id)).filter(Boolean) as FolderRow[];
@@ -217,10 +223,6 @@ async function loadBlogFolderListing(
 	);
 
 	const folders = subFolderRows.map((f) => toFolderInfo(f, allFolders, postMetaById));
-
-	const postRows = await listPostsByIds(supabase, folder.posts, {
-		onlyPublished: opts.onlyPublished
-	});
 	const folderTitle = folderId === BLOG_ROOT_FOLDER_ID ? 'Blog' : folderDisplayLabel(folder);
 
 	const listPathLabel = folderPathLabelExcludingRoot(folderId, allFolders);
@@ -255,30 +257,74 @@ async function loadBlogFolderListing(
 	};
 }
 
-export const load: PageServerLoad = async ({ params, locals, parent, getClientAddress }) => {
-	const { user } = await parent();
-	let isAdmin = false;
+export const load: PageServerLoad = async ({ params, locals, getClientAddress }) => {
+	const pathParam = params.path || '';
+	const segments = pathParam.split('/').filter(Boolean);
 
-	if (user) {
+	// 인증·권한·폴더 트리를 병렬로 시작 — safeGetUser는 요청당 1회 메모이즈라 layout과 공유
+	const userPromise = locals.safeGetUser();
+	const isAdminPromise = userPromise.then(async (user) => {
+		if (!user) return false;
 		const { data: profile } = await locals.supabase
 			.from('profiles')
 			.select('role')
 			.eq('id', user.id)
 			.single();
-		isAdmin = profile?.role === 'admin';
-	}
-
-	const pathParam = params.path || '';
-	const segments = pathParam.split('/').filter(Boolean);
-	const onlyPub = !isAdmin;
-
-	const allFolders = await fetchAllFolders(locals.supabase);
+		return profile?.role === 'admin';
+	});
+	const foldersPromise = fetchAllFolders(locals.supabase);
 
 	/** 단일 세그먼트 숫자 → 글 */
 	if (segments.length === 1 && /^\d+$/.test(segments[0])) {
 		const postId = Number(segments[0]);
-		const dbRow = await getPostById(locals.supabase, postId);
-		if (!dbRow || (onlyPub && !dbRow.published)) {
+
+		const rateSecret = privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
+		const viewerIpHash = rateSecret
+			? hashCommentClientIp(rateSecret, getClientAddress() ?? 'unknown')
+			: null;
+		const serviceClient = tryCreateSupabaseServiceClient();
+
+		const postPromise = getPostById(locals.supabase, postId);
+		const commentsPromise = loadCommentsForPost(postId, locals);
+		const postLikePromise = userPromise.then((user) =>
+			loadPostLikeSummary(locals.supabase, serviceClient, postId, user?.id ?? null, viewerIpHash)
+		);
+		const commentLikesPromise = Promise.all([commentsPromise, userPromise]).then(
+			async ([loadedComments, user]) => {
+				const commentIds = loadedComments.map((c) => c.id);
+				if (commentIds.length === 0) {
+					return {} as Record<string, { count: number; liked: boolean }>;
+				}
+				const { data: likeRows, error: lrErr } = await locals.supabase
+					.from('comment_likes')
+					.select('comment_id, user_id, ip_hash')
+					.in('comment_id', commentIds);
+				if (lrErr) console.error('comment_likes load', lrErr);
+				return buildCommentLikeMap(commentIds, likeRows ?? [], user?.id ?? null, viewerIpHash);
+			}
+		);
+		const viewCountPromise = postPromise.then(async (row) => {
+			if (!row?.published) return Number(row?.view_count ?? 0);
+			const { data: counted, error: rpcErr } = await locals.supabase.rpc('increment_post_view', {
+				post_id: postId
+			});
+			if (!rpcErr && counted != null) return Number(counted);
+			if (rpcErr) console.warn('[increment_post_view]', rpcErr.message);
+			return Number(row.view_count ?? 0);
+		});
+
+		const [isAdmin, allFolders, dbRow, comments, postLike, commentLikesById, viewCount] =
+			await Promise.all([
+				isAdminPromise,
+				foldersPromise,
+				postPromise,
+				commentsPromise,
+				postLikePromise,
+				commentLikesPromise,
+				viewCountPromise
+			]);
+
+		if (!dbRow || (!isAdmin && !dbRow.published)) {
 			error(404, '글을 찾을 수 없습니다.');
 		}
 
@@ -300,49 +346,6 @@ export const load: PageServerLoad = async ({ params, locals, parent, getClientAd
 						.join('/')
 				: '';
 
-		const comments = await loadCommentsForPost(postId, locals);
-
-		const rateSecret = privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
-		const viewerIpHash = rateSecret
-			? hashCommentClientIp(rateSecret, getClientAddress() ?? 'unknown')
-			: null;
-		const serviceClient = tryCreateSupabaseServiceClient();
-		const postLike = await loadPostLikeSummary(
-			locals.supabase,
-			serviceClient,
-			postId,
-			user?.id ?? null,
-			viewerIpHash
-		);
-
-		const commentIds = comments.map((c) => c.id);
-		let commentLikesById: Record<string, { count: number; liked: boolean }> = {};
-		if (commentIds.length > 0) {
-			const { data: likeRows, error: lrErr } = await locals.supabase
-				.from('comment_likes')
-				.select('comment_id, user_id, ip_hash')
-				.in('comment_id', commentIds);
-			if (lrErr) console.error('comment_likes load', lrErr);
-			commentLikesById = buildCommentLikeMap(
-				commentIds,
-				likeRows ?? [],
-				user?.id ?? null,
-				viewerIpHash
-			);
-		}
-
-		let viewCount = Number(dbRow.view_count ?? 0);
-		if (dbRow.published) {
-			const { data: counted, error: rpcErr } = await locals.supabase.rpc('increment_post_view', {
-				post_id: postId
-			});
-			if (!rpcErr && counted != null) {
-				viewCount = Number(counted);
-			} else if (rpcErr) {
-				console.warn('[increment_post_view]', rpcErr.message);
-			}
-		}
-
 		return {
 			path: String(postId),
 			pathParam,
@@ -356,7 +359,8 @@ export const load: PageServerLoad = async ({ params, locals, parent, getClientAd
 			published: dbRow.published_at,
 			updated: dbRow.updated_at,
 			category,
-			content: renderMarkdownToHtml(dbRow.content_md),
+			// 저장 시 미리 렌더된 HTML 사용 — 매 요청 markdown+highlight 재컴파일 방지
+			content: dbRow.content_html || renderMarkdownToHtml(dbRow.content_md),
 			wordCount: dbRow.word_count as number,
 			viewCount,
 			tags,
@@ -380,8 +384,9 @@ export const load: PageServerLoad = async ({ params, locals, parent, getClientAd
 	/** /blog/f/{id}/ 폴더 목록 */
 	if (segments[0] === 'f' && segments[1] && /^\d+$/.test(segments[1]) && segments.length === 2) {
 		const folderId = Number(segments[1]);
+		const [isAdmin, allFolders] = await Promise.all([isAdminPromise, foldersPromise]);
 		return loadBlogFolderListing(locals.supabase, allFolders, folderId, pathParam, segments, {
-			onlyPublished: onlyPub,
+			onlyPublished: !isAdmin,
 			isAdmin,
 			allPosts: Promise.resolve([] as ListPost[])
 		});
@@ -389,7 +394,11 @@ export const load: PageServerLoad = async ({ params, locals, parent, getClientAd
 
 	/** /blog — 루트 폴더(id=0)의 `subfolders`·`posts` */
 	if (segments.length === 0) {
-		const publishedRows = await listPublishedPosts(locals.supabase);
+		const [isAdmin, allFolders, publishedRows] = await Promise.all([
+			isAdminPromise,
+			foldersPromise,
+			listPublishedPosts(locals.supabase)
+		]);
 		const allPosts = Promise.resolve(
 			[...publishedRows].sort(comparePostsByPostedDateDesc).map((r) => {
 				const host = findFolderContainingPost(r.id, allFolders);
@@ -404,7 +413,7 @@ export const load: PageServerLoad = async ({ params, locals, parent, getClientAd
 			pathParam,
 			segments,
 			{
-				onlyPublished: onlyPub,
+				onlyPublished: !isAdmin,
 				isAdmin,
 				allPosts,
 				preloadedPublishedRows: publishedRows
