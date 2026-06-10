@@ -1,9 +1,9 @@
-import fs from 'fs';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'path';
 import { error } from '@sveltejs/kit';
 import matter from 'gray-matter';
 import { renderMarkdownContent } from '$lib/server/blog';
-import { getPostById } from '$lib/server/posts';
+import { listPostsByIds } from '$lib/server/posts';
 import { SEO_DEFAULT_DESCRIPTION } from '$lib/seo';
 import type { PageServerLoad } from './$types';
 
@@ -103,49 +103,51 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		error(404, `프로젝트를 찾을 수 없습니다: ${title}`);
 	}
 
-	const relatedRaw = project['related-posts'] ?? [];
-	const relatedPosts: {
-		title: string;
-		path: string;
-		category: string;
-		date: string;
-		wordCount: number;
-		viewCount: number;
-	}[] = [];
-	for (const entry of relatedRaw) {
-		const id = relatedPostIdFromEntry(String(entry));
-		if (id == null) continue;
-		const row = await getPostById(locals.supabase, id);
-		if (!row?.published) continue;
-		relatedPosts.push({
+	const relatedIds = (project['related-posts'] ?? [])
+		.map((entry) => relatedPostIdFromEntry(String(entry)))
+		.filter((id): id is number => id != null);
+
+	const descDir = path.join(PROJECTS_ROOT, project.id, 'descriptions');
+
+	// 관련 글은 한 번의 배치 쿼리로, 설명 파일은 비동기 병렬로 읽음
+	const [relatedRows, slideRaws] = await Promise.all([
+		relatedIds.length > 0
+			? listPostsByIds(locals.supabase, relatedIds, { onlyPublished: true })
+			: Promise.resolve([]),
+		(async () => {
+			let files: string[];
+			try {
+				files = (await readdir(descDir)).filter((f) => f.endsWith('.md'));
+			} catch {
+				return [];
+			}
+			files.sort((a, b) => {
+				const na = parseInt(path.basename(a, '.md'), 10);
+				const nb = parseInt(path.basename(b, '.md'), 10);
+				if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+				return a.localeCompare(b);
+			});
+			return Promise.all(files.map((file) => readFile(path.join(descDir, file), 'utf8')));
+		})()
+	]);
+
+	const relatedById = new Map(relatedRows.map((r) => [r.id, r]));
+	const relatedPosts = relatedIds
+		.map((id) => relatedById.get(id))
+		.filter((row): row is NonNullable<typeof row> => row != null)
+		.map((row) => ({
 			title: row.title,
 			path: String(row.id),
 			category: '',
 			date: row.published_at ?? row.updated_at,
 			wordCount: row.word_count,
 			viewCount: Number(row.view_count ?? 0)
-		});
-	}
+		}));
 
-	const descriptionSlides: { html: string }[] = [];
-	const descDir = path.join(PROJECTS_ROOT, project.id, 'descriptions');
-	if (fs.existsSync(descDir)) {
-		const files = fs.readdirSync(descDir).filter((f) => f.endsWith('.md'));
-		files.sort((a, b) => {
-			const na = parseInt(path.basename(a, '.md'), 10);
-			const nb = parseInt(path.basename(b, '.md'), 10);
-			if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-			return a.localeCompare(b);
-		});
-
-		for (const file of files) {
-			const raw = fs.readFileSync(path.join(descDir, file), 'utf8');
-			const { content } = matter(raw);
-			descriptionSlides.push({
-				html: renderMarkdownContent(content.trim() || raw)
-			});
-		}
-	}
+	const descriptionSlides = slideRaws.map((raw) => {
+		const { content } = matter(raw);
+		return { html: renderMarkdownContent(content.trim() || raw) };
+	});
 
 	return {
 		project,
