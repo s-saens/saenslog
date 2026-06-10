@@ -22,18 +22,23 @@ const MEDIA_MIME_TYPES: Record<string, string> = {
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = createSupabaseServer(event);
 
-	event.locals.safeGetUser = async () => {
-		try {
-			const {
-				data: { user },
-				error
-			} = await event.locals.supabase.auth.getUser();
-			if (error || !user) return null;
-			return user;
-		} catch (e) {
-			console.error('safeGetUser', e);
-			return null;
-		}
+	// 요청당 한 번만 Supabase 인증 왕복 — layout·page load가 같은 결과를 공유
+	let userPromise: ReturnType<App.Locals['safeGetUser']> | null = null;
+	event.locals.safeGetUser = () => {
+		userPromise ??= (async () => {
+			try {
+				const {
+					data: { user },
+					error
+				} = await event.locals.supabase.auth.getUser();
+				if (error || !user) return null;
+				return user;
+			} catch (e) {
+				console.error('safeGetUser', e);
+				return null;
+			}
+		})();
+		return userPromise;
 	};
 
 	// /blog/<id>/ 미디어 파일은 런타임에 생성된 정적 자산 서빙
