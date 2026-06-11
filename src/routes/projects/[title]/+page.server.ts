@@ -1,5 +1,3 @@
-import { readdir, readFile } from 'node:fs/promises';
-import path from 'path';
 import { error } from '@sveltejs/kit';
 import matter from 'gray-matter';
 import { renderMarkdownContent } from '$lib/server/blog';
@@ -37,7 +35,10 @@ interface Project extends ProjectInfo {
 	screenshotPaths: string[];
 }
 
-const PROJECTS_ROOT = path.join(process.cwd(), 'src/lib/projects');
+const descriptionModules = import.meta.glob('/src/lib/projects/*/descriptions/*.md', {
+	query: '?raw',
+	import: 'default'
+});
 
 function normalizeBlogPath(raw: string): string {
 	let p = raw.trim();
@@ -107,28 +108,22 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.map((entry) => relatedPostIdFromEntry(String(entry)))
 		.filter((id): id is number => id != null);
 
-	const descDir = path.join(PROJECTS_ROOT, project.id, 'descriptions');
+	const descPrefix = `/src/lib/projects/${project.id}/descriptions/`;
+	const descFiles = Object.keys(descriptionModules)
+		.filter((p) => p.startsWith(descPrefix))
+		.sort((a, b) => {
+			const na = parseInt(a.slice(descPrefix.length), 10);
+			const nb = parseInt(b.slice(descPrefix.length), 10);
+			if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+			return a.localeCompare(b);
+		});
 
-	// 관련 글은 한 번의 배치 쿼리로, 설명 파일은 비동기 병렬로 읽음
+	// 관련 글은 한 번의 배치 쿼리로, 설명 파일은 번들된 모듈에서 읽음
 	const [relatedRows, slideRaws] = await Promise.all([
 		relatedIds.length > 0
 			? listPostsByIds(locals.supabase, relatedIds, { onlyPublished: true })
 			: Promise.resolve([]),
-		(async () => {
-			let files: string[];
-			try {
-				files = (await readdir(descDir)).filter((f) => f.endsWith('.md'));
-			} catch {
-				return [];
-			}
-			files.sort((a, b) => {
-				const na = parseInt(path.basename(a, '.md'), 10);
-				const nb = parseInt(path.basename(b, '.md'), 10);
-				if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-				return a.localeCompare(b);
-			});
-			return Promise.all(files.map((file) => readFile(path.join(descDir, file), 'utf8')));
-		})()
+		Promise.all(descFiles.map((p) => descriptionModules[p]() as Promise<string>))
 	]);
 
 	const relatedById = new Map(relatedRows.map((r) => [r.id, r]));
