@@ -1,4 +1,5 @@
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
+import type { R2Bucket, ExecutionContext } from '@cloudflare/workers-types';
 import type { SeoPayload } from '$lib/seo';
 
 // See https://svelte.dev/docs/kit/types#app.d.ts
@@ -32,7 +33,13 @@ declare global {
 			seo?: SeoPayload;
 		}
 		// interface PageState {}
-		// interface Platform {}
+		interface Platform {
+			env?: {
+				MEDIA: R2Bucket;
+			};
+			context?: ExecutionContext;
+			caches?: CacheStorage;
+		}
 	}
 }
 
