@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import path from 'path';
+import { deleteBlogAssetFolder } from '$lib/server/blogPostAssets';
 import { deletePostById, getPostById, updatePostById } from '$lib/server/posts';
 import { fetchAllFolders, removePostFromAllFolders } from '$lib/server/folders';
 import type { Actions, PageServerLoad } from './$types';
@@ -74,10 +74,8 @@ export const actions: Actions = {
 		await removePostFromAllFolders(locals.supabase, folders, postId);
 		await deletePostById(locals.supabase, postId);
 
-		const assetDir = path.join(process.cwd(), 'static', 'blog', String(postId));
 		try {
-			const fs = await import('node:fs/promises');
-			await fs.rm(assetDir, { recursive: true, force: true });
+			await deleteBlogAssetFolder(String(postId));
 		} catch {
 			/* ignore */
 		}

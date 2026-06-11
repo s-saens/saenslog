@@ -1,7 +1,7 @@
 import { resolve } from '$app/paths';
 import { env as privateEnv } from '$env/dynamic/private';
 import { error, fail, isRedirect, redirect } from '@sveltejs/kit';
-import path from 'path';
+import { deleteBlogAssetFolder } from '$lib/server/blogPostAssets';
 import {
 	gateGuestCommentAttempt,
 	hashCommentClientIp,
@@ -896,10 +896,8 @@ export const actions: Actions = {
 		await removePostFromAllFolders(locals.supabase, folders, postId);
 		await deletePostById(locals.supabase, postId);
 
-		const assetDir = path.join(process.cwd(), 'static', 'blog', String(postId));
 		try {
-			const fs = await import('node:fs/promises');
-			await fs.rm(assetDir, { recursive: true, force: true });
+			await deleteBlogAssetFolder(String(postId));
 		} catch {
 			/* 미디어 폴더 없음 등 */
 		}

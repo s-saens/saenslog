@@ -1,12 +1,11 @@
-import { writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { error, json } from '@sveltejs/kit';
 import { requireAdmin } from '$lib/server/adminApiAuth';
 import {
-	blogAssetDirOnDisk,
+	blogAssetKeyPrefix,
 	blogAssetPublicPrefix,
 	nextSequentialAssetBasename
 } from '$lib/server/blogPostAssets';
+import { mediaStore } from '$lib/server/mediaStore';
 import { normalizeBlogAssetKey } from '$lib/server/posts';
 import type { RequestHandler } from './$types';
 
@@ -46,14 +45,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const mime = raw.type || 'application/octet-stream';
 	if (!MIME_EXT[mime]) error(400, '지원하지 않는 형식입니다. (이미지·오디오만)');
 
-	const buf = Buffer.from(await raw.arrayBuffer());
-	if (buf.length > MAX_BYTES) error(413, '파일이 너무 큽니다.');
+	const buf = await raw.arrayBuffer();
+	if (buf.byteLength > MAX_BYTES) error(413, '파일이 너무 큽니다.');
 
 	const ext = MIME_EXT[mime];
-	const dir = blogAssetDirOnDisk(slug);
-	const filename = await nextSequentialAssetBasename(dir, ext);
-	const diskPath = path.join(dir, filename);
-	await writeFile(diskPath, buf);
+	const keyPrefix = blogAssetKeyPrefix(slug);
+	const filename = await nextSequentialAssetBasename(keyPrefix, ext);
+	await mediaStore().put(`${keyPrefix}/${filename}`, buf, mime);
 
 	const publicPath = `${blogAssetPublicPrefix(slug)}/${filename}`;
 

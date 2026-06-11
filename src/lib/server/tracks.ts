@@ -1,9 +1,7 @@
-import { readdir } from 'node:fs/promises';
-import path from 'node:path';
+import { mediaStore } from '$lib/server/mediaStore';
 import type { Track } from '$lib/stores/music.svelte';
 
 const AUDIO_EXTENSIONS = /\.(mp3|ogg|flac|wav|m4a|aac)$/i;
-const musicsDir = path.join(process.cwd(), 'static', 'musics');
 
 let tracksCache: Promise<Track[]> | null = null;
 
@@ -18,25 +16,23 @@ function parseFilename(filename: string): Pick<Track, 'artist' | 'title' | 'subt
 }
 
 async function readTracks(): Promise<Track[]> {
-	try {
-		const files = await readdir(musicsDir);
-		return files
-			.filter((filename) => AUDIO_EXTENSIONS.test(filename))
-			.map((filename, i) => ({
-				id: i + 1,
-				...parseFilename(filename),
-				src: `/musics/${encodeURIComponent(filename)}`,
-				duration: ''
-			}));
-	} catch (e) {
-		if (e && typeof e === 'object' && 'code' in e && e.code === 'ENOENT') {
-			return [];
-		}
-		throw e;
-	}
+	const objects = await mediaStore().list('musics/');
+	return objects
+		.map((obj) => obj.key.slice('musics/'.length))
+		.filter((filename) => filename && !filename.includes('/') && AUDIO_EXTENSIONS.test(filename))
+		.sort()
+		.map((filename, i) => ({
+			id: i + 1,
+			...parseFilename(filename),
+			src: `/musics/${encodeURIComponent(filename)}`,
+			duration: ''
+		}));
 }
 
 export function getTracks() {
-	tracksCache ??= readTracks();
+	tracksCache ??= readTracks().catch((e) => {
+		tracksCache = null;
+		throw e;
+	});
 	return tracksCache;
 }
