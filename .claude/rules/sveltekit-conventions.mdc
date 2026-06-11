@@ -1,0 +1,24 @@
+---
+description: SvelteKit — load, actions, 폼·내비게이션, env
+globs: "**/routes/**/*.{ts,js,svelte}"
+alwaysApply: false
+---
+
+# SvelteKit 규칙
+
+## 서버·데이터
+
+- `+page.server.ts` / `+layout.server.ts`의 **`load`**, 서버 **`actions`**, **`fail`**, **`redirect`** 등 공식 패턴을 따른다.
+- 폼은 **`use:enhance`** 등 Kit 권장 방식을 우선한다.
+
+## 클라이언트 내비게이션
+
+- `goto`, `invalidate`, `invalidateAll`, `applyAction` 등 **Kit API**를 우선한다.
+
+## 환경 변수
+
+- `$env/static/*`, `$env/dynamic/*` 규칙을 준수한다 (공개/비공개·빌드 시점 구분).
+
+## 기타
+
+- 이미지·정적 자산·`$lib` 배치 등은 SvelteKit 문서의 패턴을 따른다.

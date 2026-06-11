@@ -1,0 +1,27 @@
+---
+description: Svelte 5 — $state, $derived, $effect, 스니펫·컨텍스트
+globs: "**/*.svelte"
+alwaysApply: false
+---
+
+# 반응성과 룬
+
+## 선호
+
+- **로컬 상태**: `$state`
+- **파생**: `$derived`; 템플릿에서 한 번만 쓰이면 `{@const}` 검토
+- **이전 값·구독·DOM 측정**: 문서 권장 패턴 (`$effect.pre` 등). 렌더 결과만 맞추기 위한 `$effect` 남용 금지.
+- **조각 UI**: `{#snippet}` + `{@render}` — 불필요한 하위 컴포넌트 분리보다 스니펫을 먼저 검토
+- **공유**: props / `$props`; 필요 시 `getContext` / **공유 범위에서만** store
+
+## 피할 패턴 → 대안
+
+| 피하기 | 대신 |
+|--------|------|
+| `useEffect`처럼 `$effect`로만 화면 맞춤 | 선언적 데이터 + 템플릿; 꼭 필요할 때만 `$effect` |
+| 복잡한 파생값을 함수 여러 개로 쪼개 호출 | `$derived` / `{@const}` |
+| “상태 끌어올리기”만으로 해결 | props·컨텍스트·(필요 시) store를 목적에 맞게 |
+
+## 액션 (`use:`)
+
+DOM 라이브러리 연동·포커스 트랩 등 **효과가 진짜로 필요할 때만** `use:` action을 쓴다.
