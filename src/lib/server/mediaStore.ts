@@ -40,6 +40,7 @@ export interface MediaContent {
 	body: BodyInit;
 	contentType: string | null;
 	size: number;
+	etag?: string;
 }
 
 export interface MediaStore {
@@ -76,7 +77,8 @@ const r2Store: MediaStore = {
 		return {
 			body: obj.body as unknown as BodyInit,
 			contentType: obj.httpMetadata?.contentType ?? mimeForKey(key),
-			size: obj.size
+			size: obj.size,
+			etag: obj.httpEtag
 		};
 	},
 
