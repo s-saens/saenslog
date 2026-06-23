@@ -2,7 +2,6 @@
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { supabase } from '$lib/supabase';
 	import HeartIcon from '$lib/components/icons/HeartIcon.svelte';
@@ -20,27 +19,42 @@
 
 let {
 	postSlug,
-	initialComments,
-	currentUserId,
-	commentLikesById = {}
+	currentUserId
 }: {
 	postSlug: string;
-	initialComments: CommentItem[];
 	currentUserId: string | null;
-	commentLikesById?: Record<string, { count: number; liked: boolean }>;
 } = $props();
 
+// 댓글/좋아요는 본문 SSR을 막지 않도록 마운트 후 island fetch로 채운다.
 let comments = $state<CommentItem[]>([]);
+let commentLikesById = $state<Record<string, { count: number; liked: boolean }>>({});
+let loaded = $state(false);
 let replyToId = $state<number | null>(null);
 let editingCommentId = $state<number | null>(null);
 let editDraft = $state('');
 
-$effect(() => {
-	comments = [...initialComments];
-});
+async function refresh() {
+	try {
+		const res = await fetch(`/api/posts/${postSlug}/comments`, {
+			headers: { accept: 'application/json' }
+		});
+		if (!res.ok) return;
+		const data = (await res.json()) as {
+			comments: CommentItem[];
+			commentLikesById: Record<string, { count: number; liked: boolean }>;
+		};
+		comments = data.comments ?? [];
+		commentLikesById = data.commentLikesById ?? {};
+		loaded = true;
+	} catch {
+		// 네트워크 실패 시 조용히 무시 — 다음 상호작용/실시간 이벤트에서 재시도
+	}
+}
 
 	onMount(() => {
 		if (!browser) return;
+
+		void refresh();
 
 		const channel = supabase
 			.channel(`comments:${postSlug}`)
@@ -48,7 +62,7 @@ $effect(() => {
 				const row = (payload.new as { post_slug?: string } | null)?.post_slug;
 				const oldRow = (payload.old as { post_slug?: string } | null)?.post_slug;
 				if (row === postSlug || oldRow === postSlug) {
-					void invalidateAll();
+					void refresh();
 				}
 			})
 			.subscribe();
@@ -83,41 +97,37 @@ $effect(() => {
 
 	function afterLikeToggle() {
 		return async ({
-			result,
-			update
+			result
 		}: {
 			result: { type: string; data?: { message?: string } };
-			update: () => Promise<void>;
 		}) => {
 			if (result.type === 'failure') {
 				const msg = result.data?.message;
 				if (msg) alert(msg);
 			}
-			await update();
+			await refresh();
 		};
 	}
 
 	function afterCommentSubmit() {
 		return async ({
-			result,
-			update
+			result
 		}: {
 			result: { type: string; data?: { blocked?: boolean; message?: string } };
-			update: () => Promise<void>;
 		}) => {
 			replyToId = null;
 			if (result.type === 'failure') {
 				const d = result.data;
 				if (d?.blocked) {
 					alert(d.message ?? '댓글 작성이 제한되었습니다.');
-					await update();
+					await refresh();
 					return;
 				}
 				if (d?.message) {
 					alert(d.message);
 				}
 			}
-			await update();
+			await refresh();
 		};
 	}
 
@@ -132,20 +142,18 @@ $effect(() => {
 
 	function afterEditSubmit() {
 		return async ({
-			result,
-			update
+			result
 		}: {
 			result: { type: string; data?: { message?: string } };
-			update: () => Promise<void>;
 		}) => {
 			if (result.type === 'failure') {
 				const msg = result.data?.message;
 				if (msg) alert(msg);
-				await update();
+				await refresh();
 				return;
 			}
 			editingCommentId = null;
-			await update();
+			await refresh();
 		};
 	}
 
@@ -157,27 +165,25 @@ $effect(() => {
 			}
 
 			return async ({
-				result,
-				update
+				result
 			}: {
 				result: { type: string; data?: { message?: string } };
-				update: () => Promise<void>;
 			}) => {
 				if (result.type === 'failure') {
 					const msg = result.data?.message;
 					if (msg) alert(msg);
-					await update();
+					await refresh();
 					return;
 				}
 				comments = comments.filter((item) => item.id !== commentId);
-				await update();
+				await refresh();
 			};
 		};
 	}
 </script>
 
 <div class="comments">
-	<h2 class="h">댓글 {comments.length}</h2>
+	<h2 class="h">댓글 {loaded ? comments.length : '…'}</h2>
 
 	<form class="compose" method="POST" action="?/addComment" use:enhance={afterCommentSubmit}>
 		<input type="hidden" name="post_slug" value={postSlug} />

@@ -155,7 +155,7 @@
 									<span class="date published">{formatDate(data.published)}</span>
 									<span class="separator">|</span>
 								{/if}
-								<span class="date">{formatDate(data.updated ?? data.published ?? '')}</span>
+								<span class="date">{formatDate(data.updated || data.published || '')}</span>
 								<span class="separator">•</span>
 								<span class="word-count">
 									<TextCountIcon width={14} height={14} />
@@ -193,17 +193,8 @@
 								{@html data.content}
 							</div>
 							{#if data.postId != null}
-								<PostLikes
-									postId={data.postId}
-									initialCount={data.postLikeCount}
-									initialLiked={data.postLikedByViewer}
-								/>
-								<Comments
-									postSlug={String(data.postId)}
-									initialComments={data.comments}
-									currentUserId={data.user?.id ?? null}
-									commentLikesById={data.commentLikesById}
-								/>
+								<PostLikes postId={data.postId} />
+								<Comments postSlug={String(data.postId)} currentUserId={data.user?.id ?? null} />
 							{/if}
 							<div class="footer"></div>
 						</article>
@@ -218,27 +209,12 @@
 								transitionDelay={TRANSITION_DELAY}
 							/>
 							{#if data.path === ''}
-								{#await data.allPosts}
-									<section
-										class="all-posts-pending"
-										aria-busy="true"
-										aria-label="전체 글 목록 로드 중"
-									>
-										<div class="all-posts-spinner"></div>
-										<span class="all-posts-pending-text">All Posts 로딩 중…</span>
-									</section>
-								{:then allPosts}
-									<BlogAllPostsSection
-										allPosts={allPosts ?? []}
-										folderCount={data.folders?.length || 0}
-										postCount={data.posts?.length || 0}
-										transitionDelay={TRANSITION_DELAY}
-									/>
-								{:catch}
-									<section class="all-posts-error">
-										<span>목록을 불러오지 못했습니다.</span>
-									</section>
-								{/await}
+								<BlogAllPostsSection
+									allPosts={data.allPosts ?? []}
+									folderCount={data.folders?.length || 0}
+									postCount={data.posts?.length || 0}
+									transitionDelay={TRANSITION_DELAY}
+								/>
 							{/if}
 						</div>
 					{/key}
@@ -404,35 +380,6 @@
 		flex-direction: column;
 		gap: 1rem;
 		padding-bottom: 5rem;
-	}
-
-	.all-posts-pending {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 2.5rem 0;
-		gap: 0.75rem;
-		color: var(--text-tertiary);
-	}
-
-	.all-posts-spinner {
-		width: 26px;
-		height: 26px;
-		border: 2px solid color-mix(in srgb, var(--text) 20%, transparent);
-		border-top-color: var(--text);
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	.all-posts-pending-text {
-		font-size: 0.85rem;
 	}
 
 	header {

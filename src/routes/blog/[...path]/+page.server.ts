@@ -17,24 +17,15 @@ import {
 	invalidateFoldersCache,
 	findFolderContainingPost,
 	folderDisplayLabel,
-	folderPathLabelExcludingRoot,
 	folderMovePickerEntries,
 	foldersById,
 	movePostToFolder,
 	removePostFromAllFolders,
-	toFolderInfo,
 	type FolderRow
 } from '$lib/server/folders';
+import { deletePostById, getPostById, type PostFullRow } from '$lib/server/posts';
 import {
-	deletePostById,
-	getPostById,
-	listPostsByIds,
-	listPublishedPosts,
-	comparePostsByPostedDateDesc,
-	type PostListRow,
-	type PostFullRow
-} from '$lib/server/posts';
-import {
+	blogIndexKey,
 	invalidateEdgeCache,
 	listingShellKey,
 	postShellKey,
@@ -47,142 +38,6 @@ import { renderMarkdownToHtml } from '$lib/server/markdown';
 import { tryCreateSupabaseServiceClient } from '$lib/server/supabaseService';
 import type { Actions, PageServerLoad } from './$types';
 
-type ListPost = {
-	title: string;
-	path: string;
-	category: string;
-	date: string;
-	wordCount: number;
-	viewCount: number;
-	tistory?: string;
-};
-
-type CommentRow = {
-	id: number;
-	content: string;
-	author_id: string | null;
-	guest_name: string | null;
-	parent_id: number | null;
-	created_at: string;
-	profiles: { username: string; avatar_url: string | null } | null;
-};
-
-function commentPostRef(postId: number): string {
-	return String(postId);
-}
-
-async function loadPostLikeSummary(
-	supabase: App.Locals['supabase'],
-	service: ReturnType<typeof tryCreateSupabaseServiceClient>,
-	postId: number,
-	userId: string | null,
-	ipHash: string | null
-): Promise<{ count: number; liked: boolean }> {
-	const countPromise = supabase
-		.from('post_likes')
-		.select('*', { count: 'exact', head: true })
-		.eq('post_id', postId);
-
-	const likedPromise = userId
-		? supabase
-				.from('post_likes')
-				.select('id')
-				.eq('post_id', postId)
-				.eq('user_id', userId)
-				.maybeSingle()
-				.then(({ data }) => !!data)
-		: ipHash && service
-			? service
-					.from('post_likes')
-					.select('id')
-					.eq('post_id', postId)
-					.eq('ip_hash', ipHash)
-					.is('user_id', null)
-					.maybeSingle()
-					.then(({ data }) => !!data)
-			: Promise.resolve(false);
-
-	const [{ count, error: cErr }, liked] = await Promise.all([countPromise, likedPromise]);
-	if (cErr) console.error('post_likes count', cErr);
-
-	return { count: count ?? 0, liked };
-}
-
-function buildCommentLikeMap(
-	commentIds: number[],
-	rows: { comment_id: number; user_id: string | null; ip_hash: string | null }[],
-	userId: string | null,
-	ipHash: string | null
-): Record<string, { count: number; liked: boolean }> {
-	const out: Record<string, { count: number; liked: boolean }> = {};
-	for (const id of commentIds) out[String(id)] = { count: 0, liked: false };
-	for (const row of rows) {
-		const key = String(row.comment_id);
-		const cur = out[key];
-		if (!cur) continue;
-		cur.count++;
-		if (userId && row.user_id === userId) cur.liked = true;
-		else if (!userId && ipHash && row.user_id === null && row.ip_hash === ipHash) cur.liked = true;
-	}
-	return out;
-}
-
-async function loadCommentsForPost(postId: number, locals: App.Locals): Promise<CommentRow[]> {
-	const ref = commentPostRef(postId);
-	const { data, error: qErr } = await locals.supabase
-		.from('comments')
-		.select(
-			'id, content, author_id, guest_name, parent_id, created_at, profiles(username, avatar_url)'
-		)
-		.eq('post_slug', ref)
-		.order('created_at', { ascending: true });
-
-	if (qErr) {
-		console.error('comments load', qErr);
-		return [];
-	}
-	const rows = data ?? [];
-	return rows.map((row) => {
-		const p = row.profiles;
-		const profiles =
-			p == null
-				? null
-				: Array.isArray(p)
-					? ((p[0] as { username: string; avatar_url: string | null } | undefined) ?? null)
-					: (p as { username: string; avatar_url: string | null });
-		return {
-			id: row.id,
-			content: row.content,
-			author_id: row.author_id as string | null,
-			guest_name: (row as { guest_name?: string | null }).guest_name ?? null,
-			parent_id: row.parent_id,
-			created_at: row.created_at,
-			profiles
-		};
-	});
-}
-
-function postRowToCard(
-	row: {
-		title: string;
-		published_at: string | null;
-		updated_at: string;
-		word_count: number;
-		id: number;
-		view_count?: number | null;
-	},
-	folderLabel: string
-): ListPost {
-	return {
-		title: row.title,
-		path: String(row.id),
-		category: folderLabel,
-		date: row.published_at ?? row.updated_at,
-		wordCount: row.word_count,
-		viewCount: Number(row.view_count ?? 0)
-	};
-}
-
 function folderListingBreadcrumbItems(
 	chainExcludingRoot: FolderRow[]
 ): { label: string; path: string }[] {
@@ -190,104 +45,6 @@ function folderListingBreadcrumbItems(
 		label: folderDisplayLabel(f),
 		path: `/blog/f/${f.id}`
 	}));
-}
-
-async function loadBlogFolderListing(
-	supabase: App.Locals['supabase'],
-	allFolders: FolderRow[],
-	folderId: number,
-	pathParam: string,
-	segments: string[],
-	opts: {
-		onlyPublished: boolean;
-		isAdmin: boolean;
-		allPosts: Promise<ListPost[]>;
-		/** 루트 등에서 한 번 조회한 공개 목록을 재사용(All Posts·폴더 카드 공통) */
-		preloadedPublishedRows?: PostListRow[];
-	}
-) {
-	const byId = foldersById(allFolders);
-	const folder = byId.get(folderId);
-	if (!folder) error(404, '폴더를 찾을 수 없습니다.');
-
-	const chainNoRoot = ancestorFolderChain(folderId, allFolders).filter(
-		(f) => f.id !== BLOG_ROOT_FOLDER_ID
-	);
-
-	const breadcrumb =
-		folderId === BLOG_ROOT_FOLDER_ID
-			? [{ label: 'Blog', path: '/blog' }]
-			: [{ label: 'Blog', path: '/blog' }, ...folderListingBreadcrumbItems(chainNoRoot)];
-
-	const [metaRows, postRows] = await Promise.all([
-		opts.preloadedPublishedRows
-			? Promise.resolve(opts.preloadedPublishedRows)
-			: listPublishedPosts(supabase),
-		listPostsByIds(supabase, folder.posts, { onlyPublished: opts.onlyPublished })
-	]);
-	const postMetaById = new Map(metaRows.map((r) => [r.id, r]));
-
-	const subFolderRows = folder.subfolders.map((id) => byId.get(id)).filter(Boolean) as FolderRow[];
-	subFolderRows.sort((a, b) =>
-		(a.name ?? '').localeCompare(b.name ?? '', 'ko', { sensitivity: 'base' })
-	);
-
-	const folders = subFolderRows.map((f) => toFolderInfo(f, allFolders, postMetaById));
-	const folderTitle = folderId === BLOG_ROOT_FOLDER_ID ? 'Blog' : folderDisplayLabel(folder);
-
-	const listPathLabel = folderPathLabelExcludingRoot(folderId, allFolders);
-	const posts: ListPost[] = postRows.map((r) => postRowToCard(r, listPathLabel));
-
-	return {
-		path: folderId === BLOG_ROOT_FOLDER_ID ? '' : pathParam,
-		pathParam,
-		segments,
-		breadcrumb,
-		isPost: false,
-		isAdmin: opts.isAdmin,
-		currentFolderId: folderId,
-		folders,
-		posts,
-		allPosts: opts.allPosts,
-		postId: null as number | null,
-		comments: [] as CommentRow[],
-		postLikeCount: 0,
-		postLikedByViewer: false,
-		commentLikesById: {} as Record<string, { count: number; liked: boolean }>,
-		postFolderId: null as number | null,
-		folderMoveTargets: [] as { id: number; pathLabel: string }[],
-		seo: {
-			title: folderTitle,
-			description:
-				folderId === BLOG_ROOT_FOLDER_ID
-					? '블로그 글과 폴더 목록입니다.'
-					: `"${folderTitle}" 폴더의 글 목록입니다.`,
-			canonicalPath: folderId === BLOG_ROOT_FOLDER_ID ? '/blog' : `/blog/f/${folderId}`
-		}
-	};
-}
-
-type ListingPayload = Awaited<ReturnType<typeof loadBlogFolderListing>>;
-/** 캐시 직렬화용 — 스트리밍 Promise인 allPosts를 해소된 배열로 보관 */
-type ListingCacheValue = Omit<ListingPayload, 'allPosts'> & { allPosts: ListPost[] };
-
-/**
- * 리스팅 셸 캐시 래퍼. 방문자는 엣지 캐시(미스 시 build 후 저장), admin은 항상 라이브.
- * 리스팅은 폴더 구조·공개 글 목록에만 의존하므로 뷰어 비의존이다(admin 컨트롤만 동적).
- */
-async function loadListingCached(
-	key: string,
-	isAdmin: boolean,
-	waitUntil: ((p: Promise<unknown>) => void) | undefined,
-	build: () => Promise<ListingPayload>
-): Promise<ListingPayload> {
-	if (isAdmin) return build();
-	const cached = await readEdgeCache<ListingCacheValue>(key);
-	if (cached) return { ...cached, allPosts: Promise.resolve(cached.allPosts) };
-	const built = await build();
-	const allPosts = await built.allPosts;
-	await writeEdgeCache(key, { ...built, allPosts }, { waitUntil });
-	return { ...built, allPosts: Promise.resolve(allPosts) };
 }
 
 /** 글 상세의 "정적 셸" — 방문자/시간 비의존 데이터만. 엣지 캐시에 그대로 직렬화된다. */
@@ -353,7 +110,7 @@ function buildPostShell(postId: number, dbRow: PostFullRow, allFolders: FolderRo
 	};
 }
 
-export const load: PageServerLoad = async ({ params, locals, getClientAddress, platform }) => {
+export const load: PageServerLoad = async ({ params, locals, platform }) => {
 	const pathParam = params.path || '';
 	const segments = pathParam.split('/').filter(Boolean);
 
@@ -379,32 +136,8 @@ export const load: PageServerLoad = async ({ params, locals, getClientAddress, p
 	if (segments.length === 1 && /^\d+$/.test(segments[0])) {
 		const postId = Number(segments[0]);
 
-		const rateSecret = privateEnv.COMMENT_RATE_LIMIT_SECRET ?? privateEnv.SUPABASE_SECRET_KEY ?? '';
-		const viewerIpHash = rateSecret
-			? hashCommentClientIp(rateSecret, getClientAddress() ?? 'unknown')
-			: null;
-		const serviceClient = tryCreateSupabaseServiceClient();
-
-		// 동적(뷰어별·실시간) 데이터는 캐시 대상이 아니므로 항상 라이브로 병렬 시작한다.
-		const commentsPromise = loadCommentsForPost(postId, locals);
-		const postLikePromise = userPromise.then((user) =>
-			loadPostLikeSummary(locals.supabase, serviceClient, postId, user?.id ?? null, viewerIpHash)
-		);
-		const commentLikesPromise = Promise.all([commentsPromise, userPromise]).then(
-			async ([loadedComments, user]) => {
-				const commentIds = loadedComments.map((c) => c.id);
-				if (commentIds.length === 0) {
-					return {} as Record<string, { count: number; liked: boolean }>;
-				}
-				const { data: likeRows, error: lrErr } = await locals.supabase
-					.from('comment_likes')
-					.select('comment_id, user_id, ip_hash')
-					.in('comment_id', commentIds);
-				if (lrErr) console.error('comment_likes load', lrErr);
-				return buildCommentLikeMap(commentIds, likeRows ?? [], user?.id ?? null, viewerIpHash);
-			}
-		);
-
+		// 댓글·좋아요는 SSR 크리티컬 패스에서 분리 — 클라이언트가 마운트 후
+		// /api/posts/[id]/comments·likes 로 가져온다(island). load는 정적 셸만 반환.
 		const waitUntil = platform?.context?.waitUntil?.bind(platform.context);
 		const isAdmin = await isAdminPromise;
 
@@ -448,18 +181,12 @@ export const load: PageServerLoad = async ({ params, locals, getClientAddress, p
 			else void increment.catch(() => {});
 		}
 
-		const [comments, postLike, commentLikesById] = await Promise.all([
-			commentsPromise,
-			postLikePromise,
-			commentLikesPromise
-		]);
-
 		return {
 			path: String(postId),
 			pathParam,
 			segments,
 			breadcrumb: shell.breadcrumb,
-			isPost: true,
+			isPost: true as const,
 			isAdmin,
 			postId,
 			title: shell.title,
@@ -471,61 +198,20 @@ export const load: PageServerLoad = async ({ params, locals, getClientAddress, p
 			wordCount: shell.wordCount,
 			viewCount: shell.viewCount,
 			tags: shell.tags,
-			comments,
-			postLikeCount: postLike.count,
-			postLikedByViewer: postLike.liked,
-			commentLikesById,
 			postFolderId: adminHostFolderId,
 			folderMoveTargets: adminFolderTargets,
 			seo: shell.seo
 		};
 	}
 
-	const waitUntil = platform?.context?.waitUntil?.bind(platform.context);
-
-	/** /blog/f/{id}/ 폴더 목록 */
-	if (segments[0] === 'f' && segments[1] && /^\d+$/.test(segments[1]) && segments.length === 2) {
-		const folderId = Number(segments[1]);
-		const isAdmin = await isAdminPromise;
-		return loadListingCached(listingShellKey(folderId), isAdmin, waitUntil, async () => {
-			const allFolders = await foldersPromise;
-			return loadBlogFolderListing(locals.supabase, allFolders, folderId, pathParam, segments, {
-				onlyPublished: !isAdmin,
-				isAdmin,
-				allPosts: Promise.resolve([] as ListPost[])
-			});
-		});
-	}
-
-	/** /blog — 루트 폴더(id=0)의 `subfolders`·`posts` */
-	if (segments.length === 0) {
-		const isAdmin = await isAdminPromise;
-		return loadListingCached(listingShellKey('root'), isAdmin, waitUntil, async () => {
-			const [allFolders, publishedRows] = await Promise.all([
-				foldersPromise,
-				listPublishedPosts(locals.supabase)
-			]);
-			const allPosts = Promise.resolve(
-				[...publishedRows].sort(comparePostsByPostedDateDesc).map((r) => {
-					const host = findFolderContainingPost(r.id, allFolders);
-					const pathLabel = host ? folderPathLabelExcludingRoot(host.id, allFolders) : '';
-					return postRowToCard(r, pathLabel);
-				})
-			);
-			return loadBlogFolderListing(
-				locals.supabase,
-				allFolders,
-				BLOG_ROOT_FOLDER_ID,
-				pathParam,
-				segments,
-				{
-					onlyPublished: !isAdmin,
-					isAdmin,
-					allPosts,
-					preloadedPublishedRows: publishedRows
-				}
-			);
-		});
+	// 리스팅(/blog, /blog/f/{id})은 유니버설 +page.ts가 메모리 인덱스(/api/blog-index)에서
+	// 직접 만든다. 서버는 DB 작업 없이 최소값만 반환 — 클라이언트 이동 시 목록 재조회를 없앤다.
+	// (SSR HTML도 유니버설 load가 생성하므로 SEO에는 영향 없음.)
+	if (
+		segments.length === 0 ||
+		(segments[0] === 'f' && segments.length === 2 && /^\d+$/.test(segments[1]))
+	) {
+		return { isPost: false as const };
 	}
 
 	error(404, '찾을 수 없습니다.');
@@ -935,10 +621,11 @@ export const actions: Actions = {
 		try {
 			await movePostToFolder(locals.supabase, postId, targetFolderId);
 			await invalidateFoldersCache();
-			// 글의 브레드크럼·태그·카테고리가 바뀌므로 셸 + 루트/대상 폴더 리스팅 무효화
+			// 글의 브레드크럼·태그·카테고리가 바뀌므로 셸 + 루트/대상 폴더 리스팅 + 인덱스 무효화
 			await invalidateEdgeCache(postShellKey(postId));
 			await invalidateEdgeCache(listingShellKey('root'));
 			await invalidateEdgeCache(listingShellKey(targetFolderId));
+			await invalidateEdgeCache(blogIndexKey());
 			throw redirect(
 				303,
 				resolve('/blog/[...path]', {
@@ -988,9 +675,10 @@ export const actions: Actions = {
 		try {
 			await createFolderUnderParent(locals.supabase, parentFolderId, nameRaw);
 			await invalidateFoldersCache();
-			// 새 하위 폴더가 부모/루트 리스팅에 나타나야 함
+			// 새 하위 폴더가 부모/루트 리스팅 + 인덱스에 나타나야 함
 			await invalidateEdgeCache(listingShellKey(parentFolderId ?? 'root'));
 			await invalidateEdgeCache(listingShellKey('root'));
+			await invalidateEdgeCache(blogIndexKey());
 			return { ok: true };
 		} catch (e) {
 			console.error('[createFolder]', e);
@@ -1013,10 +701,11 @@ export const actions: Actions = {
 		await removePostFromAllFolders(locals.supabase, folders, postId);
 		await deletePostById(locals.supabase, postId);
 		await invalidateFoldersCache();
-		// 삭제된 글의 셸 + 루트/소속 폴더 리스팅 무효화
+		// 삭제된 글의 셸 + 루트/소속 폴더 리스팅 + 인덱스 무효화
 		await invalidateEdgeCache(postShellKey(postId));
 		await invalidateEdgeCache(listingShellKey('root'));
 		if (hostFolder) await invalidateEdgeCache(listingShellKey(hostFolder.id));
+		await invalidateEdgeCache(blogIndexKey());
 
 		try {
 			await deleteBlogAssetFolder(String(postId));

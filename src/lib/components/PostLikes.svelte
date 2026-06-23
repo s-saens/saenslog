@@ -1,30 +1,45 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onMount } from 'svelte';
 	import HeartIcon from '$lib/components/icons/HeartIcon.svelte';
 
 	let {
-		postId,
-		initialCount,
-		initialLiked
+		postId
 	}: {
 		postId: number;
-		initialCount: number;
-		initialLiked: boolean;
 	} = $props();
+
+	// 좋아요는 본문 SSR을 막지 않도록 마운트 후 island fetch로 채운다.
+	let count = $state(0);
+	let liked = $state(false);
+	let loaded = $state(false);
+
+	async function refresh() {
+		try {
+			const res = await fetch(`/api/posts/${postId}/likes`, { headers: { accept: 'application/json' } });
+			if (!res.ok) return;
+			const data = (await res.json()) as { count: number; liked: boolean };
+			count = data.count ?? 0;
+			liked = !!data.liked;
+			loaded = true;
+		} catch {
+			// 네트워크 실패 시 조용히 무시 — 다음 상호작용에서 재시도
+		}
+	}
+
+	onMount(refresh);
 
 	function afterToggle() {
 		return async ({
-			result,
-			update
+			result
 		}: {
 			result: { type: string; data?: { message?: string } };
-			update: () => Promise<void>;
 		}) => {
 			if (result.type === 'failure') {
 				const msg = result.data?.message;
 				if (msg) alert(msg);
 			}
-			await update();
+			await refresh();
 		};
 	}
 </script>
@@ -35,12 +50,13 @@
 		<button
 			type="submit"
 			class="heart-btn"
-			class:active={initialLiked}
-			aria-pressed={initialLiked}
-			aria-label={initialLiked ? '이 글 좋아요 취소' : '이 글 좋아요'}
+			class:active={liked}
+			class:loading={!loaded}
+			aria-pressed={liked}
+			aria-label={liked ? '이 글 좋아요 취소' : '이 글 좋아요'}
 		>
-			<HeartIcon filled={initialLiked} width={22} height={22} class="heart-ic" />
-			<span class="count">{initialCount.toLocaleString('ko-KR')}</span>
+			<HeartIcon filled={liked} width={22} height={22} class="heart-ic" />
+			<span class="count">{count.toLocaleString('ko-KR')}</span>
 		</button>
 	</form>
 </div>
@@ -66,6 +82,10 @@
 			border-color 0.15s ease,
 			color 0.15s ease,
 			background 0.15s ease;
+	}
+
+	.heart-btn.loading {
+		opacity: 0.55;
 	}
 
 	.heart-btn:hover {
