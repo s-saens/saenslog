@@ -3,9 +3,7 @@
 	"name": "saenslog",
 	"main": ".svelte-kit/cloudflare/_worker.js",
 	"compatibility_date": "2026-06-11",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_compat"],
 	"assets": {
 		"directory": ".svelte-kit/cloudflare",
 		"binding": "ASSETS"
@@ -15,6 +13,12 @@
 		"PUBLIC_SUPABASE_URL": "https://vsxvwdvvavoruocqvrgl.supabase.co",
 		"PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_n_HGbMasMy29dRCzmWfP-Q_UJt1iwat"
 	},
+	"kv_namespaces": [
+		{
+			"binding": "FOLDERS",
+			"id": "763d6e949ca8450fb1402f72dd698926"
+		}
+	],
 	"r2_buckets": [
 		{
 			"binding": "MEDIA",

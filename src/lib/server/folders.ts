@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { KVNamespace } from '@cloudflare/workers-types';
+import { getRequestEvent } from '$app/server';
 import type { FolderInfo } from '$lib/types/blogDisplay';
 
 /** Supabase 블로그 트리 루트(`posts`/`subfolders`가 `/blog`와 대응) */
@@ -46,6 +48,50 @@ export async function fetchAllFolders(supabase: SupabaseClient): Promise<FolderR
 			subfolders: asNumberArray((row as { subfolders: unknown }).subfolders)
 		};
 	});
+}
+
+/** 폴더 트리 KV 캐시 키/TTL. 트리는 admin 폴더 작업 때만 바뀌므로 캐시 적중률이 높다. */
+const FOLDERS_CACHE_KEY = 'folders:tree:v1';
+const FOLDERS_CACHE_TTL_SECONDS = 300;
+
+function foldersKv(): KVNamespace | null {
+	try {
+		return getRequestEvent().platform?.env?.FOLDERS ?? null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * 방문자: KV 캐시에서 폴더 트리를 읽고(미스 시 DB→KV 채움), admin: 항상 DB 직접 조회.
+ * KV 바인딩이 없으면(dev 등) 그대로 DB 조회로 폴백한다. `bypass`(보통 isAdmin)가
+ * true면 캐시를 건너뛰어 작성자는 폴더 변경을 즉시 본다(KV 전파 지연 회피).
+ */
+export async function fetchAllFoldersCached(
+	supabase: SupabaseClient,
+	bypass?: boolean | Promise<boolean>
+): Promise<FolderRow[]> {
+	const isAdmin = await bypass;
+	const kv = foldersKv();
+	if (isAdmin || !kv) return fetchAllFolders(supabase);
+
+	const cached = (await kv.get(FOLDERS_CACHE_KEY, 'json')) as FolderRow[] | null;
+	if (cached) return cached;
+
+	const rows = await fetchAllFolders(supabase);
+	// 빈 결과는 캐시하지 않음(조회 오류로 []가 반환될 수 있어 stale 빈 트리를 막음)
+	if (rows.length > 0) {
+		await kv.put(FOLDERS_CACHE_KEY, JSON.stringify(rows), {
+			expirationTtl: FOLDERS_CACHE_TTL_SECONDS
+		});
+	}
+	return rows;
+}
+
+/** 폴더 변경(생성·이동·삭제) 후 호출 — 다음 읽기에서 KV를 새로 채우도록 한다. */
+export async function invalidateFoldersCache(): Promise<void> {
+	const kv = foldersKv();
+	if (kv) await kv.delete(FOLDERS_CACHE_KEY);
 }
 
 export function foldersById(folders: FolderRow[]): Map<number, FolderRow> {
