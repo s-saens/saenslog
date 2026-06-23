@@ -1,31 +1,15 @@
 import { renderMarkdownToHtml } from '$lib/markdownCompile';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { type PostListRow, comparePostsByPostedDateDesc } from '$lib/blog/postList';
 
-export type PostListRow = {
-	id: number;
-	title: string;
-	published: boolean;
-	published_at: string | null;
-	updated_at: string;
-	word_count: number;
-	view_count?: number;
-};
+// 브라우저 안전 타입/정렬은 `$lib/blog/postList`로 이동, 기존 import 호환 위해 re-export.
+export { type PostListRow, comparePostsByPostedDateDesc };
 
 export type PostFullRow = PostListRow & {
 	content_md: string;
 	content_html: string;
 	author_id: string;
 };
-
-/** 목록 정렬: 게시일 우선, 없으면 수정일 */
-export function comparePostsByPostedDateDesc(
-	a: Pick<PostListRow, 'published_at' | 'updated_at'>,
-	b: Pick<PostListRow, 'published_at' | 'updated_at'>
-): number {
-	const ta = new Date(a.published_at ?? a.updated_at).getTime();
-	const tb = new Date(b.published_at ?? b.updated_at).getTime();
-	return tb - ta;
-}
 
 function countWords(md: string): number {
 	const t = md.trim();
