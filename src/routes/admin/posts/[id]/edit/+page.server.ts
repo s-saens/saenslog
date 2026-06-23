@@ -1,7 +1,13 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { deleteBlogAssetFolder } from '$lib/server/blogPostAssets';
 import { deletePostById, getPostById, updatePostById } from '$lib/server/posts';
-import { fetchAllFolders, removePostFromAllFolders } from '$lib/server/folders';
+import {
+	fetchAllFolders,
+	findFolderContainingPost,
+	invalidateFoldersCache,
+	removePostFromAllFolders
+} from '$lib/server/folders';
+import { invalidateEdgeCache, listingShellKey, postShellKey } from '$lib/server/edgeCache';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -16,6 +22,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		seo: { title: `${post.title} · 수정 · 관리` }
 	};
 };
+
+/** 글 저장/수정 후 엣지 캐시 무효화 — 셸 + 루트 리스팅(제목 변경 반영). */
+async function bustPostCaches(postId: number): Promise<void> {
+	await invalidateEdgeCache(postShellKey(postId));
+	await invalidateEdgeCache(listingShellKey('root'));
+}
 
 export const actions: Actions = {
 	autosave: async ({ request, locals, params }) => {
@@ -42,6 +54,7 @@ export const actions: Actions = {
 			return fail(400, { message: msg });
 		}
 
+		await bustPostCaches(postId);
 		return { success: true };
 	},
 	save: async ({ request, locals, params }) => {
@@ -64,6 +77,8 @@ export const actions: Actions = {
 			const msg = e instanceof Error ? e.message : '저장에 실패했습니다.';
 			return fail(400, { message: msg });
 		}
+
+		await bustPostCaches(postId);
 	},
 	delete: async ({ locals, params }) => {
 		const postId = Number(params.id);
@@ -71,8 +86,12 @@ export const actions: Actions = {
 			return fail(400, { message: '잘못된 글 id입니다.' });
 
 		const folders = await fetchAllFolders(locals.supabase);
+		const hostFolder = findFolderContainingPost(postId, folders);
 		await removePostFromAllFolders(locals.supabase, folders, postId);
 		await deletePostById(locals.supabase, postId);
+		await invalidateFoldersCache();
+		await bustPostCaches(postId);
+		if (hostFolder) await invalidateEdgeCache(listingShellKey(hostFolder.id));
 
 		try {
 			await deleteBlogAssetFolder(String(postId));

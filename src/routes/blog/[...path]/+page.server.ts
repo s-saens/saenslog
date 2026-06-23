@@ -13,6 +13,8 @@ import {
 	BLOG_ROOT_FOLDER_ID,
 	createFolderUnderParent,
 	fetchAllFolders,
+	fetchAllFoldersCached,
+	invalidateFoldersCache,
 	findFolderContainingPost,
 	folderDisplayLabel,
 	folderPathLabelExcludingRoot,
@@ -29,8 +31,16 @@ import {
 	listPostsByIds,
 	listPublishedPosts,
 	comparePostsByPostedDateDesc,
-	type PostListRow
+	type PostListRow,
+	type PostFullRow
 } from '$lib/server/posts';
+import {
+	invalidateEdgeCache,
+	listingShellKey,
+	postShellKey,
+	readEdgeCache,
+	writeEdgeCache
+} from '$lib/server/edgeCache';
 import { thrownMessageForActionFail } from '$lib/formActionFailure';
 import { plainTextFromMarkdown, SEO_DEFAULT_DESCRIPTION } from '$lib/seo';
 import { renderMarkdownToHtml } from '$lib/server/markdown';
@@ -257,7 +267,93 @@ async function loadBlogFolderListing(
 	};
 }
 
-export const load: PageServerLoad = async ({ params, locals, getClientAddress }) => {
+type ListingPayload = Awaited<ReturnType<typeof loadBlogFolderListing>>;
+/** 캐시 직렬화용 — 스트리밍 Promise인 allPosts를 해소된 배열로 보관 */
+type ListingCacheValue = Omit<ListingPayload, 'allPosts'> & { allPosts: ListPost[] };
+
+/**
+ * 리스팅 셸 캐시 래퍼. 방문자는 엣지 캐시(미스 시 build 후 저장), admin은 항상 라이브.
+ * 리스팅은 폴더 구조·공개 글 목록에만 의존하므로 뷰어 비의존이다(admin 컨트롤만 동적).
+ */
+async function loadListingCached(
+	key: string,
+	isAdmin: boolean,
+	waitUntil: ((p: Promise<unknown>) => void) | undefined,
+	build: () => Promise<ListingPayload>
+): Promise<ListingPayload> {
+	if (isAdmin) return build();
+	const cached = await readEdgeCache<ListingCacheValue>(key);
+	if (cached) return { ...cached, allPosts: Promise.resolve(cached.allPosts) };
+	const built = await build();
+	const allPosts = await built.allPosts;
+	await writeEdgeCache(key, { ...built, allPosts }, { waitUntil });
+	return { ...built, allPosts: Promise.resolve(allPosts) };
+}
+
+/** 글 상세의 "정적 셸" — 방문자/시간 비의존 데이터만. 엣지 캐시에 그대로 직렬화된다. */
+type PostShell = {
+	title: string;
+	date: string;
+	/** published_at (표시용) — boolean published와 무관 */
+	published: string | null;
+	updated: string;
+	category: string;
+	content: string;
+	wordCount: number;
+	/** 캐시 시점 스냅샷(최대 TTL만큼 지연; #4에서 이미 근사값 허용) */
+	viewCount: number;
+	tags: string[];
+	breadcrumb: { label: string; path: string }[];
+	seo: {
+		title: string;
+		description: string;
+		canonicalPath: string;
+		type: string;
+		publishedTime: string | undefined;
+		modifiedTime: string;
+	};
+};
+
+/** dbRow + 폴더 트리로 정적 셸을 만든다(브레드크럼·태그·카테고리·SEO 포함). */
+function buildPostShell(postId: number, dbRow: PostFullRow, allFolders: FolderRow[]): PostShell {
+	const hostFolder = findFolderContainingPost(postId, allFolders);
+	const chain = hostFolder
+		? ancestorFolderChain(hostFolder.id, allFolders).filter((f) => f.id !== BLOG_ROOT_FOLDER_ID)
+		: [];
+	const breadcrumb = [{ label: 'Blog', path: '/blog' }, ...folderListingBreadcrumbItems(chain)];
+	const tags = chain.map((f) => folderDisplayLabel(f));
+	const category =
+		chain.length > 1
+			? chain
+					.map((f) => folderDisplayLabel(f))
+					.slice(0, -1)
+					.join('/')
+			: '';
+
+	return {
+		title: dbRow.title,
+		date: dbRow.published_at ?? dbRow.updated_at,
+		published: dbRow.published_at,
+		updated: dbRow.updated_at,
+		category,
+		// 저장 시 미리 렌더된 HTML 사용 — 매 요청 markdown+highlight 재컴파일 방지
+		content: dbRow.content_html || renderMarkdownToHtml(dbRow.content_md),
+		wordCount: dbRow.word_count as number,
+		viewCount: Number(dbRow.view_count ?? 0),
+		tags,
+		breadcrumb,
+		seo: {
+			title: dbRow.title,
+			description: plainTextFromMarkdown(dbRow.content_md, 158) || SEO_DEFAULT_DESCRIPTION,
+			canonicalPath: `/blog/${postId}`,
+			type: 'article',
+			publishedTime: dbRow.published_at ?? undefined,
+			modifiedTime: dbRow.updated_at
+		}
+	};
+}
+
+export const load: PageServerLoad = async ({ params, locals, getClientAddress, platform }) => {
 	const pathParam = params.path || '';
 	const segments = pathParam.split('/').filter(Boolean);
 
@@ -272,7 +368,12 @@ export const load: PageServerLoad = async ({ params, locals, getClientAddress })
 			.single();
 		return profile?.role === 'admin';
 	});
-	const foldersPromise = fetchAllFolders(locals.supabase);
+	// 방문자는 KV 캐시, admin은 라이브 DB(폴더 변경 즉시 반영). isAdminPromise는 위에서
+	// 이미 병렬로 시작했고 비로그인은 즉시 false라 추가 지연이 거의 없다.
+	const foldersPromise = fetchAllFoldersCached(locals.supabase, isAdminPromise);
+	// 캐시 히트 분기에선 foldersPromise를 await하지 않을 수 있다 — 미처리 거부 경고 방지.
+	// (소비처의 await는 여전히 원본의 거부를 전달받는다.)
+	void foldersPromise.catch(() => {});
 
 	/** 단일 세그먼트 숫자 → 글 */
 	if (segments.length === 1 && /^\d+$/.test(segments[0])) {
@@ -284,7 +385,7 @@ export const load: PageServerLoad = async ({ params, locals, getClientAddress })
 			: null;
 		const serviceClient = tryCreateSupabaseServiceClient();
 
-		const postPromise = getPostById(locals.supabase, postId);
+		// 동적(뷰어별·실시간) 데이터는 캐시 대상이 아니므로 항상 라이브로 병렬 시작한다.
 		const commentsPromise = loadCommentsForPost(postId, locals);
 		const postLikePromise = userPromise.then((user) =>
 			loadPostLikeSummary(locals.supabase, serviceClient, postId, user?.id ?? null, viewerIpHash)
@@ -303,122 +404,128 @@ export const load: PageServerLoad = async ({ params, locals, getClientAddress })
 				return buildCommentLikeMap(commentIds, likeRows ?? [], user?.id ?? null, viewerIpHash);
 			}
 		);
-		const viewCountPromise = postPromise.then(async (row) => {
-			if (!row?.published) return Number(row?.view_count ?? 0);
-			const { data: counted, error: rpcErr } = await locals.supabase.rpc('increment_post_view', {
-				post_id: postId
-			});
-			if (!rpcErr && counted != null) return Number(counted);
-			if (rpcErr) console.warn('[increment_post_view]', rpcErr.message);
-			return Number(row.view_count ?? 0);
-		});
 
-		const [isAdmin, allFolders, dbRow, comments, postLike, commentLikesById, viewCount] =
-			await Promise.all([
-				isAdminPromise,
+		const waitUntil = platform?.context?.waitUntil?.bind(platform.context);
+		const isAdmin = await isAdminPromise;
+
+		// 정적 셸: 방문자는 엣지 캐시 우선, admin은 캐시 우회(라이브 DB로 편집 즉시 반영).
+		let shell = isAdmin ? null : await readEdgeCache<PostShell>(postShellKey(postId));
+		let isPublished = shell !== null; // 캐시엔 공개 글만 저장됨
+		let adminHostFolderId: number | null = null;
+		let adminFolderTargets: ReturnType<typeof folderMovePickerEntries> = [];
+
+		if (!shell) {
+			// 미스(또는 admin): 글·폴더 트리를 라이브로 읽어 셸을 만든다.
+			const [allFolders, dbRow] = await Promise.all([
 				foldersPromise,
-				postPromise,
-				commentsPromise,
-				postLikePromise,
-				commentLikesPromise,
-				viewCountPromise
+				getPostById(locals.supabase, postId)
 			]);
-
-		if (!dbRow || (!isAdmin && !dbRow.published)) {
-			error(404, '글을 찾을 수 없습니다.');
+			if (!dbRow || (!isAdmin && !dbRow.published)) {
+				error(404, '글을 찾을 수 없습니다.');
+			}
+			isPublished = dbRow.published;
+			shell = buildPostShell(postId, dbRow, allFolders);
+			if (isAdmin) {
+				const hostFolder = findFolderContainingPost(postId, allFolders);
+				adminHostFolderId = hostFolder?.id ?? null;
+				adminFolderTargets = folderMovePickerEntries(allFolders);
+			} else if (dbRow.published) {
+				// 공개 글만 캐시(비공개는 admin 전용 경로라 여기 도달하지 않음)
+				await writeEdgeCache(postShellKey(postId), shell, { waitUntil });
+			}
 		}
 
-		const hostFolder = findFolderContainingPost(postId, allFolders);
-		const chain = hostFolder
-			? ancestorFolderChain(hostFolder.id, allFolders).filter((f) => f.id !== BLOG_ROOT_FOLDER_ID)
-			: [];
-		const postBreadcrumb = [
-			{ label: 'Blog', path: '/blog' },
-			...folderListingBreadcrumbItems(chain)
-		];
+		// 조회수 증가는 critical path에서 분리(#4) — 공개 글에 한해 백그라운드로만 실행.
+		// 표시값(shell.viewCount)은 캐시 시점 스냅샷이라 최대 TTL만큼 지연될 수 있다.
+		if (isPublished) {
+			const increment = (async () => {
+				const { error: rpcErr } = await locals.supabase.rpc('increment_post_view', {
+					post_id: postId
+				});
+				if (rpcErr) console.warn('[increment_post_view]', rpcErr.message);
+			})();
+			if (waitUntil) waitUntil(increment);
+			else void increment.catch(() => {});
+		}
 
-		const tags = chain.map((f) => folderDisplayLabel(f));
-		const category =
-			chain.length > 1
-				? chain
-						.map((f) => folderDisplayLabel(f))
-						.slice(0, -1)
-						.join('/')
-				: '';
+		const [comments, postLike, commentLikesById] = await Promise.all([
+			commentsPromise,
+			postLikePromise,
+			commentLikesPromise
+		]);
 
 		return {
 			path: String(postId),
 			pathParam,
 			segments,
-			breadcrumb: postBreadcrumb,
+			breadcrumb: shell.breadcrumb,
 			isPost: true,
 			isAdmin,
 			postId,
-			title: dbRow.title,
-			date: dbRow.published_at ?? dbRow.updated_at,
-			published: dbRow.published_at,
-			updated: dbRow.updated_at,
-			category,
-			// 저장 시 미리 렌더된 HTML 사용 — 매 요청 markdown+highlight 재컴파일 방지
-			content: dbRow.content_html || renderMarkdownToHtml(dbRow.content_md),
-			wordCount: dbRow.word_count as number,
-			viewCount,
-			tags,
+			title: shell.title,
+			date: shell.date,
+			published: shell.published,
+			updated: shell.updated,
+			category: shell.category,
+			content: shell.content,
+			wordCount: shell.wordCount,
+			viewCount: shell.viewCount,
+			tags: shell.tags,
 			comments,
 			postLikeCount: postLike.count,
 			postLikedByViewer: postLike.liked,
 			commentLikesById,
-			postFolderId: isAdmin ? (hostFolder?.id ?? null) : null,
-			folderMoveTargets: isAdmin ? folderMovePickerEntries(allFolders) : [],
-			seo: {
-				title: dbRow.title,
-				description: plainTextFromMarkdown(dbRow.content_md, 158) || SEO_DEFAULT_DESCRIPTION,
-				canonicalPath: `/blog/${postId}`,
-				type: 'article',
-				publishedTime: dbRow.published_at ?? undefined,
-				modifiedTime: dbRow.updated_at
-			}
+			postFolderId: adminHostFolderId,
+			folderMoveTargets: adminFolderTargets,
+			seo: shell.seo
 		};
 	}
+
+	const waitUntil = platform?.context?.waitUntil?.bind(platform.context);
 
 	/** /blog/f/{id}/ 폴더 목록 */
 	if (segments[0] === 'f' && segments[1] && /^\d+$/.test(segments[1]) && segments.length === 2) {
 		const folderId = Number(segments[1]);
-		const [isAdmin, allFolders] = await Promise.all([isAdminPromise, foldersPromise]);
-		return loadBlogFolderListing(locals.supabase, allFolders, folderId, pathParam, segments, {
-			onlyPublished: !isAdmin,
-			isAdmin,
-			allPosts: Promise.resolve([] as ListPost[])
+		const isAdmin = await isAdminPromise;
+		return loadListingCached(listingShellKey(folderId), isAdmin, waitUntil, async () => {
+			const allFolders = await foldersPromise;
+			return loadBlogFolderListing(locals.supabase, allFolders, folderId, pathParam, segments, {
+				onlyPublished: !isAdmin,
+				isAdmin,
+				allPosts: Promise.resolve([] as ListPost[])
+			});
 		});
 	}
 
 	/** /blog — 루트 폴더(id=0)의 `subfolders`·`posts` */
 	if (segments.length === 0) {
-		const [isAdmin, allFolders, publishedRows] = await Promise.all([
-			isAdminPromise,
-			foldersPromise,
-			listPublishedPosts(locals.supabase)
-		]);
-		const allPosts = Promise.resolve(
-			[...publishedRows].sort(comparePostsByPostedDateDesc).map((r) => {
-				const host = findFolderContainingPost(r.id, allFolders);
-				const pathLabel = host ? folderPathLabelExcludingRoot(host.id, allFolders) : '';
-				return postRowToCard(r, pathLabel);
-			})
-		);
-		return loadBlogFolderListing(
-			locals.supabase,
-			allFolders,
-			BLOG_ROOT_FOLDER_ID,
-			pathParam,
-			segments,
-			{
-				onlyPublished: !isAdmin,
-				isAdmin,
-				allPosts,
-				preloadedPublishedRows: publishedRows
-			}
-		);
+		const isAdmin = await isAdminPromise;
+		return loadListingCached(listingShellKey('root'), isAdmin, waitUntil, async () => {
+			const [allFolders, publishedRows] = await Promise.all([
+				foldersPromise,
+				listPublishedPosts(locals.supabase)
+			]);
+			const allPosts = Promise.resolve(
+				[...publishedRows].sort(comparePostsByPostedDateDesc).map((r) => {
+					const host = findFolderContainingPost(r.id, allFolders);
+					const pathLabel = host ? folderPathLabelExcludingRoot(host.id, allFolders) : '';
+					return postRowToCard(r, pathLabel);
+				})
+			);
+			return loadBlogFolderListing(
+				locals.supabase,
+				allFolders,
+				BLOG_ROOT_FOLDER_ID,
+				pathParam,
+				segments,
+				{
+					onlyPublished: !isAdmin,
+					isAdmin,
+					allPosts,
+					preloadedPublishedRows: publishedRows
+				}
+			);
+		});
 	}
 
 	error(404, '찾을 수 없습니다.');
@@ -827,6 +934,11 @@ export const actions: Actions = {
 
 		try {
 			await movePostToFolder(locals.supabase, postId, targetFolderId);
+			await invalidateFoldersCache();
+			// 글의 브레드크럼·태그·카테고리가 바뀌므로 셸 + 루트/대상 폴더 리스팅 무효화
+			await invalidateEdgeCache(postShellKey(postId));
+			await invalidateEdgeCache(listingShellKey('root'));
+			await invalidateEdgeCache(listingShellKey(targetFolderId));
 			throw redirect(
 				303,
 				resolve('/blog/[...path]', {
@@ -875,6 +987,10 @@ export const actions: Actions = {
 
 		try {
 			await createFolderUnderParent(locals.supabase, parentFolderId, nameRaw);
+			await invalidateFoldersCache();
+			// 새 하위 폴더가 부모/루트 리스팅에 나타나야 함
+			await invalidateEdgeCache(listingShellKey(parentFolderId ?? 'root'));
+			await invalidateEdgeCache(listingShellKey('root'));
 			return { ok: true };
 		} catch (e) {
 			console.error('[createFolder]', e);
@@ -893,8 +1009,14 @@ export const actions: Actions = {
 		}
 
 		const folders = await fetchAllFolders(locals.supabase);
+		const hostFolder = findFolderContainingPost(postId, folders);
 		await removePostFromAllFolders(locals.supabase, folders, postId);
 		await deletePostById(locals.supabase, postId);
+		await invalidateFoldersCache();
+		// 삭제된 글의 셸 + 루트/소속 폴더 리스팅 무효화
+		await invalidateEdgeCache(postShellKey(postId));
+		await invalidateEdgeCache(listingShellKey('root'));
+		if (hostFolder) await invalidateEdgeCache(listingShellKey(hostFolder.id));
 
 		try {
 			await deleteBlogAssetFolder(String(postId));

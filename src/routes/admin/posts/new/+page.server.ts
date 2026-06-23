@@ -1,6 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { appendPostToFolder, BLOG_ROOT_FOLDER_ID } from '$lib/server/folders';
+import {
+	appendPostToFolder,
+	BLOG_ROOT_FOLDER_ID,
+	invalidateFoldersCache
+} from '$lib/server/folders';
 import { insertPost } from '$lib/server/posts';
+import { invalidateEdgeCache, listingShellKey } from '$lib/server/edgeCache';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -40,7 +45,11 @@ export const actions: Actions = {
 
 		if (Number.isFinite(folderId) && folderId >= BLOG_ROOT_FOLDER_ID) {
 			await appendPostToFolder(locals.supabase, folderId, id);
+			await invalidateFoldersCache();
+			await invalidateEdgeCache(listingShellKey(folderId));
 		}
+		// 새 글이 루트 "All Posts" 리스팅에 나타나야 함 (공개 시)
+		if (published) await invalidateEdgeCache(listingShellKey('root'));
 
 		throw redirect(303, `/admin/posts/${id}/edit`);
 	}
