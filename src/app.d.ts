@@ -16,7 +16,10 @@ declare global {
 		}
 		interface Locals {
 			supabase: SupabaseClient;
+			/** 인증 서버에 JWT를 검증(원격 왕복). 보안 결정(뮤테이션·권한)에 사용. */
 			safeGetUser: () => Promise<User | null>;
+			/** 쿠키의 세션을 로컬 디코드(무왕복, 서명 미검증). UI 표시 전용. */
+			safeGetSession: () => Promise<User | null>;
 		}
 		interface SeoDefaults {
 			siteUrl: string;

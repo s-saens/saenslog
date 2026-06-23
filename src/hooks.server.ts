@@ -24,6 +24,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return userPromise;
 	};
 
+	// 쿠키 세션을 로컬에서 디코드(무왕복). getUser와 달리 인증 서버에 검증하지 않으므로
+	// 서명/만료가 위조될 수 있다 → UI 표시(누구로 보일지·좋아요 강조)에만 쓰고,
+	// 모든 보안 결정(뮤테이션·권한)은 safeGetUser/getUser로 한다. 매 내비 인증 왕복 제거가 목적.
+	let sessionPromise: ReturnType<App.Locals['safeGetSession']> | null = null;
+	event.locals.safeGetSession = () => {
+		sessionPromise ??= (async () => {
+			try {
+				const {
+					data: { session }
+				} = await event.locals.supabase.auth.getSession();
+				return session?.user ?? null;
+			} catch (e) {
+				console.error('safeGetSession', e);
+				return null;
+			}
+		})();
+		return sessionPromise;
+	};
+
 	// /blog/<id>/·/musics/ 미디어 파일은 미디어 저장소(R2, dev에서는 static/)에서 서빙
 	const pathname = new URL(event.request.url).pathname;
 
