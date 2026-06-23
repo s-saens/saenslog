@@ -7,7 +7,7 @@ import {
 	invalidateFoldersCache,
 	removePostFromAllFolders
 } from '$lib/server/folders';
-import { invalidateEdgeCache, listingShellKey, postShellKey } from '$lib/server/edgeCache';
+import { blogIndexKey, invalidateEdgeCache, listingShellKey, postShellKey } from '$lib/server/edgeCache';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -27,6 +27,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 async function bustPostCaches(postId: number): Promise<void> {
 	await invalidateEdgeCache(postShellKey(postId));
 	await invalidateEdgeCache(listingShellKey('root'));
+	await invalidateEdgeCache(blogIndexKey());
 }
 
 export const actions: Actions = {

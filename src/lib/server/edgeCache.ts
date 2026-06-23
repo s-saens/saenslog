@@ -32,6 +32,8 @@ function requestFor(key: string): Request {
 export const postShellKey = (postId: number) => `post:v1:${postId}`;
 export const listingShellKey = (folderKey: number | 'root') =>
 	folderKey === 'root' ? 'listing:v1:root' : `listing:v1:f:${folderKey}`;
+/** 폴더 트리 + 공개 글 목록을 합친 클라이언트 프리로드 인덱스(방문자 변형만 캐시) */
+export const blogIndexKey = () => 'blog-index:v1';
 
 /** 캐시 히트 시 파싱된 값, 미스/에러/dev면 null. */
 export async function readEdgeCache<T>(key: string): Promise<T | null> {
