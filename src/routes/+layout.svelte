@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
-	import { invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/stores';
@@ -10,7 +9,7 @@
 	import MusicPlayerPill from '$lib/components/MusicPlayerPill.svelte';
 	import { pathWithBase, hrefBlogPathname, hrefProjectsPathname } from '$lib/appPaths';
 	import { absoluteUrl } from '$lib/seo';
-	import { BlogIcon, LogoIcon, MailIcon, MoonIcon, SunIcon } from '$lib/components/icons';
+	import { BlogIcon, LogoIcon, MoonIcon, SunIcon } from '$lib/components/icons';
 	import { MAIN_SCROLL_KEY, type MainScrollContext } from '$lib/scrollContext';
 	import { music } from '$lib/stores/music.svelte';
 	import { navigating } from '$lib/stores/navigating.svelte';
@@ -215,12 +214,23 @@
 		return () => mediaQuery.removeEventListener('change', handleChange);
 	});
 
-	// 라우트 전환 시작/완료 감지
+	// 라우트 전환 시작/완료 감지 — 0.2s 초과 이동에서만 로딩 오버레이 표시.
+	// 메모리 즉시 이동은 200ms 전에 끝나 타이머가 취소되므로 깜빡임 없음.
+	let navOverlayTimer: ReturnType<typeof setTimeout> | null = null;
+
 	beforeNavigate(() => {
-		navigating.navigating = true;
+		if (navOverlayTimer) clearTimeout(navOverlayTimer);
+		navOverlayTimer = setTimeout(() => {
+			navigating.navigating = true;
+			navOverlayTimer = null;
+		}, 200);
 	});
 
 	afterNavigate(() => {
+		if (navOverlayTimer) {
+			clearTimeout(navOverlayTimer);
+			navOverlayTimer = null;
+		}
 		navigating.navigating = false;
 		if (browser && mainScrollEl) {
 			mainScrollEl.scrollTop = 0;
